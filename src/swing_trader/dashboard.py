@@ -147,7 +147,7 @@ with stock:
         stock_state = json.loads(latest_stock_state.read_text())
         lineage_dir = latest_stock_state.parents[1]
         current_lineage = stock_shadow_lineage_dir(STOCK_LINEAGES, STOCK_SHADOW_CONFIG)
-        current_implementation = lineage_dir == current_lineage
+        current_policy = lineage_dir == current_lineage
         primary_gate = bool(stock_state["eligible_for_primary_prospective_performance"])
         if primary_gate:
             st.success(
@@ -159,17 +159,17 @@ with stock:
                 "Primary prospective data gate failed. Targets remain diagnostic and must not "
                 "be treated as validated performance or an order."
             )
-        if not current_implementation:
+        if not current_policy:
             st.warning(
-                "This is the newest recorded lineage, but its implementation/config hash is not "
-                "the code currently running the dashboard. A new lineage must start from cash."
+                "This is the newest recorded lineage, but its decision-policy/config hash is not "
+                "current. A changed trading policy must start a new paper sequence from cash."
             )
         market = stock_state["market_state"]
         primary = stock_state["arms"]["consensus"]
         account = primary.get("paper_account_at_close", {})
         summary_cols = st.columns(6)
         summary_cols[0].metric("As-of close", stock_state["as_of_session"])
-        summary_cols[1].metric("Lineage", "CURRENT" if current_implementation else "OLDER")
+        summary_cols[1].metric("Lineage", "CURRENT" if current_policy else "OLDER")
         summary_cols[2].metric("Market regime", "RISK ON" if market["risk_on"] else "RISK OFF")
         summary_cols[3].metric("Next-open names", len(primary["target_for_next_open"]))
         summary_cols[4].metric("Paper equity", _decimal(account.get("total_equity")))

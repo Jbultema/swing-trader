@@ -34,10 +34,13 @@ The primary arm holds at most ten names. Its held-name union with ten new consen
 SPY requires at most 21 Alpha Vantage daily calls. The market-guard arm cannot expand that quota:
 it is labeled as a diagnostic comparator and is never counted as primary prospective performance.
 Both arms start from cash and must advance through immediately consecutive recorded sessions.
-Implementation/config hashes name each durable lineage. The hosted job restores only a matching
-lineage, records holidays as no-ops before spending optional-provider calls, and fails on a missed
-trading session. Public-price batches receive bounded single-symbol retries, but the 99% close
-coverage threshold is never relaxed.
+A decision-policy/config hash names each durable lineage. It covers universe and price handling,
+independent gates, candidate construction, signals, exits, and paper accounting. The full package
+hash is retained on every state and the evaluator has its own code hash, so UI or neutral sidecar
+changes stay visible without restarting the portfolio. The hosted job restores only a matching
+policy lineage, records holidays as no-ops before spending optional-provider calls, and fails on a
+missed trading session. Public-price batches receive bounded single-symbol retries, but the 99%
+close coverage threshold is never relaxed.
 
 The FINRA sidecar downloads only dates already proven to be completed price sessions. Each source
 file must pass schema, trailer-count, uniqueness, and volume-consistency gates before the candidate

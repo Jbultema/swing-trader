@@ -148,7 +148,7 @@ def test_state_transition_refuses_to_invent_a_missed_session() -> None:
     previous = {
         "as_of_session": sessions[0].date().isoformat(),
         "specification_sha256": "spec",
-        "implementation_sha256": "implementation",
+        "stock_policy_sha256": "policy",
     }
 
     with pytest.raises(StockShadowStateError, match="session gap"):
@@ -157,8 +157,23 @@ def test_state_transition_refuses_to_invent_a_missed_session() -> None:
             sessions[2],
             sessions,
             "spec",
-            "implementation",
+            "policy",
         )
+
+
+def test_state_transition_continues_across_nonpolicy_package_changes() -> None:
+    sessions = pd.bdate_range("2026-10-05", periods=2)
+    previous = {
+        "as_of_session": sessions[0].date().isoformat(),
+        "specification_sha256": "spec",
+        "stock_policy_sha256": "policy",
+        "implementation_sha256": "older-full-package",
+    }
+
+    _validate_state_transition(previous, sessions[1], sessions, "spec", "policy")
+
+    with pytest.raises(StockShadowStateError, match="decision policy changed"):
+        _validate_state_transition(previous, sessions[1], sessions, "spec", "changed-policy")
 
 
 def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_checks(
@@ -236,12 +251,12 @@ def test_free_validation_shortlist_uses_only_primary_arm_holdings() -> None:
     assert held_tickers_from_payload(payload) == ("A", "B", "C")
 
 
-def test_lineage_id_binds_implementation_and_frozen_config() -> None:
+def test_lineage_id_binds_decision_policy_and_frozen_config() -> None:
     config_path = Path(__file__).parents[1] / "config/stock_shadow.toml"
 
     lineage = stock_shadow_lineage_id(config_path)
 
-    assert lineage.startswith("implementation-")
+    assert lineage.startswith("policy-")
     assert "-config-" in lineage
 
 

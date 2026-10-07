@@ -12,7 +12,7 @@ import pandas as pd
 
 from swing_trader.alpha_validation import verify_alpha_candidate_validation
 from swing_trader.events import build_earnings_event_flags
-from swing_trader.provenance import file_sha256, implementation_sha256
+from swing_trader.provenance import file_sha256, implementation_sha256, stock_policy_sha256
 from swing_trader.stock_candidates import verify_candidate_snapshot
 from swing_trader.stock_live_data import (
     audit_current_stock_price_snapshot,
@@ -92,7 +92,8 @@ def record_stock_shadow_state(
 ) -> StockShadowRecord:
     """Advance one close-to-next-open paper state, or initialize it from cash."""
     recorded_at = _as_utc(now or datetime.now(UTC))
-    implementation_hash = implementation_sha256()
+    package_implementation_hash = implementation_sha256()
+    policy_hash = stock_policy_sha256()
     if not verify_candidate_snapshot(candidate_path):
         raise StockShadowStateError("Candidate snapshot failed its content-hash check.")
     candidate = _read_json(candidate_path)
@@ -100,9 +101,9 @@ def record_stock_shadow_state(
     candidate_inputs = candidate.get("inputs")
     if not isinstance(candidate_inputs, dict):
         raise StockShadowStateError("Candidate snapshot is missing its bound inputs.")
-    if candidate_inputs.get("implementation_sha256") != implementation_hash:
+    if candidate_inputs.get("stock_policy_sha256") != policy_hash:
         raise StockShadowStateError(
-            "Candidate snapshot was built by a different implementation; rerun the screen."
+            "Candidate snapshot was built by a different stock decision policy; rerun the screen."
         )
     _require_bound_file(
         universe_manifest_path,
@@ -159,7 +160,7 @@ def record_stock_shadow_state(
             current_session,
             prices.index,
             specification_hash,
-            implementation_hash,
+            policy_hash,
         )
 
     current_tickers = set(universe["ticker"].astype(str))
@@ -263,7 +264,7 @@ def record_stock_shadow_state(
     assert isinstance(primary_arm, dict)
     primary_eligible = bool(primary_arm["eligible_for_primary_prospective_performance"])
     payload: dict[str, object] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "record_type": "prospective_stock_shadow_state",
         "research_status": "paper_only_human_execution_required",
         "data_cost_policy": "no_paid_sources",
@@ -276,7 +277,8 @@ def record_stock_shadow_state(
         "lineage_id": stock_shadow_lineage_id(config_path),
         "specification": specification,
         "specification_sha256": specification_hash,
-        "implementation_sha256": implementation_hash,
+        "stock_policy_sha256": policy_hash,
+        "implementation_sha256": package_implementation_hash,
         "market_state": market_state,
         "independent_price_validation": alpha_gate,
         "earnings_risk_validation": earnings_gate,
@@ -331,10 +333,10 @@ def held_tickers_from_latest_state(
 
 
 def stock_shadow_lineage_id(config_path: Path) -> str:
-    """Identify one immutable implementation/config lineage."""
+    """Identify one immutable decision-policy/config lineage."""
     load_stock_shadow_config(config_path)
     return (
-        f"implementation-{implementation_sha256()[:12]}-"
+        f"policy-{stock_policy_sha256()[:12]}-"
         f"config-{file_sha256(config_path)[:12]}"
     )
 
@@ -895,7 +897,7 @@ def _validate_state_transition(
     current_session: pd.Timestamp,
     sessions: pd.DatetimeIndex,
     specification_hash: str,
-    implementation_hash: str,
+    policy_hash: str,
 ) -> None:
     prior_session = pd.Timestamp(previous["as_of_session"])
     if current_session <= prior_session:
@@ -908,8 +910,10 @@ def _validate_state_transition(
         )
     if previous.get("specification_sha256") != specification_hash:
         raise StockShadowStateError("Stock shadow specification changed; start a new state directory.")
-    if previous.get("implementation_sha256") != implementation_hash:
-        raise StockShadowStateError("Stock shadow implementation changed; start a new state directory.")
+    if previous.get("stock_policy_sha256") != policy_hash:
+        raise StockShadowStateError(
+            "Stock shadow decision policy changed; start a new state directory."
+        )
 
 
 def _validate_config(config: StockShadowConfig) -> None:

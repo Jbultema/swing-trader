@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from swing_trader.provenance import implementation_sha256, stock_evaluation_sha256
 from swing_trader.stock_shadow_state import verify_stock_shadow_state
 from swing_trader.stock_validation import paired_stationary_bootstrap
 
@@ -25,6 +26,7 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
     if not states:
         raise StockProspectiveEvaluationError(f"No stock states found in {state_dir}.")
     lineage_id = str(states[0][1].get("lineage_id"))
+    stock_policy_hash = _state_policy_hash(states[0][1])
     sessions = [pd.Timestamp(str(payload["as_of_session"])) for _, payload in states]
     primary_equity = [_account_equity(payload, "consensus") for _, payload in states]
     guarded_equity = [
@@ -133,12 +135,22 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
         )
     horizon_outcomes = _horizon_outcomes(states, sessions, primary_equity)
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "record_type": "prospective_stock_shadow_evaluation",
         "research_status": "prospective_paper_only_not_trading_authority",
         "data_cost_policy": "no_paid_sources",
         "action_authorized": False,
         "lineage_id": lineage_id,
+        "stock_policy_sha256": stock_policy_hash,
+        "state_package_implementation_sha256": sorted(
+            {
+                str(payload["implementation_sha256"])
+                for _, payload in states
+                if isinstance(payload.get("implementation_sha256"), str)
+            }
+        ),
+        "evaluation_implementation_sha256": stock_evaluation_sha256(),
+        "evaluation_package_implementation_sha256": implementation_sha256(),
         "states_seen": len(states),
         "state_record_sha256": [payload["record_sha256"] for _, payload in states],
         "first_session": sessions[0].date().isoformat(),
@@ -306,6 +318,7 @@ def _load_state_lineage(state_dir: Path) -> list[tuple[Path, dict[str, object]]]
     prior_name: str | None = None
     prior_hash: str | None = None
     lineage_id: object = None
+    stock_policy_hash: str | None = None
     for position, path in enumerate(paths):
         if not verify_stock_shadow_state(path):
             raise StockProspectiveEvaluationError(f"State hash failed: {path.name}")
@@ -314,6 +327,7 @@ def _load_state_lineage(state_dir: Path) -> list[tuple[Path, dict[str, object]]]
             if payload.get("initialization") is not True:
                 raise StockProspectiveEvaluationError("State lineage does not start from cash.")
             lineage_id = payload.get("lineage_id")
+            stock_policy_hash = _state_policy_hash(payload)
         else:
             if (
                 payload.get("previous_record") != prior_name
@@ -322,10 +336,22 @@ def _load_state_lineage(state_dir: Path) -> list[tuple[Path, dict[str, object]]]
                 raise StockProspectiveEvaluationError("State lineage prior-record chain is broken.")
             if payload.get("lineage_id") != lineage_id:
                 raise StockProspectiveEvaluationError("State lineage identifier changed.")
+            if _state_policy_hash(payload) != stock_policy_hash:
+                raise StockProspectiveEvaluationError("State decision-policy hash changed.")
         result.append((path, payload))
         prior_name = path.name
         prior_hash = str(payload["record_sha256"])
     return result
+
+
+def _state_policy_hash(payload: dict[str, object]) -> str:
+    value = payload.get("stock_policy_sha256")
+    if isinstance(value, str):
+        return value
+    legacy = payload.get("implementation_sha256")
+    if isinstance(legacy, str):
+        return legacy
+    raise StockProspectiveEvaluationError("State has no decision-policy provenance.")
 
 
 def _spy_equity(states: list[tuple[Path, dict[str, object]]]) -> list[float]:

@@ -7,17 +7,47 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+STOCK_POLICY_SOURCE_FILES = (
+    "alpha_validation.py",
+    "data.py",
+    "events.py",
+    "stock_candidates.py",
+    "stock_live_data.py",
+    "stock_shadow_state.py",
+    "stock_signals.py",
+    "stock_universe.py",
+)
+STOCK_EVALUATION_SOURCE_FILES = (
+    "stock_prospective.py",
+    "stock_validation.py",
+)
+
 
 def implementation_sha256() -> str:
     """Hash the complete installed strategy package with stable path ordering."""
     package_root = Path(__file__).parent
-    digest = hashlib.sha256()
-    for path in sorted(package_root.glob("*.py")):
-        digest.update(path.name.encode())
-        digest.update(b"\0")
-        digest.update(path.read_bytes())
-        digest.update(b"\0")
-    return digest.hexdigest()
+    return _source_files_sha256(
+        package_root,
+        tuple(path.name for path in sorted(package_root.glob("*.py"))),
+    )
+
+
+def stock_policy_sha256(package_root: Path | None = None) -> str:
+    """Hash only code that can change stock inputs, gates, targets, or paper accounting."""
+    return _source_files_sha256(
+        package_root or Path(__file__).parent,
+        STOCK_POLICY_SOURCE_FILES,
+        domain="stock-decision-policy-v1",
+    )
+
+
+def stock_evaluation_sha256(package_root: Path | None = None) -> str:
+    """Hash prospective scoring code without forcing the paper portfolio to restart."""
+    return _source_files_sha256(
+        package_root or Path(__file__).parent,
+        STOCK_EVALUATION_SOURCE_FILES,
+        domain="stock-prospective-evaluation-v1",
+    )
 
 
 def tabular_sha256(value: pd.DataFrame | pd.Series) -> str:
@@ -44,4 +74,25 @@ def file_sha256(path: Path | str) -> str:
     with Path(path).open("rb") as handle:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(block)
+    return digest.hexdigest()
+
+
+def _source_files_sha256(
+    package_root: Path,
+    filenames: tuple[str, ...],
+    *,
+    domain: str | None = None,
+) -> str:
+    digest = hashlib.sha256()
+    if domain is not None:
+        digest.update(domain.encode("utf-8"))
+        digest.update(b"\0")
+    for name in sorted(filenames):
+        path = package_root / name
+        if not path.is_file():
+            raise FileNotFoundError(f"Implementation source is unavailable: {path}")
+        digest.update(name.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
     return digest.hexdigest()

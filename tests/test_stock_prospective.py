@@ -62,6 +62,9 @@ def test_prospective_evaluator_uses_prior_decision_gate_and_self_financing_equit
     result = evaluate_stock_shadow_lineage(states)
 
     assert result["states_seen"] == 3
+    assert result["stock_policy_sha256"] == "policy-test"
+    assert result["state_package_implementation_sha256"] == ["package-test"]
+    assert len(result["evaluation_implementation_sha256"]) == 64
     assert result["diagnostic_all_sessions"]["primary_consensus"]["sessions"] == 2
     assert result["eligible_original_gate_only"]["sessions"] == 1
     assert result["eligible_original_gate_only"]["completed_exits"] == 0
@@ -124,7 +127,9 @@ def _state(
     payload: dict[str, object] = {
         "schema_version": 1,
         "record_type": "prospective_stock_shadow_state",
-        "lineage_id": "implementation-test-config-test",
+        "lineage_id": "policy-test-config-test",
+        "stock_policy_sha256": "policy-test",
+        "implementation_sha256": "package-test",
         "initialization": initialization,
         "as_of_session": session,
         "previous_record": previous,

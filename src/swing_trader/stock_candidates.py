@@ -8,7 +8,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from swing_trader.provenance import file_sha256, implementation_sha256, tabular_sha256
+from swing_trader.provenance import (
+    file_sha256,
+    implementation_sha256,
+    stock_policy_sha256,
+    tabular_sha256,
+)
 from swing_trader.stock_live_data import (
     audit_current_stock_price_snapshot,
     load_locked_current_universe,
@@ -109,6 +114,7 @@ def record_current_stock_candidates(
             "price_manifest_sha256": file_sha256(price_manifest_path),
             "price_tabular_sha256": price_manifest.get("tabular_sha256"),
             "feature_tabular_sha256": tabular_sha256(features.loc[[as_of]]),
+            "stock_policy_sha256": stock_policy_sha256(),
             "implementation_sha256": implementation_sha256(),
         },
     }

@@ -163,7 +163,8 @@ comparison/reference implementations, not dependencies until parity tests demons
 6. Report selection, validation, and sealed-test periods separately; use block bootstrap, PBO, and
    false-discovery controls across the complete candidate family.
 7. Reject any result carried by microcaps, one sector, a few AI-era winners, or unavailable names.
-8. Begin a new prospective shadow only after the data and implementation hashes are frozen.
+8. Begin a new prospective shadow only after the data, decision-policy, and evaluation hashes are
+   frozen and separately recorded.
 
 No candidate becomes actionable merely because it has a higher retrospective CAGR.
 
@@ -210,7 +211,7 @@ requires dated point-in-time classifications, not today's company narrative.
 - `stock_shadow_state.py` advances one immediately consecutive close-to-next-open paper state,
   recomputes adjustment-safe entry bases and high-water marks, records every exit reason, and
   rejects session gaps. The consensus arm is primary; the guarded arm is a diagnostic comparator.
-- `stock_daily.py` restores a hash-linked implementation/config lineage, refreshes the public roster
+- `stock_daily.py` restores a hash-linked decision-policy/config lineage, refreshes the public roster
   and adjusted OHLCV, avoids free-provider calls on holidays, records optional-provider failures,
   and advances the state even when validation is unavailable so failed gates remain observable.
 - `stock_prospective.py` reads only an intact prior-record chain, scores self-financing paper equity

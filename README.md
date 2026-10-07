@@ -119,11 +119,13 @@ The `No-paid stock shadow` workflow runs at 00:30 UTC Tuesday through Saturday, 
 the prior U.S. weekday close. It restores the exact content-hashed lineage from the durable evidence
 branch, retries transient Yahoo misses twice as single-symbol requests, and archives candidates,
 validations, earnings inputs, decisions, and run diagnostics. The state lineage is keyed by both the
-implementation and frozen config; a code/config change starts a new paper sequence from cash rather
-than joining incomparable rules. A holiday is a recorded no-op, while a genuinely missed trading
-session fails closed for manual reconciliation.
+stock decision-policy hash and frozen config; a signal, gate, execution, or config change starts a
+new paper sequence from cash rather than joining incomparable rules. The full package hash and a
+separate evaluation-method hash remain recorded for forensic reproducibility, but dashboard and
+diagnostic-collector changes no longer erase portfolio continuity. A holiday is a recorded no-op,
+while a genuinely missed trading session fails closed for manual reconciliation.
 
-The dashboard's stock tab shows the latest state gate, implementation-lineage status, market regime,
+The dashboard's stock tab shows the latest state gate, decision-policy lineage status, market regime,
 next-open targets, cash/equity/cost accounting, and every BUY/HOLD/SELL/SKIP reason. It hides no
 failed gate and labels the market-guard arm as a diagnostic comparator.
 

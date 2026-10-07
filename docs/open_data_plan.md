@@ -63,8 +63,10 @@ Official references:
    free validation budget. Multiple-testing and family-wide uncertainty still apply to historical
    research.
 3. Start every stock strategy from cash. Each later paper state must follow the immediately prior
-   recorded session. Gaps do not get reconstructed using today's roster. Implementation and config
-   hashes define separate lineages, so changed logic cannot be spliced into an old performance path.
+   recorded session. Gaps do not get reconstructed using today's roster. Full-package and config
+   provenance remain explicit, while the decision-policy and config hashes define separate
+   lineages so changed trading logic cannot be spliced into an old performance path. Neutral data
+   collectors and UI changes do not restart an otherwise identical paper portfolio.
 4. Evaluate targets at the next available open and at 5, 21, and 63 sessions. Retain failed data
    gates as operational evidence but exclude them from eligible performance. The live paper ledger
    is self-financing: no daily resizing, fractional shares, explicit entry/exit costs, and
