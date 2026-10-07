@@ -30,5 +30,6 @@ jobs:
             data/raw/prices.manifest.json
             data/raw/data_quality.json
             reports/latest/
+            reports/shadow/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90

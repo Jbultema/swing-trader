@@ -30,7 +30,7 @@ Run the complete daily research snapshot with:
 .venv/bin/swing-trader daily
 ```
 
-GitHub Actions runs the same research-only snapshot after U.S. market hours on weekdays and retains the evidence bundle for 30 days. A delayed or failed workflow places no order and creates no fallback trade; the last verified snapshot remains the only valid input.
+GitHub Actions runs the same research-only snapshot after U.S. market hours on weekdays, locks a hashed non-overwriting shadow record, and retains the evidence bundle for 90 days. Local daily runs accumulate the same records under `reports/shadow`. A delayed or failed workflow places no order and creates no fallback trade; the last verified snapshot remains the only valid input.
 
 ## Evidence boundaries
 

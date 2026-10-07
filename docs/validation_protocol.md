@@ -36,3 +36,5 @@ shadow interval is the next valid holdout.
 4. Small manual pilot only after data-source reconciliation, operational alerts, account-rule review, and explicit user approval.
 
 At no stage may a backtest or dashboard place an order automatically.
+
+Each `swing-trader daily` run writes a content-hashed, non-overwriting JSON record under `reports/shadow`. The record binds the specification hash, data-quality gate, and exact hypothetical ticket before later outcomes are known. Scheduled artifacts are retained for 90 days; a longer evidence window requires exporting them to durable personal storage.

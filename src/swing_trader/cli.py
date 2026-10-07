@@ -18,12 +18,15 @@ from swing_trader.data import (
     reconcile_monthly_adjusted,
 )
 from swing_trader.research import run_research
+from swing_trader.shadow import record_shadow_snapshot
 
 app = typer.Typer(no_args_is_help=True)
 data_app = typer.Typer(no_args_is_help=True)
 research_app = typer.Typer(no_args_is_help=True)
+shadow_app = typer.Typer(no_args_is_help=True)
 app.add_typer(data_app, name="data")
 app.add_typer(research_app, name="research")
+app.add_typer(shadow_app, name="shadow")
 
 
 def _root() -> Path:
@@ -71,7 +74,10 @@ def daily(
         root / "reports/latest",
         data_quality=quality,
     )
-    typer.echo("Daily research snapshot complete; no orders were placed.")
+    shadow_path = record_shadow_snapshot(
+        root / "reports/latest", root / "reports/shadow"
+    )
+    typer.echo(f"Daily research snapshot complete; locked {shadow_path.name}; no orders were placed.")
 
 
 @app.command("dashboard")
@@ -79,6 +85,15 @@ def dashboard() -> None:
     subprocess.run(
         ["streamlit", "run", str(_root() / "src/swing_trader/dashboard.py")], check=True
     )
+
+
+@shadow_app.command("record")
+def shadow_record(
+    report_dir: Annotated[Path, typer.Option("--reports")] = Path("reports/latest"),
+    shadow_dir: Annotated[Path, typer.Option("--output")] = Path("reports/shadow"),
+) -> None:
+    output = record_shadow_snapshot(report_dir, shadow_dir)
+    typer.echo(f"Locked prospective snapshot: {output}")
 
 
 def _refresh_data_bundle(

@@ -8,5 +8,6 @@ data/raw/
 data/processed/
 reports/latest/
 reports/runs/
+reports/shadow/
 .streamlit/secrets.toml
 .env

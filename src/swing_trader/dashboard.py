@@ -9,6 +9,7 @@ import streamlit as st
 
 ROOT = Path(__file__).resolve().parents[2]
 REPORTS = ROOT / "reports/latest"
+SHADOW = ROOT / "reports/shadow"
 
 st.set_page_config(page_title="Swing Trader", page_icon="↗", layout="wide")
 st.title("Swing Trader")
@@ -26,13 +27,15 @@ regimes = pd.read_csv(REPORTS / "regime_metrics.csv")
 validation = json.loads((REPORTS / "validation_summary.json").read_text())
 data_quality = json.loads((REPORTS / "data_quality.json").read_text())
 
-status, as_of, exposure = st.columns(3)
+status, as_of, exposure, shadow_count = st.columns(4)
 status.metric(
     "Status",
     "DATA RECONCILED" if decisions["data_reconciled"] else "DATA GATE FAILED",
 )
 as_of.metric("Signals as of", decisions["as_of_close"])
 exposure.metric("Gross exposure cap", f"{decisions['market']['gross_exposure_cap']:.0%}")
+shadow_files = sorted(SHADOW.glob("*.json")) if SHADOW.exists() else []
+shadow_count.metric("Locked shadows", len(shadow_files))
 
 overview, action, risk, methods = st.tabs(["Performance", "Next action", "Risk", "Methods"])
 
@@ -96,6 +99,8 @@ with methods:
     )
     st.json(validation)
     st.json(manifest)
+    if shadow_files:
+        st.caption(f"Latest locked prospective record: {shadow_files[-1].name}")
     st.markdown(
         "The candidate was specified from published momentum and volatility-management priors. "
         "Retrospective performance does not authorize live trading; prospective shadow evidence is still required."
