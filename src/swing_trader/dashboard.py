@@ -26,6 +26,8 @@ equity = pd.read_csv(REPORTS / "equity.csv", parse_dates=["date"]).set_index("da
 regimes = pd.read_csv(REPORTS / "regime_metrics.csv")
 validation = json.loads((REPORTS / "validation_summary.json").read_text())
 data_quality = json.loads((REPORTS / "data_quality.json").read_text())
+prospective_path = REPORTS / "prospective_evaluation.json"
+prospective = json.loads(prospective_path.read_text()) if prospective_path.exists() else None
 
 status, as_of, exposure, shadow_count = st.columns(4)
 status.metric(
@@ -115,6 +117,16 @@ with methods:
         "historical mean return exceeded SPY; the 95% interval crosses zero."
     )
     st.json(validation)
+    st.subheader("Prospective shadow evaluation")
+    if prospective is None:
+        st.info("No prospective outcome evaluation has been generated yet.")
+    else:
+        eligible = prospective["eligible_summary"]
+        st.caption(
+            f"{prospective['unique_schema_v3_decisions']} unique frozen decisions; "
+            f"{eligible['eligible_unique_decisions']} passed their original data gate."
+        )
+        st.json(eligible)
     st.json(manifest)
     if shadow_files:
         st.caption(f"Latest locked prospective record: {shadow_files[-1].name}")

@@ -11,9 +11,10 @@ def record_shadow_snapshot(report_dir: Path, shadow_dir: Path) -> Path:
     decisions = _read_json(report_dir / "latest_decisions.json")
     data_quality = _read_json(report_dir / "data_quality.json")
     payload = {
-        "schema_version": 2,
+        "schema_version": 3,
         "recorded_from_manifest_utc": manifest["created_at_utc"],
         "system": manifest["system"],
+        "specification": manifest["specification"],
         "specification_sha256": manifest["specification_sha256"],
         "implementation_sha256": manifest["implementation_sha256"],
         "research_status": manifest["research_status"],

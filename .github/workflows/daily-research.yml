@@ -29,6 +29,10 @@ jobs:
       ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: shadow-evidence
+          path: durable-evidence
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -36,6 +40,8 @@ jobs:
       - run: pip install poetry
       - run: poetry install --only main --sync
       - run: poetry run swing-trader daily
+      - name: Score matured prospective decisions
+        run: poetry run swing-trader shadow evaluate --records durable-evidence/evidence/records
       - name: Audit artifact integrity
         id: integrity
         run: |
@@ -75,10 +81,12 @@ jobs:
       - name: Append immutable shadow record
         run: |
           mkdir -p archive/evidence/records
+          mkdir -p archive/evidence/evaluations
           cp staging/reports/shadow/*.json archive/evidence/records/
+          cp staging/reports/latest/prospective_evaluation.json archive/evidence/evaluations/${{ github.run_id }}.json
           git -C archive config user.name "github-actions[bot]"
           git -C archive config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git -C archive add evidence/records
+          git -C archive add evidence/records evidence/evaluations
           if git -C archive diff --cached --quiet; then
             echo "Record already archived."
             exit 0

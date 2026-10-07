@@ -18,6 +18,7 @@ from swing_trader.data import (
     load_prices,
     reconcile_monthly_adjusted,
 )
+from swing_trader.prospective import write_prospective_evaluation
 from swing_trader.research import run_research
 from swing_trader.shadow import record_shadow_snapshot
 
@@ -127,6 +128,24 @@ def shadow_record(
 ) -> None:
     output = record_shadow_snapshot(report_dir, shadow_dir)
     typer.echo(f"Locked prospective snapshot: {output}")
+
+
+@shadow_app.command("evaluate")
+def shadow_evaluate(
+    record_dir: Annotated[Path, typer.Option("--records")] = Path("evidence/records"),
+    prices_path: Annotated[Path, typer.Option("--prices")] = Path("data/raw/prices.parquet"),
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "reports/latest/prospective_evaluation.json"
+    ),
+) -> None:
+    """Score matured, deduplicated prospective records without opening future data early."""
+    result = write_prospective_evaluation(record_dir, load_prices(prices_path), output)
+    summary = result["eligible_summary"]
+    assert isinstance(summary, dict)
+    typer.echo(
+        f"Evaluated {result['unique_schema_v3_decisions']} unique schema-v3 decisions; "
+        f"{summary['eligible_unique_decisions']} passed their original data gate."
+    )
 
 
 def _refresh_data_bundle(

@@ -137,6 +137,13 @@ def audit_operational_artifacts(
             "specification_sha256"
         ):
             errors.append("Latest shadow does not bind the current specification hash.")
+        shadow_specification = latest_payload.get("specification")
+        if latest_payload.get("schema_version") == 3 and isinstance(shadow_specification, dict):
+            shadow_specification_hash = hashlib.sha256(
+                json.dumps(shadow_specification, sort_keys=True, default=list).encode()
+            ).hexdigest()
+            if shadow_specification_hash != latest_payload.get("specification_sha256"):
+                errors.append("Latest shadow's embedded specification hash is invalid.")
         if manifest and latest_payload.get("implementation_sha256") != manifest.get(
             "implementation_sha256"
         ):
