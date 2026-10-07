@@ -84,6 +84,14 @@ no earlier than the next regular-session open. It refuses to fill a missing pape
 current roster. Hard-loss, ATR-trailing, trend, short-momentum, rank-decay, and 21-session time exits
 are retained as explicit reasons. No command places an order.
 
+The `No-paid stock shadow` workflow runs at 00:30 UTC Tuesday through Saturday, corresponding to
+the prior U.S. weekday close. It restores the exact content-hashed lineage from the durable evidence
+branch, retries transient Yahoo misses twice as single-symbol requests, and archives candidates,
+validations, earnings inputs, decisions, and run diagnostics. The state lineage is keyed by both the
+implementation and frozen config; a code/config change starts a new paper sequence from cash rather
+than joining incomparable rules. A holiday is a recorded no-op, while a genuinely missed trading
+session fails closed for manual reconciliation.
+
 These current-universe snapshots may never be projected backward as historical membership. Before
 any retrospective individual-stock experiment, normalized prices and point-in-time membership must
 still pass `poetry run swing-trader data audit-stocks`. If open sources cannot reach the required
@@ -112,7 +120,11 @@ do not force an existing holding to exit and are never used to manufacture histo
 
 Alpha Vantage documentation: <https://www.alphavantage.co/documentation/>. Reconciliation materially improves error detection, but neither provider is a broker-grade execution quote. Broker-side price checks and prospective shadow evidence remain required before live use.
 
-The connector spaces Alpha Vantage requests and reuses a complete secondary snapshot for up to 24 hours, keeping the 17-symbol validation within the standard 25-request daily allowance.
+The ETF connector spaces requests and reuses a content-hashed monthly snapshot for up to eight days.
+A Sunday workflow spends its 17 free calls when the stock workflow is idle; weekday calls are
+reserved for the stock shortlist and earnings calendar. A cache that is stale, modified, or missing
+the newest completed month fails the ETF decision gate rather than triggering an unplanned weekday
+quota burst.
 
 The first v1 run opened the 2024-present labeled holdout and exposed a daily-resizing defect that violated the weekly-rebalance specification. V2 fixes that defect, so the interval is now diagnostic rather than sealed evidence. No retrospective test can substitute for locked prospective shadow decisions.
 

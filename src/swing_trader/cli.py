@@ -32,6 +32,7 @@ from swing_trader.shadow import record_shadow_snapshot
 from swing_trader.stock_audit import audit_stock_research_bundle
 from swing_trader.stock_candidates import latest_candidate_snapshot, record_current_stock_candidates
 from swing_trader.stock_config import load_stock_experiment_config
+from swing_trader.stock_daily import run_stock_shadow_daily
 from swing_trader.stock_data import write_stock_coverage_audit
 from swing_trader.stock_live_data import (
     audit_current_stock_price_snapshot,
@@ -42,6 +43,7 @@ from swing_trader.stock_research import run_stock_research
 from swing_trader.stock_shadow_state import (
     held_tickers_from_latest_state,
     record_stock_shadow_state,
+    stock_shadow_lineage_dir,
     verify_stock_shadow_state,
 )
 from swing_trader.stock_universe import (
@@ -121,6 +123,23 @@ def data_update_cash(
     typer.echo(
         f"Saved {len(returns):,} cash-return observations through "
         f"{returns.index.max().date()} to {output}."
+    )
+
+
+@data_app.command("refresh-alpha-monthly-cache")
+def data_refresh_alpha_monthly_cache(
+    config_path: Annotated[Path, typer.Option("--config")] = Path("config/default.toml"),
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "data/raw/alpha_vantage_monthly.parquet"
+    ),
+) -> None:
+    """Spend the free ETF reconciliation calls once weekly, outside stock sessions."""
+    _load_local_environment()
+    key = os.getenv("ALPHA_VANTAGE_API_KEY", "").strip()
+    config = load_config(config_path)
+    frame = download_alpha_vantage_monthly(config.data.tickers, key, output)
+    typer.echo(
+        f"Locked weekly free-tier monthly cache for {len(frame.columns)} symbols at {output}."
     )
 
 
@@ -293,6 +312,24 @@ def daily(
     )
 
 
+@app.command("stock-daily")
+def stock_daily(
+    archive_root: Annotated[Path | None, typer.Option("--archive-root")] = None,
+) -> None:
+    """Run the no-paid stock shadow after the close; never connect to a broker."""
+    root = _root()
+    _load_local_environment(root)
+    result = run_stock_shadow_daily(
+        root,
+        archive_root=archive_root,
+        api_key=os.getenv("ALPHA_VANTAGE_API_KEY", "").strip(),
+    )
+    typer.echo(
+        f"Stock shadow {result.status} for {result.session} in {result.lineage_id}; "
+        f"Alpha={result.alpha_status}, earnings={result.earnings_status}; no order was placed."
+    )
+
+
 @app.command("dashboard")
 def dashboard() -> None:
     subprocess.run(["streamlit", "run", str(_root() / "src/swing_trader/dashboard.py")], check=True)
@@ -352,8 +389,11 @@ def shadow_screen_stocks(
     output: Annotated[Path, typer.Option("--output")] = Path(
         "reports/stock-shadow/candidates"
     ),
-    state_dir: Annotated[Path, typer.Option("--state-dir")] = Path(
-        "reports/stock-shadow/states"
+    state_root: Annotated[Path, typer.Option("--state-root")] = Path(
+        "reports/stock-shadow/lineages"
+    ),
+    config_path: Annotated[Path, typer.Option("--config")] = Path(
+        "config/stock_shadow.toml"
     ),
 ) -> None:
     """Lock explainable stock candidates from fresh close-known inputs; never place orders."""
@@ -362,7 +402,7 @@ def shadow_screen_stocks(
         latest_stock_price_manifest(price_snapshots),
         output,
         required_validation_symbols=held_tickers_from_latest_state(
-            state_dir,
+            stock_shadow_lineage_dir(state_root, config_path) / "states",
             arm_names=("consensus",),
         ),
     )
@@ -416,18 +456,19 @@ def shadow_record_stocks(
     config_path: Annotated[Path, typer.Option("--config")] = Path(
         "config/stock_shadow.toml"
     ),
-    output: Annotated[Path, typer.Option("--output")] = Path(
-        "reports/stock-shadow/states"
+    output_root: Annotated[Path, typer.Option("--output-root")] = Path(
+        "reports/stock-shadow/lineages"
     ),
 ) -> None:
     """Advance the immutable next-open stock paper state; never place orders."""
     candidate = latest_candidate_snapshot(candidates)
+    state_dir = stock_shadow_lineage_dir(output_root, config_path) / "states"
     result = record_stock_shadow_state(
         candidate,
         latest_current_sp500_manifest(universe_snapshots),
         latest_stock_price_manifest(price_snapshots),
         config_path,
-        output,
+        state_dir,
         alpha_validation_path=latest_alpha_validation_for_candidate(
             alpha_validations,
             candidate,

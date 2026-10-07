@@ -1,0 +1,46 @@
+name: Weekly free-tier reconciliation cache
+
+on:
+  schedule:
+    - cron: "0 15 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: weekly-alpha-cache
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: shadow-evidence
+          path: archive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install poetry
+      - run: poetry install --only main --sync
+      - run: poetry run swing-trader data refresh-alpha-monthly-cache
+      - name: Archive hashed cache
+        run: |
+          mkdir -p archive/evidence/provider-cache
+          cp data/raw/alpha_vantage_monthly.parquet archive/evidence/provider-cache/
+          cp data/raw/alpha_vantage_monthly.manifest.json archive/evidence/provider-cache/
+          git -C archive config user.name "github-actions[bot]"
+          git -C archive config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C archive add evidence/provider-cache
+          if git -C archive diff --cached --quiet; then
+            echo "Cache unchanged."
+            exit 0
+          fi
+          git -C archive commit -m "Refresh weekly free-tier reconciliation cache"
+          git -C archive push origin HEAD:shadow-evidence

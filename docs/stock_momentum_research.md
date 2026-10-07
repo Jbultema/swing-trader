@@ -207,6 +207,9 @@ requires dated point-in-time classifications, not today's company narrative.
 - `stock_shadow_state.py` advances one immediately consecutive close-to-next-open paper state,
   recomputes adjustment-safe entry bases and high-water marks, records every exit reason, and
   rejects session gaps. The consensus arm is primary; the guarded arm is a diagnostic comparator.
+- `stock_daily.py` restores a hash-linked implementation/config lineage, refreshes the public roster
+  and adjusted OHLCV, avoids free-provider calls on holidays, records optional-provider failures,
+  and advances the state even when validation is unavailable so failed gates remain observable.
 - `stock_signals.py` calculates the three causal feature families from dated OHLCV and mandatory
   point-in-time membership.
 - `stock_strategy.py` maintains next-open entry prices, close-based high-water marks, holding age,

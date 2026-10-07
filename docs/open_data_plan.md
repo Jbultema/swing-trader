@@ -59,7 +59,8 @@ Official references:
    free validation budget. Multiple-testing and family-wide uncertainty still apply to historical
    research.
 3. Start every stock strategy from cash. Each later paper state must follow the immediately prior
-   recorded session. Gaps do not get reconstructed using today's roster.
+   recorded session. Gaps do not get reconstructed using today's roster. Implementation and config
+   hashes define separate lineages, so changed logic cannot be spliced into an old performance path.
 4. Evaluate targets at the next available open and at 5, 21, and 63 sessions. Retain failed data
    gates as operational evidence but exclude them from eligible performance.
 5. Permit historical performance only for date ranges whose point-in-time member observations,
@@ -67,6 +68,17 @@ Official references:
    shorter clean period is preferable to a longer biased one.
 6. Treat SEC, FINRA, and future-earnings data as event/risk features captured before a decision;
    never backfill today's event view into old signals.
+
+Operationally, full-universe Yahoo downloads use batches for speed, then retry incomplete symbols
+twice as single-name requests. The 99% current-close gate remains unchanged; retries recover
+transient timeouts and rate limits but do not conceal persistent absences. The live 2026-10-07 dry
+run recovered a rate-limited SYF request and passed at 503 of 504 latest closes, with WBD retained as
+the sole missing symbol.
+
+The free Alpha quota is shared across the project. ETF monthly reconciliation is refreshed on
+Sunday and stored with a capture timestamp and content hash for at most eight days. Stock checks run
+after weekday closes. This schedule prevents two individually free workflows from jointly exceeding
+the documented 25-call daily allowance.
 
 The practical result is slower than buying a curated database, but it is honest: public and free
 data can support a strong prospective system and selected covered historical replications. It

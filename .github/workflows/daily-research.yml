@@ -1,14 +1,6 @@
 name: Daily research snapshot
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/daily-research.yml"
-      - "config/**"
-      - "src/**"
-      - "poetry.lock"
-      - "pyproject.toml"
   schedule:
     - cron: "30 23 * * 1-5"
   workflow_dispatch:
@@ -39,6 +31,11 @@ jobs:
           cache: pip
       - run: pip install poetry
       - run: poetry install --only main --sync
+      - name: Restore weekly free-tier reconciliation cache
+        run: |
+          mkdir -p data/raw
+          cp durable-evidence/evidence/provider-cache/alpha_vantage_monthly.parquet data/raw/alpha_vantage_monthly.parquet 2>/dev/null || true
+          cp durable-evidence/evidence/provider-cache/alpha_vantage_monthly.manifest.json data/raw/alpha_vantage_monthly.manifest.json 2>/dev/null || true
       - run: poetry run swing-trader daily
       - name: Score matured prospective decisions
         run: poetry run swing-trader shadow evaluate --records durable-evidence/evidence/records
@@ -56,6 +53,8 @@ jobs:
           path: |
             data/raw/prices.manifest.json
             data/raw/data_quality.json
+            data/raw/alpha_vantage_monthly.parquet
+            data/raw/alpha_vantage_monthly.manifest.json
             reports/latest/
             reports/shadow/
           if-no-files-found: error
@@ -82,11 +81,14 @@ jobs:
         run: |
           mkdir -p archive/evidence/records
           mkdir -p archive/evidence/evaluations
+          mkdir -p archive/evidence/provider-cache
           cp staging/reports/shadow/*.json archive/evidence/records/
           cp staging/reports/latest/prospective_evaluation.json archive/evidence/evaluations/${{ github.run_id }}.json
+          cp staging/data/raw/alpha_vantage_monthly.parquet archive/evidence/provider-cache/ 2>/dev/null || true
+          cp staging/data/raw/alpha_vantage_monthly.manifest.json archive/evidence/provider-cache/ 2>/dev/null || true
           git -C archive config user.name "github-actions[bot]"
           git -C archive config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git -C archive add evidence/records evidence/evaluations
+          git -C archive add evidence/records evidence/evaluations evidence/provider-cache
           if git -C archive diff --cached --quiet; then
             echo "Record already archived."
             exit 0

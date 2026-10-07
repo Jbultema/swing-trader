@@ -6,6 +6,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
+from time import sleep
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -403,6 +404,9 @@ def _download_batches(
     end: date,
     batch_size: int,
     downloader: PriceDownloader,
+    retry_attempts: int = 2,
+    retry_delay_seconds: float = 2.0,
+    sleeper: Callable[[float], None] = sleep,
 ) -> pd.DataFrame:
     frames: list[pd.DataFrame] = []
     for offset in range(0, len(tickers), batch_size):
@@ -422,7 +426,43 @@ def _download_batches(
     combined = pd.concat(frames, axis=1).sort_index()
     combined = combined.loc[:, ~combined.columns.duplicated()]
     combined.columns = pd.MultiIndex.from_tuples(combined.columns, names=["field", "ticker"])
+    for attempt in range(retry_attempts):
+        pending = _incomplete_tickers(combined, tickers)
+        if not pending:
+            break
+        if retry_delay_seconds > 0:
+            sleeper(retry_delay_seconds * (attempt + 1))
+        for ticker in pending:
+            provider = ticker.replace(".", "-")
+            try:
+                raw = downloader(
+                    [provider],
+                    start=start.isoformat(),
+                    end=end.isoformat(),
+                    auto_adjust=True,
+                    actions=False,
+                    group_by="column",
+                    progress=False,
+                    threads=False,
+                )
+                retry = _normalize_yahoo_batch(raw, (ticker,), [provider])
+                combined = combined.combine_first(retry)
+            except Exception:
+                continue
     return combined.sort_index(axis=1)
+
+
+def _incomplete_tickers(frame: pd.DataFrame, tickers: tuple[str, ...]) -> tuple[str, ...]:
+    if frame.empty:
+        return tickers
+    close = frame["Close"].reindex(columns=tickers)
+    latest = frame.index.max()
+    return tuple(
+        ticker
+        for ticker in tickers
+        if close[ticker].last_valid_index() is None
+        or close[ticker].last_valid_index() != latest
+    )
 
 
 def _normalize_yahoo_batch(

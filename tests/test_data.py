@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 from datetime import UTC, date, datetime, timedelta
@@ -31,26 +32,38 @@ def test_alpha_vantage_requests_are_paced(tmp_path: Path) -> None:
         opener=lambda *_args, **_kwargs: io.BytesIO(payload),
         request_interval_seconds=1.1,
         sleeper=delays.append,
+        now=datetime(2026, 10, 1, tzinfo=UTC),
     )
 
     assert list(frame.columns) == ["A", "B"]
     assert delays == [1.1]
+    manifest = json.loads((tmp_path / "alpha.manifest.json").read_text())
+    assert manifest["data_cost_policy"] == "no_paid_sources"
 
 
 def test_recent_complete_alpha_vantage_snapshot_is_reused(tmp_path: Path) -> None:
     path = tmp_path / "alpha.parquet"
     pd.DataFrame({"A": [1.0], "B": [2.0]}, index=pd.DatetimeIndex(["2026-09-30"])).to_parquet(path)
-    modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
+    captured_at = datetime(2026, 10, 1, tzinfo=UTC)
+    path.with_suffix(".manifest.json").write_text(
+        json.dumps(
+            {
+                "captured_at_utc": captured_at.isoformat(),
+                "tickers": ["A", "B"],
+                "parquet_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+        )
+    )
 
     cached = load_cached_alpha_vantage_monthly(
         path,
         ("A", "B"),
-        now=modified_at + timedelta(hours=23),
+        now=captured_at + timedelta(hours=191),
     )
     stale = load_cached_alpha_vantage_monthly(
         path,
         ("A", "B"),
-        now=modified_at + timedelta(hours=25),
+        now=captured_at + timedelta(hours=193),
     )
 
     assert cached is not None

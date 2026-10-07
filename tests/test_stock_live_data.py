@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from swing_trader.stock_live_data import (
+    _download_batches,
     _normalize_yahoo_batch,
     _safe_yahoo_end_date,
     audit_current_stock_price_snapshot,
@@ -93,6 +94,30 @@ def test_safe_download_end_excludes_an_in_progress_session() -> None:
     assert _safe_yahoo_end_date(after_market).isoformat() == "2026-10-08"
 
 
+def test_batch_downloader_retries_missing_symbols_individually() -> None:
+    dates = pd.bdate_range("2026-10-01", periods=3)
+    calls: list[tuple[str, ...]] = []
+
+    def downloader(tickers: list[str], **_kwargs: object) -> pd.DataFrame:
+        calls.append(tuple(tickers))
+        if tickers == ["B"]:
+            return _provider_prices(dates, ("B",))
+        return _provider_prices(dates, ("A",))
+
+    result = _download_batches(
+        ("A", "B"),
+        start=date(2026, 10, 1),
+        end=date(2026, 10, 7),
+        batch_size=100,
+        downloader=downloader,
+        retry_attempts=2,
+        retry_delay_seconds=0.0,
+    )
+
+    assert result["Close"].notna().all().all()
+    assert calls == [("A", "B"), ("B",)]
+
+
 def test_stock_price_snapshot_audit_binds_universe_and_detects_tampering(
     tmp_path: Path,
 ) -> None:
@@ -147,4 +172,18 @@ def _prices(dates: pd.DatetimeIndex, tickers: tuple[str, ...]) -> pd.DataFrame:
     }
     frame = pd.concat(fields, axis=1)
     frame.columns.names = ["field", "ticker"]
+    return frame
+
+
+def _provider_prices(
+    dates: pd.DatetimeIndex,
+    tickers: tuple[str, ...],
+) -> pd.DataFrame:
+    values = {
+        (field, ticker): np.linspace(100.0, 102.0, len(dates))
+        for field in ("Open", "High", "Low", "Close", "Volume")
+        for ticker in tickers
+    }
+    frame = pd.DataFrame(values, index=dates)
+    frame.columns = pd.MultiIndex.from_tuples(frame.columns)
     return frame

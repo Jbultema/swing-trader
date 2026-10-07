@@ -32,6 +32,10 @@ The primary arm holds at most ten names. Its held-name union with ten new consen
 SPY requires at most 21 Alpha Vantage daily calls. The market-guard arm cannot expand that quota:
 it is labeled as a diagnostic comparator and is never counted as primary prospective performance.
 Both arms start from cash and must advance through immediately consecutive recorded sessions.
+Implementation/config hashes name each durable lineage. The hosted job restores only a matching
+lineage, records holidays as no-ops before spending optional-provider calls, and fails on a missed
+trading session. Public-price batches receive bounded single-symbol retries, but the 99% close
+coverage threshold is never relaxed.
 
 The scheduled workflow downloads data, reconciles completed-month returns against Alpha Vantage when its repository secret is configured, runs validation, locks a content-hashed shadow record, and uploads a read-only artifact. It has `contents: read` permission and no broker credentials. A missing or failed secondary feed leaves hypothetical research visible but invalidates every action. Human execution is a hard system boundary.
 

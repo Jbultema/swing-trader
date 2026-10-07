@@ -81,6 +81,7 @@ def download_alpha_vantage_monthly(
     opener: Callable[..., object] = urlopen,
     request_interval_seconds: float = 1.1,
     sleeper: Callable[[float], None] = sleep,
+    now: datetime | None = None,
 ) -> pd.DataFrame:
     """Fetch adjusted monthly closes while respecting the free-tier burst limit."""
     if not api_key.strip():
@@ -102,6 +103,22 @@ def download_alpha_vantage_monthly(
     frame = pd.DataFrame(series).sort_index()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_parquet(output_path)
+    captured_at = (now or datetime.now(UTC)).astimezone(UTC)
+    manifest = {
+        "schema_version": 1,
+        "provider": "Alpha Vantage",
+        "endpoint": "TIME_SERIES_MONTHLY_ADJUSTED",
+        "provider_tier": "free_25_calls_per_day",
+        "role": "weekly_etf_adjusted_return_reconciliation_cache",
+        "data_cost_policy": "no_paid_sources",
+        "captured_at_utc": captured_at.isoformat(),
+        "tickers": list(tickers),
+        "parquet_sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
+    }
+    output_path.with_suffix(".manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n",
+        encoding="utf-8",
+    )
     return frame
 
 
@@ -109,15 +126,24 @@ def load_cached_alpha_vantage_monthly(
     path: Path,
     tickers: tuple[str, ...],
     *,
-    max_age_hours: float = 24.0,
+    max_age_hours: float = 192.0,
     now: datetime | None = None,
 ) -> pd.DataFrame | None:
     """Reuse a complete, recent snapshot so retries do not consume daily API quota."""
-    if not path.exists():
+    manifest_path = path.with_suffix(".manifest.json")
+    if not path.exists() or not manifest_path.exists():
         return None
-    checked_at = now or datetime.now(UTC)
-    modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
-    age_hours = (checked_at - modified_at).total_seconds() / 3600
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        captured_at = datetime.fromisoformat(str(manifest["captured_at_utc"])).astimezone(UTC)
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if manifest.get("parquet_sha256") != hashlib.sha256(path.read_bytes()).hexdigest():
+        return None
+    if manifest.get("tickers") != list(tickers):
+        return None
+    checked_at = (now or datetime.now(UTC)).astimezone(UTC)
+    age_hours = (checked_at - captured_at).total_seconds() / 3600
     if not 0 <= age_hours <= max_age_hours:
         return None
     frame = pd.read_parquet(path)

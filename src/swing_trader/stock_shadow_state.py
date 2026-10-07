@@ -258,6 +258,7 @@ def record_stock_shadow_state(
         "recorded_at_utc": recorded_at.isoformat(),
         "previous_record": previous_path.name if previous_path else None,
         "previous_record_sha256": previous.get("record_sha256") if previous else None,
+        "lineage_id": stock_shadow_lineage_id(config_path),
         "specification": specification,
         "specification_sha256": specification_hash,
         "implementation_sha256": implementation_hash,
@@ -314,6 +315,26 @@ def held_tickers_from_latest_state(
     if not verify_stock_shadow_state(path):
         raise StockShadowStateError("Latest stock shadow state failed its hash check.")
     return held_tickers_from_payload(_read_json(path), arm_names=arm_names)
+
+
+def stock_shadow_lineage_id(config_path: Path) -> str:
+    """Identify one immutable implementation/config lineage."""
+    load_stock_shadow_config(config_path)
+    return (
+        f"implementation-{implementation_sha256()[:12]}-"
+        f"config-{file_sha256(config_path)[:12]}"
+    )
+
+
+def stock_shadow_lineage_dir(root: Path, config_path: Path) -> Path:
+    return root / stock_shadow_lineage_id(config_path)
+
+
+def latest_stock_shadow_state(state_dir: Path) -> Path | None:
+    path = _latest_state_path(state_dir)
+    if path is not None and not verify_stock_shadow_state(path):
+        raise StockShadowStateError("Latest stock shadow state failed its hash check.")
+    return path
 
 
 def held_tickers_from_payload(

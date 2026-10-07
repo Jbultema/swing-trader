@@ -17,6 +17,7 @@ from swing_trader.stock_shadow_state import (
     _validate_state_transition,
     held_tickers_from_payload,
     record_stock_shadow_state,
+    stock_shadow_lineage_id,
     verify_stock_shadow_state,
 )
 from swing_trader.stock_signals import ExitPolicy
@@ -209,6 +210,15 @@ def test_free_validation_shortlist_uses_only_primary_arm_holdings() -> None:
 
     assert held_tickers_from_payload(payload, arm_names=("consensus",)) == ("A", "B")
     assert held_tickers_from_payload(payload) == ("A", "B", "C")
+
+
+def test_lineage_id_binds_implementation_and_frozen_config() -> None:
+    config_path = Path(__file__).parents[1] / "config/stock_shadow.toml"
+
+    lineage = stock_shadow_lineage_id(config_path)
+
+    assert lineage.startswith("implementation-")
+    assert "-config-" in lineage
 
 
 def _config() -> StockShadowConfig:
