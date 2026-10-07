@@ -27,15 +27,41 @@ jobs:
       - run: pip install poetry
       - run: poetry install --only main --sync
       - name: Probe official keyless SEC submissions endpoint
+        id: submissions
+        continue-on-error: true
         run: >-
           poetry run swing-trader data probe-sec-access
           --cik 0000320193
           --ticker AAPL
           --output reports/sec-access-probe.json
+      - name: Probe official SEC fallback endpoints
+        if: always()
+        run: |
+          curl --silent --show-error --location --max-time 30 \
+            --user-agent "$SEC_USER_AGENT" --output /dev/null \
+            --write-out "latest-filings-rss http=%{http_code}\n" \
+            "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&output=atom&count=10" \
+            > reports/sec-official-fallback-probe.txt
+          curl --silent --show-error --location --max-time 30 \
+            --user-agent "$SEC_USER_AGENT" --output /dev/null \
+            --write-out "daily-master-index http=%{http_code}\n" \
+            "https://www.sec.gov/Archives/edgar/daily-index/2026/QTR4/master.20261006.idx" \
+            >> reports/sec-official-fallback-probe.txt
+          curl --silent --show-error --location --head --max-time 30 \
+            --user-agent "$SEC_USER_AGENT" --output /dev/null \
+            --write-out "nightly-submissions-bulk http=%{http_code}\n" \
+            "https://www.sec.gov/Archives/edgar/daily-index/bulkdata/submissions.zip" \
+            >> reports/sec-official-fallback-probe.txt
+          cat reports/sec-official-fallback-probe.txt
+      - name: Require direct endpoint proof
+        if: always() && steps.submissions.outcome != 'success'
+        run: exit 1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: sec-access-probe-${{ github.run_id }}
-          path: reports/sec-access-probe.json
+          path: |
+            reports/sec-access-probe.json
+            reports/sec-official-fallback-probe.txt
           if-no-files-found: error
           retention-days: 90
