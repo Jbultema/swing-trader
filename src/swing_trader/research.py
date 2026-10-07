@@ -235,9 +235,14 @@ def latest_champion_decisions(
             action = "SELL"
         value = float(momentum.loc[last_decision, ticker])
         rank = float(ranks.loc[last_decision, ticker])
-        why = (
-            f"{ticker} ranked {rank:.0f} on positive trailing-12-month momentum "
-            f"({value:.1%}) at the {last_decision.date()} monthly decision."
+        why = _decision_reason(
+            ticker=ticker,
+            target_weight=target_value,
+            current_weight=current_value,
+            momentum=value,
+            rank=rank,
+            top_n=config.strategy.top_n,
+            decision_date=str(last_decision.date()),
         )
         actions.append(
             {
@@ -249,7 +254,10 @@ def latest_champion_decisions(
                 "why": why,
                 "momentum_12m": value,
                 "rank": rank,
-                "exit_rule": "Exit at month-end if momentum is non-positive or rank falls outside top three.",
+                "exit_rule": (
+                    "Exit at month-end if momentum is non-positive or rank falls outside "
+                    f"the top {config.strategy.top_n}."
+                ),
             }
         )
     next_review = (latest_date + pd.offsets.BMonthEnd(0)).date()
@@ -293,3 +301,32 @@ def latest_champion_decisions(
         },
         "hypothetical_actions": actions,
     }
+
+
+def _decision_reason(
+    *,
+    ticker: str,
+    target_weight: float,
+    current_weight: float,
+    momentum: float,
+    rank: float,
+    top_n: int,
+    decision_date: str,
+) -> str:
+    if target_weight > 0.0:
+        return (
+            f"{ticker} ranked {rank:.0f} with positive trailing-12-month momentum "
+            f"({momentum:.1%}) at the {decision_date} monthly decision."
+        )
+    if current_weight > 0.0 and (pd.isna(momentum) or momentum <= 0.0):
+        value = "unavailable" if pd.isna(momentum) else f"{momentum:.1%}"
+        return (
+            f"Exit {ticker}: trailing-12-month momentum was non-positive or unavailable "
+            f"({value}) at the {decision_date} monthly decision."
+        )
+    if current_weight > 0.0:
+        return (
+            f"Exit {ticker}: rank {rank:.0f} was outside the top {top_n} at the "
+            f"{decision_date} monthly decision despite {momentum:.1%} momentum."
+        )
+    return f"{ticker} has zero current and target weight; no action is required."

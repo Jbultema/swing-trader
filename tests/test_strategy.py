@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from swing_trader.config import StrategyConfig
+from swing_trader.research import _decision_reason
 from swing_trader.strategy import build_strategy
 
 
@@ -70,6 +71,32 @@ def test_market_kill_switch_moves_to_cash() -> None:
     run = build_strategy(prices, _config(), "SPY")
     assert not bool(run.market_state.iloc[-1]["risk_on"])
     assert run.target_weights.iloc[-1].sum() == 0.0
+
+
+def test_exit_explanations_distinguish_negative_momentum_from_rank_exit() -> None:
+    negative = _decision_reason(
+        ticker="A",
+        target_weight=0.0,
+        current_weight=0.3,
+        momentum=-0.05,
+        rank=10.0,
+        top_n=3,
+        decision_date="2026-01-30",
+    )
+    ranked_out = _decision_reason(
+        ticker="B",
+        target_weight=0.0,
+        current_weight=0.3,
+        momentum=0.12,
+        rank=4.0,
+        top_n=3,
+        decision_date="2026-01-30",
+    )
+
+    assert "non-positive" in negative
+    assert "-5.0%" in negative
+    assert "rank 4" in ranked_out
+    assert "despite 12.0% momentum" in ranked_out
 
 
 def test_ordinary_position_sizes_only_change_on_rebalance_day() -> None:
