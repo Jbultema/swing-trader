@@ -82,6 +82,7 @@ def run_research(
         prices,
         candidate,
         champion_weights,
+        comparisons["dual_momentum_panic_guard"],
         results,
         config,
         output_dir,
@@ -94,6 +95,7 @@ def _write_artifacts(
     prices: pd.DataFrame,
     candidate: StrategyRun,
     champion_weights: pd.DataFrame,
+    panic_weights: pd.DataFrame,
     results: dict[str, BacktestResult],
     config: AppConfig,
     output_dir: Path,
@@ -150,6 +152,7 @@ def _write_artifacts(
     decisions = latest_champion_decisions(
         prices["Close"],
         champion_weights,
+        panic_weights,
         results["classic_12m_dual_momentum"],
         config,
         data_quality=quality,
@@ -191,6 +194,7 @@ def _write_artifacts(
 def latest_champion_decisions(
     close: pd.DataFrame,
     target_weights: pd.DataFrame,
+    panic_weights: pd.DataFrame,
     result: BacktestResult,
     config: AppConfig,
     *,
@@ -202,6 +206,7 @@ def latest_champion_decisions(
     momentum = close.div(close.shift(252)).sub(1.0)
     ranks = momentum.rank(axis=1, ascending=False, method="first")
     target = target_weights.loc[latest_date]
+    panic_target = panic_weights.loc[latest_date]
     current = result.weights.iloc[-1].reindex(target.index).fillna(0.0)
     actions = []
     for ticker in target.index:
@@ -235,6 +240,18 @@ def latest_champion_decisions(
             }
         )
     next_review = (latest_date + pd.offsets.BMonthEnd(0)).date()
+    benchmark = close[config.data.benchmark]
+    benchmark_returns = benchmark.pct_change(fill_method=None)
+    benchmark_volatility = float(
+        benchmark_returns.rolling(config.strategy.volatility_days).std().iloc[-1]
+        * (252**0.5)
+    )
+    benchmark_drawdown = float(
+        benchmark.iloc[-1]
+        / benchmark.rolling(config.strategy.trend_days).max().iloc[-1]
+        - 1.0
+    )
+    panic_triggered = float(panic_target.sum()) < float(target.sum()) - 1e-12
     gate_passed = bool(data_quality.get("decision_data_gate_passed", False))
     return {
         "as_of_close": str(latest_date.date()),
@@ -253,6 +270,16 @@ def latest_champion_decisions(
             "allocation_gate": "positive_asset_level_12_month_momentum",
             "gross_exposure_cap": float(target.sum()),
             "note": "Champion uses asset-level absolute momentum; panic guard is a separate comparator.",
+        },
+        "capital_preservation_overlay": {
+            "triggered": panic_triggered,
+            "hypothetical_action": "EXIT_TO_CASH" if panic_triggered else "HOLD",
+            "target_gross_exposure": float(panic_target.sum()),
+            "benchmark_volatility": benchmark_volatility,
+            "volatility_trigger": config.strategy.stress_volatility,
+            "benchmark_drawdown_from_200d_high": benchmark_drawdown,
+            "drawdown_trigger": config.strategy.stress_drawdown,
+            "authority": "comparator_only_not_champion",
         },
         "hypothetical_actions": actions,
     }

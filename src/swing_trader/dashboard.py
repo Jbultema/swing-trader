@@ -79,6 +79,15 @@ with action:
     )
 
 with risk:
+    overlay = decisions["capital_preservation_overlay"]
+    if overlay["triggered"]:
+        st.error(
+            "Capital-preservation overlay is triggered and would exit to cash. "
+            "It remains a comparator without allocation authority."
+        )
+    else:
+        st.success("Capital-preservation overlay is not triggered.")
+    st.json(overlay)
     st.subheader("Known hostile regimes")
     st.dataframe(regimes, hide_index=True, width="stretch")
     st.json(decisions["market"])
