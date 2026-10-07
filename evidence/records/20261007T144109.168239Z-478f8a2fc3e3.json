@@ -1,0 +1,159 @@
+{
+  "schema_version": 3,
+  "recorded_from_manifest_utc": "2026-10-07T14:41:09.168239+00:00",
+  "system": "robust_dual_momentum_v1",
+  "specification": {
+    "system": "robust_dual_momentum_v1",
+    "champion": "classic_12m_dual_momentum",
+    "capital_preservation_comparator": "dual_momentum_panic_guard",
+    "rejected_fast_candidates": [
+      "swing_momentum_v1",
+      "swing_momentum_v2"
+    ],
+    "execution_model": "close signal; next-session adjusted-open rebalance; open-to-open P&L",
+    "tax_model": "ignored_retirement_account_first_pass",
+    "parameter_source": "published_prior; v2 corrects v1 daily-resizing schedule defect",
+    "config": {
+      "data": {
+        "start": "2004-01-01",
+        "benchmark": "SPY",
+        "cash_proxy": "BIL",
+        "reconciliation_months": 12,
+        "monthly_return_tolerance": 0.005,
+        "max_primary_age_calendar_days": 4,
+        "tickers": [
+          "SPY",
+          "QQQ",
+          "IWM",
+          "MDY",
+          "XLB",
+          "XLE",
+          "XLF",
+          "XLI",
+          "XLK",
+          "XLP",
+          "XLU",
+          "XLV",
+          "XLY",
+          "EFA",
+          "EEM",
+          "GLD",
+          "IEF"
+        ]
+      },
+      "strategy": {
+        "top_n": 3,
+        "rank_buffer": 2,
+        "fast_days": 21,
+        "medium_days": 63,
+        "slow_days": 126,
+        "skip_days": 5,
+        "trend_days": 200,
+        "fast_trend_days": 50,
+        "volatility_days": 20,
+        "atr_days": 20,
+        "trailing_high_days": 63,
+        "atr_multiple": 3.0,
+        "target_volatility": 0.12,
+        "max_asset_weight": 0.35,
+        "stress_volatility": 0.35,
+        "stress_drawdown": -0.12,
+        "risk_off_exposure": 0.0,
+        "rebalance_weekday": 4
+      },
+      "execution": {
+        "initial_capital": 100000.0,
+        "transaction_cost_bps": 10.0,
+        "minimum_trade_weight": 0.01
+      },
+      "validation": {
+        "development_end": "2018-12-31",
+        "validation_start": "2019-01-01",
+        "validation_end": "2023-12-31",
+        "recent_diagnostic_start": "2024-01-01",
+        "minimum_history_days": 252
+      }
+    }
+  },
+  "specification_sha256": "0121ede05ce2bbd51b5d734c9f58188c828c7f17659444da46ab9645c186b0b5",
+  "implementation_sha256": "169980fbf4c22864cd8ab59c972d24b9d4fc1eeb6214e025d49a44e046756977",
+  "research_status": "retrospective_candidate_not_live_approved",
+  "action_authorized": false,
+  "data_quality_status": "secondary_source_unavailable",
+  "decision": {
+    "as_of_close": "2026-10-07",
+    "last_monthly_decision": "2026-09-30",
+    "next_scheduled_review_estimate": "2026-10-30",
+    "earliest_execution": "next regular session open after a scheduled decision",
+    "mode": "research_only_data_unreconciled_no_action",
+    "action_authorized": false,
+    "data_reconciled": false,
+    "data_quality_status": "secondary_source_unavailable",
+    "market": {
+      "allocation_gate": "positive_asset_level_12_month_momentum",
+      "gross_exposure_cap": 1.0,
+      "note": "Champion uses asset-level absolute momentum; panic guard is a separate comparator."
+    },
+    "capital_preservation_overlay": {
+      "triggered": false,
+      "hypothetical_action": "HOLD",
+      "target_gross_exposure": 1.0,
+      "benchmark_volatility": 0.1051059559528742,
+      "volatility_trigger": 0.35,
+      "benchmark_drawdown_from_200d_high": -0.005692535401196297,
+      "drawdown_trigger": -0.12,
+      "authority": "comparator_only_not_champion"
+    },
+    "hypothetical_actions": [
+      {
+        "ticker": "XLE",
+        "action": "HOLD",
+        "current_weight": 0.32549257983393204,
+        "target_weight": 0.3333333333333333,
+        "change_weight": 0.007840753499401276,
+        "why": "XLE ranked 2 with positive trailing-12-month momentum (40.1%) at the 2026-09-30 monthly decision.",
+        "momentum_12m": 0.4009630946944631,
+        "rank": 2.0,
+        "exit_rule": "Exit at month-end if momentum is non-positive or rank falls outside the top 3."
+      },
+      {
+        "ticker": "XLK",
+        "action": "HOLD",
+        "current_weight": 0.34079143732375744,
+        "target_weight": 0.3333333333333333,
+        "change_weight": -0.007458103990424125,
+        "why": "XLK ranked 1 with positive trailing-12-month momentum (40.4%) at the 2026-09-30 monthly decision.",
+        "momentum_12m": 0.4037317305864758,
+        "rank": 1.0,
+        "exit_rule": "Exit at month-end if momentum is non-positive or rank falls outside the top 3."
+      },
+      {
+        "ticker": "EEM",
+        "action": "BUY",
+        "current_weight": 0.32253572554215154,
+        "target_weight": 0.3333333333333333,
+        "change_weight": 0.010797607791181774,
+        "why": "EEM ranked 3 with positive trailing-12-month momentum (28.0%) at the 2026-09-30 monthly decision.",
+        "momentum_12m": 0.2802770650745794,
+        "rank": 3.0,
+        "exit_rule": "Exit at month-end if momentum is non-positive or rank falls outside the top 3."
+      }
+    ]
+  },
+  "data_quality": {
+    "status": "secondary_source_unavailable",
+    "decision_data_gate_passed": false,
+    "checked_at_utc": "2026-10-07T14:40:06.501209+00:00",
+    "secondary_error": "ALPHA_VANTAGE_API_KEY is not configured.",
+    "primary_provider": "Yahoo Finance via yfinance",
+    "secondary_provider": "Alpha Vantage monthly adjusted",
+    "primary_latest_date": "2026-10-07",
+    "primary_age_calendar_days": 0,
+    "max_primary_age_calendar_days": 4,
+    "all_primary_tickers_current": true,
+    "primary_fresh": true,
+    "primary_snapshot_sha256": "42bbe065834e54c2ff55d7249301949f4757219f84f9f8223b23e81b43cdff43",
+    "primary_snapshot_downloaded_at_utc": "2026-10-07T14:40:06.500639+00:00"
+  },
+  "record_sha256": "478f8a2fc3e36f15e4bc522c9f0df02d0d138e1909c13b26a4a3852179ed06c0"
+}
