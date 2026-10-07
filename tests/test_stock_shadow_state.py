@@ -10,10 +10,15 @@ import pytest
 
 from swing_trader.stock_candidates import record_current_stock_candidates
 from swing_trader.stock_live_data import write_current_stock_price_snapshot
+from swing_trader.stock_prospective import (
+    verify_stock_shadow_evaluation,
+    write_stock_shadow_evaluation,
+)
 from swing_trader.stock_shadow_state import (
     StockShadowConfig,
     StockShadowStateError,
     _advance_arm,
+    _rebase_adjusted_shares,
     _validate_state_transition,
     held_tickers_from_payload,
     record_stock_shadow_state,
@@ -89,19 +94,30 @@ def test_state_executes_prior_target_then_schedules_loss_exit_for_next_open() ->
 
     assert initial["positions_at_close"] == {}
     assert initial["target_for_next_open"] == {"A": 0.1}
-    assert loss_close["executions_at_open"] == [
-        {"ticker": "A", "action": "BUY", "price": 110.0, "reason": "prior_close_target"}
-    ]
+    buy = loss_close["executions_at_open"][0]
+    assert (buy["ticker"], buy["action"], buy["price"], buy["reason"]) == (
+        "A",
+        "BUY",
+        110.0,
+        "prior_close_target",
+    )
+    assert buy["estimated_cost"] > 0.0
     assert loss_close["target_for_next_open"] == {}
     loss_decision = next(
         row for row in loss_close["decisions"] if row["ticker"] == "A"
     )
     assert loss_decision["action"] == "SELL"
     assert "hard_loss_limit" in loss_decision["reasons"]
-    assert exited["executions_at_open"] == [
-        {"ticker": "A", "action": "SELL", "price": 99.0, "reason": "prior_close_target"}
-    ]
+    sell = exited["executions_at_open"][0]
+    assert (sell["ticker"], sell["action"], sell["price"], sell["reason"]) == (
+        "A",
+        "SELL",
+        99.0,
+        "prior_close_target",
+    )
     assert exited["positions_at_close"] == {}
+    assert exited["paper_account_at_close"]["shares"] == {}
+    assert exited["paper_account_at_close"]["cumulative_trading_cost"] > 0.0
 
 
 def test_market_guard_blocks_entries_and_explains_the_skip() -> None:
@@ -190,10 +206,18 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
     assert payload["independent_price_validation"]["status"] == "missing"
     assert payload["earnings_risk_validation"]["status"] == "missing"
     assert payload["arms"]["consensus"]["prospective_role"] == "primary_consensus"
+    assert payload["arms"]["consensus"]["paper_account_at_close"]["total_equity"] == 1.0
+    assert payload["arms"]["consensus"]["paper_account_at_close"]["shares"] == {}
     assert payload["arms"]["consensus_market_guard"]["prospective_role"] == (
         "diagnostic_market_guard_comparator"
     )
     assert verify_stock_shadow_state(result.path)
+    evaluation = write_stock_shadow_evaluation(
+        result.path.parent,
+        tmp_path / "evaluations",
+        now=now,
+    )
+    assert verify_stock_shadow_evaluation(evaluation)
 
     payload["action_authorized"] = True
     result.path.write_text(json.dumps(payload), encoding="utf-8")
@@ -219,6 +243,24 @@ def test_lineage_id_binds_implementation_and_frozen_config() -> None:
 
     assert lineage.startswith("implementation-")
     assert "-config-" in lineage
+
+
+def test_paper_shares_rebase_when_adjusted_history_revises() -> None:
+    sessions = pd.bdate_range("2026-10-05", periods=2)
+    prices = _small_prices(sessions)
+    prices.loc[sessions[0], ("Close", "A")] = 50.0
+    shares = {"A": 1.0}
+    prior_arm = {
+        "paper_account_at_close": {
+            "mark_session": sessions[0].date().isoformat(),
+            "adjusted_close_marks": {"A": 100.0},
+        }
+    }
+
+    factors = _rebase_adjusted_shares(prior_arm, shares, prices)
+
+    assert factors == {"A": 2.0}
+    assert shares == {"A": 2.0}
 
 
 def _config() -> StockShadowConfig:

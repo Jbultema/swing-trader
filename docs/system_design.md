@@ -37,6 +37,13 @@ lineage, records holidays as no-ops before spending optional-provider calls, and
 trading session. Public-price batches receive bounded single-symbol retries, but the 99% close
 coverage threshold is never relaxed.
 
+Each arm also stores a self-financing paper account: fractional shares, cash, adjusted marks,
+turnover, entry/exit costs, and total equity. Existing shares are not resized when rankings change.
+Adjusted-share quantities are rebased against the prior locked close when a provider revises
+history, preventing corporate-action revisions from becoming phantom P&L. The evaluator uses the
+prior close's gate for the following realized transition and reports failed-gate returns only as
+diagnostic evidence.
+
 The scheduled workflow downloads data, reconciles completed-month returns against Alpha Vantage when its repository secret is configured, runs validation, locks a content-hashed shadow record, and uploads a read-only artifact. It has `contents: read` permission and no broker credentials. A missing or failed secondary feed leaves hypothetical research visible but invalidates every action. Human execution is a hard system boundary.
 
 ## Champion exit hierarchy

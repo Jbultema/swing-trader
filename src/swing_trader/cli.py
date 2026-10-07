@@ -39,6 +39,7 @@ from swing_trader.stock_live_data import (
     download_current_stock_prices,
     latest_stock_price_manifest,
 )
+from swing_trader.stock_prospective import write_stock_shadow_evaluation
 from swing_trader.stock_research import run_stock_research
 from swing_trader.stock_shadow_state import (
     held_tickers_from_latest_state,
@@ -490,6 +491,24 @@ def shadow_verify_stock_state(
     typer.echo(json.dumps({"path": str(state_path), "content_hash_passed": passed}, indent=2))
     if not passed:
         raise typer.Exit(code=2)
+
+
+@shadow_app.command("evaluate-stock-lineage")
+def shadow_evaluate_stock_lineage(
+    state_root: Annotated[Path, typer.Option("--state-root")] = Path(
+        "reports/stock-shadow/lineages"
+    ),
+    config_path: Annotated[Path, typer.Option("--config")] = Path(
+        "config/stock_shadow.toml"
+    ),
+) -> None:
+    """Evaluate only realized, hash-linked stock paper states in the current lineage."""
+    lineage = stock_shadow_lineage_dir(state_root, config_path)
+    output = write_stock_shadow_evaluation(
+        lineage / "states",
+        lineage / "evaluations",
+    )
+    typer.echo(f"Locked prospective stock evaluation {output.name}; no order was placed.")
 
 
 @shadow_app.command("evaluate")

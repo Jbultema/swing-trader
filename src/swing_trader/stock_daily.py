@@ -19,6 +19,7 @@ from swing_trader.events import download_alpha_earnings_calendar
 from swing_trader.provenance import file_sha256
 from swing_trader.stock_candidates import record_current_stock_candidates
 from swing_trader.stock_live_data import download_current_stock_prices
+from swing_trader.stock_prospective import write_stock_shadow_evaluation
 from swing_trader.stock_shadow_state import (
     held_tickers_from_latest_state,
     latest_stock_shadow_state,
@@ -43,6 +44,7 @@ class StockDailyResult:
     run_record_path: Path
     alpha_status: str
     earnings_status: str
+    evaluation_path: Path | None
 
 
 def run_stock_shadow_daily(
@@ -106,6 +108,7 @@ def run_stock_shadow_daily(
                 run_record,
                 "not_called",
                 "not_called",
+                None,
             )
         _require_consecutive_session(previous, prices.manifest_path, session)
 
@@ -160,6 +163,11 @@ def run_stock_shadow_daily(
         earnings_path=earnings_path,
         now=recorded_at,
     )
+    evaluation_path = write_stock_shadow_evaluation(
+        state_dir,
+        lineage_dir / "evaluations",
+        now=recorded_at,
+    )
     run_record = _write_run_record(
         lineage_dir,
         recorded_at,
@@ -169,6 +177,8 @@ def run_stock_shadow_daily(
             "session": session,
             "state": state.path.name,
             "state_record_sha256": state.record_sha256,
+            "evaluation": evaluation_path.name,
+            "evaluation_file_sha256": file_sha256(evaluation_path),
             "candidate": candidate.path.name,
             "candidate_record_sha256": candidate.record_sha256,
             "alpha_status": alpha_status,
@@ -186,6 +196,7 @@ def run_stock_shadow_daily(
         run_record,
         alpha_status,
         earnings_status,
+        evaluation_path,
     )
 
 

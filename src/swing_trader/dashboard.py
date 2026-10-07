@@ -8,11 +8,32 @@ import plotly.express as px
 import streamlit as st
 
 from swing_trader.stock_audit import audit_stock_research_bundle
+from swing_trader.stock_prospective import verify_stock_shadow_evaluation
+from swing_trader.stock_shadow_state import (
+    stock_shadow_lineage_dir,
+    verify_stock_shadow_state,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 REPORTS = ROOT / "reports/latest"
 SHADOW = ROOT / "reports/shadow"
 STOCK_REPORTS = ROOT / "reports/stock/latest"
+STOCK_LINEAGES = ROOT / "reports/stock-shadow/lineages"
+STOCK_SHADOW_CONFIG = ROOT / "config/stock_shadow.toml"
+
+
+def _latest_stock_state() -> Path | None:
+    paths = list(STOCK_LINEAGES.glob("*/states/state-*.json"))
+    return max(paths, key=lambda path: path.name) if paths else None
+
+
+def _percentage(value: object) -> str:
+    return "N/A" if value is None else f"{float(value):.1%}"
+
+
+def _decimal(value: object) -> str:
+    return "N/A" if value is None else f"{float(value):.4f}"
+
 
 st.set_page_config(page_title="Swing Trader", page_icon="↗", layout="wide")
 st.title("Swing Trader")
@@ -112,6 +133,160 @@ with risk:
 
 with stock:
     st.subheader("Individual-stock momentum research")
+    latest_stock_state = _latest_stock_state()
+    if latest_stock_state is None:
+        st.info(
+            "No prospective stock state exists yet. Run `swing-trader stock-daily` after a "
+            "completed U.S. session; the command never places an order."
+        )
+    elif not verify_stock_shadow_state(latest_stock_state):
+        st.error("The latest prospective stock state was modified or is unreadable.")
+    else:
+        stock_state = json.loads(latest_stock_state.read_text())
+        lineage_dir = latest_stock_state.parents[1]
+        current_lineage = stock_shadow_lineage_dir(STOCK_LINEAGES, STOCK_SHADOW_CONFIG)
+        current_implementation = lineage_dir == current_lineage
+        primary_gate = bool(stock_state["eligible_for_primary_prospective_performance"])
+        if primary_gate:
+            st.success(
+                "Primary prospective data gate passed. This remains a paper decision with no "
+                "broker connection or trade authority."
+            )
+        else:
+            st.error(
+                "Primary prospective data gate failed. Targets remain diagnostic and must not "
+                "be treated as validated performance or an order."
+            )
+        if not current_implementation:
+            st.warning(
+                "This is the newest recorded lineage, but its implementation/config hash is not "
+                "the code currently running the dashboard. A new lineage must start from cash."
+            )
+        market = stock_state["market_state"]
+        primary = stock_state["arms"]["consensus"]
+        account = primary.get("paper_account_at_close", {})
+        summary_cols = st.columns(6)
+        summary_cols[0].metric("As-of close", stock_state["as_of_session"])
+        summary_cols[1].metric("Lineage", "CURRENT" if current_implementation else "OLDER")
+        summary_cols[2].metric("Market regime", "RISK ON" if market["risk_on"] else "RISK OFF")
+        summary_cols[3].metric("Next-open names", len(primary["target_for_next_open"]))
+        summary_cols[4].metric("Paper equity", _decimal(account.get("total_equity")))
+        summary_cols[5].metric(
+            "Cumulative costs",
+            _decimal(account.get("cumulative_trading_cost")),
+        )
+        st.caption(
+            f"Lineage `{stock_state['lineage_id']}` · state `{latest_stock_state.name}` · "
+            "signals observed at the close and effective no earlier than the next regular open."
+        )
+        st.subheader("Why each prospective action occurred")
+        for arm_name, arm_label in (
+            ("consensus", "Primary consensus"),
+            ("consensus_market_guard", "Diagnostic market guard"),
+        ):
+            arm = stock_state["arms"][arm_name]
+            with st.expander(arm_label, expanded=arm_name == "consensus"):
+                decisions_frame = pd.DataFrame(arm["decisions"])
+                if not decisions_frame.empty:
+                    decisions_frame["reasons"] = decisions_frame["reasons"].map(
+                        lambda values: ", ".join(str(value) for value in values)
+                    )
+                    st.dataframe(
+                        decisions_frame[
+                            [
+                                "ticker",
+                                "action",
+                                "reasons",
+                                "consensus_rank",
+                                "close",
+                                "return_21d",
+                                "return_63d",
+                                "atr_fraction_14d",
+                                "effective_at",
+                            ]
+                        ],
+                        hide_index=True,
+                        width="stretch",
+                    )
+                target = pd.DataFrame(
+                    [
+                        {"ticker": ticker, "target_weight": weight}
+                        for ticker, weight in arm["target_for_next_open"].items()
+                    ]
+                )
+                st.caption(
+                    f"Next-open target cash: {float(arm['target_cash_weight']):.1%}; "
+                    f"role: {arm['prospective_role']}."
+                )
+                st.dataframe(target, hide_index=True, width="stretch")
+
+        evaluation_paths = sorted((lineage_dir / "evaluations").glob("evaluation-*.json"))
+        if not evaluation_paths:
+            st.info("No prospective stock outcome evaluation is available for this lineage yet.")
+        elif not verify_stock_shadow_evaluation(evaluation_paths[-1]):
+            st.error("The latest prospective stock evaluation failed its content-hash check.")
+        else:
+            stock_evaluation = json.loads(evaluation_paths[-1].read_text())
+            if stock_state["record_sha256"] not in stock_evaluation["state_record_sha256"]:
+                st.error("The latest evaluation does not include the displayed stock state.")
+            else:
+                eligible_stock = stock_evaluation["eligible_original_gate_only"]
+                readiness = stock_evaluation["readiness"]
+                performance_cols = st.columns(5)
+                performance_cols[0].metric("Eligible sessions", eligible_stock["sessions"])
+                performance_cols[1].metric("Completed exits", eligible_stock["completed_exits"])
+                performance_cols[2].metric("Risk-off sessions", eligible_stock["risk_off_sessions"])
+                performance_cols[3].metric(
+                    "Primary net return",
+                    _percentage(eligible_stock["primary_consensus"]["cumulative_return"]),
+                )
+                performance_cols[4].metric(
+                    "SPY same-session return",
+                    _percentage(eligible_stock["spy_buy_hold"]["cumulative_return"]),
+                )
+                if readiness["status"] == "insufficient_prospective_evidence":
+                    st.warning(
+                        "Prospective evidence is not mature: " + ", ".join(readiness["reasons"])
+                    )
+                else:
+                    st.info(
+                        "The preregistered monitoring minimum is met, but this is still paper "
+                        "evidence and not trading authority."
+                    )
+                st.json(eligible_stock)
+                rolling = stock_evaluation.get("rolling_policy_horizons")
+                if not isinstance(rolling, dict) or not isinstance(
+                    rolling.get("by_horizon"), dict
+                ):
+                    st.info(
+                        "This intact evaluation predates rolling policy horizons; a new "
+                        "implementation lineage will add them without rewriting old evidence."
+                    )
+                else:
+                    horizon_rows = []
+                    for horizon, horizon_result in rolling["by_horizon"].items():
+                        horizon_rows.append(
+                            {
+                                "sessions": int(horizon),
+                                "matured_windows": horizon_result["matured_windows"],
+                                "eligible_windows": horizon_result["eligible_windows"],
+                                "mean_primary_net_return": horizon_result[
+                                    "mean_primary_policy_net_return"
+                                ],
+                                "mean_spy_return": horizon_result[
+                                    "mean_spy_same_window_return"
+                                ],
+                                "mean_net_excess": horizon_result["mean_net_excess_vs_spy"],
+                                "positive_excess_fraction": horizon_result[
+                                    "positive_excess_fraction"
+                                ],
+                            }
+                        )
+                    st.subheader("Frozen 5/21/63-session policy outcomes")
+                    st.dataframe(pd.DataFrame(horizon_rows), hide_index=True, width="stretch")
+
+    st.divider()
+    st.subheader("Retrospective stock research")
     stock_manifest_path = STOCK_REPORTS / "manifest.json"
     if not stock_manifest_path.exists():
         st.info(

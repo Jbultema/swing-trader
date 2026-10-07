@@ -210,6 +210,11 @@ requires dated point-in-time classifications, not today's company narrative.
 - `stock_daily.py` restores a hash-linked implementation/config lineage, refreshes the public roster
   and adjusted OHLCV, avoids free-provider calls on holidays, records optional-provider failures,
   and advances the state even when validation is unavailable so failed gates remain observable.
+- `stock_prospective.py` reads only an intact prior-record chain, scores self-financing paper equity
+  with no survivor resizing, assigns eligibility from the decision made one close earlier, builds a
+  same-session costed SPY comparator, evaluates the frozen 5/21/63-session policy windows only when
+  every intervening gate passed, and starts paired stationary-bootstrap uncertainty only after 21
+  eligible sessions.
 - `stock_signals.py` calculates the three causal feature families from dated OHLCV and mandatory
   point-in-time membership.
 - `stock_strategy.py` maintains next-open entry prices, close-based high-water marks, holding age,
@@ -240,8 +245,8 @@ requires dated point-in-time classifications, not today's company narrative.
   with the configured Treasury-bill proxy instead of silently assuming free daily rebalancing and
   zero-return cash.
 
-The remaining critical path is accumulating immediately consecutive prospective stock states,
-independently validating every candidate or holding within the free quota, and scoring next-open
-outcomes across enough trades and both market regimes. Historical stock performance remains
-unreported where the open panel fails its coverage gate; synthetic integration tests prove
-mechanics, not edge.
+The remaining critical path is accumulating immediately consecutive prospective stock states and
+independently validating every candidate or holding within the free quota across enough exits and
+both market regimes. The evaluator and dashboard are implemented, but the first lineage has no
+mature transition yet. Historical stock performance remains unreported where the open panel fails
+its coverage gate; synthetic integration tests prove mechanics, not edge.

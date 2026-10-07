@@ -173,6 +173,11 @@ def record_stock_shadow_state(
         prices["Close"][config.benchmark].dropna(),
         current_session,
         config,
+        open_price=_required_price(
+            prices["Open"].loc[current_session],
+            config.benchmark,
+            "benchmark open",
+        ),
     )
     candidate_market_state = candidate.get("market_state")
     if not isinstance(candidate_market_state, dict):
@@ -235,18 +240,28 @@ def record_stock_shadow_state(
             policy=policy,
         )
         primary_arm = arm_name == "consensus"
+        account = arm.get("paper_account_at_close")
+        valuation_complete = isinstance(account, dict) and account.get(
+            "valuation_complete"
+        ) is True
         arm["prospective_role"] = (
             "primary_consensus"
             if primary_arm
             else "diagnostic_market_guard_comparator"
         )
         arm["eligible_for_primary_prospective_performance"] = bool(
-            primary_arm and alpha_gate["passed"] and earnings_gate["passed"]
+            primary_arm
+            and alpha_gate["passed"]
+            and earnings_gate["passed"]
+            and valuation_complete
         )
         arm_payloads[arm_name] = arm
         target_counts[arm_name] = len(arm["target_for_next_open"])
 
     initialization = previous is None
+    primary_arm = arm_payloads["consensus"]
+    assert isinstance(primary_arm, dict)
+    primary_eligible = bool(primary_arm["eligible_for_primary_prospective_performance"])
     payload: dict[str, object] = {
         "schema_version": 1,
         "record_type": "prospective_stock_shadow_state",
@@ -265,10 +280,8 @@ def record_stock_shadow_state(
         "market_state": market_state,
         "independent_price_validation": alpha_gate,
         "earnings_risk_validation": earnings_gate,
-        "eligible_for_primary_prospective_performance": bool(
-            alpha_gate["passed"] and earnings_gate["passed"]
-        ),
-        "operational_action_gate_passed": bool(alpha_gate["passed"] and earnings_gate["passed"]),
+        "eligible_for_primary_prospective_performance": primary_eligible,
+        "operational_action_gate_passed": primary_eligible,
         "arms": arm_payloads,
         "inputs": {
             "candidate_snapshot": candidate_path.name,
@@ -390,19 +403,72 @@ def _advance_arm(
     }
     prior_target = {str(ticker) for ticker in prior_target_raw}
     current_open = prices["Open"].loc[current_session]
+    cash, shares, prior_cumulative_cost = _prior_paper_account(prior_arm, positions)
+    share_rebase_factors = _rebase_adjusted_shares(prior_arm, shares, prices)
+    equity_at_open = cash + sum(
+        quantity * _required_price(current_open, ticker, "portfolio open")
+        for ticker, quantity in shares.items()
+    )
+    one_way_cost_fraction = config.round_trip_cost_bps / 20_000.0
     executions: list[dict[str, object]] = []
+    trading_cost = 0.0
     for ticker in sorted(set(positions) - prior_target):
         price = _required_price(current_open, ticker, "exit open")
+        quantity = shares.pop(ticker)
+        gross_notional = quantity * price
+        estimated_cost = gross_notional * one_way_cost_fraction
+        cash += gross_notional - estimated_cost
+        trading_cost += estimated_cost
         executions.append(
-            {"ticker": ticker, "action": "SELL", "price": price, "reason": "prior_close_target"}
+            {
+                "ticker": ticker,
+                "action": "SELL",
+                "price": price,
+                "shares": quantity,
+                "gross_notional": gross_notional,
+                "estimated_cost": estimated_cost,
+                "cash_flow": gross_notional - estimated_cost,
+                "reason": "prior_close_target",
+            }
         )
         del positions[ticker]
-    for ticker in sorted(prior_target - set(positions)):
+
+    entry_tickers = sorted(prior_target - set(positions))
+    desired = {
+        ticker: equity_at_open * float(prior_target_raw[ticker])
+        for ticker in entry_tickers
+    }
+    desired_total = sum(desired.values())
+    affordable_gross = cash / (1.0 + one_way_cost_fraction)
+    purchase_scale = min(1.0, affordable_gross / desired_total) if desired_total > 0.0 else 0.0
+    for ticker in entry_tickers:
         price = _required_price(current_open, ticker, "entry open")
+        gross_notional = desired[ticker] * purchase_scale
+        if gross_notional <= 0.0:
+            raise StockShadowStateError(f"Paper account cannot fund target entry for {ticker}.")
+        quantity = gross_notional / price
+        estimated_cost = gross_notional * one_way_cost_fraction
+        cash -= gross_notional + estimated_cost
+        trading_cost += estimated_cost
+        shares[ticker] = quantity
         positions[ticker] = {"entry_session": current_session.date().isoformat()}
         executions.append(
-            {"ticker": ticker, "action": "BUY", "price": price, "reason": "prior_close_target"}
+            {
+                "ticker": ticker,
+                "action": "BUY",
+                "price": price,
+                "shares": quantity,
+                "gross_notional": gross_notional,
+                "estimated_cost": estimated_cost,
+                "cash_flow": -(gross_notional + estimated_cost),
+                "reason": "prior_close_target",
+            }
         )
+    if cash < -1e-10:
+        raise StockShadowStateError("Paper account spent more cash than it held.")
+    cash = max(0.0, cash)
+    if set(shares) != set(positions):
+        raise StockShadowStateError("Paper account shares disagree with logical positions.")
 
     enriched: dict[str, dict[str, object]] = {}
     exits: dict[str, list[str]] = {}
@@ -445,6 +511,7 @@ def _advance_arm(
             "current_adjusted_close": (
                 float(path.loc[current_session]) if current_session in path.index else None
             ),
+            "paper_shares": shares[ticker],
         }
 
     survivors = set(positions) - set(exits)
@@ -516,6 +583,21 @@ def _advance_arm(
                 enriched.get(ticker),
             )
         )
+    account = _mark_paper_account(
+        cash,
+        shares,
+        prices["Close"].loc[current_session],
+        equity_at_open=equity_at_open,
+        trading_cost=trading_cost,
+        cumulative_trading_cost=prior_cumulative_cost + trading_cost,
+        one_way_cost_fraction=one_way_cost_fraction,
+        gross_traded_notional=sum(
+            float(row["gross_notional"])
+            for row in executions
+        ),
+        mark_session=current_session,
+        share_rebase_factors=share_rebase_factors,
+    )
     return {
         "arm": arm_name,
         "market_guard_enabled": guarded,
@@ -524,6 +606,7 @@ def _advance_arm(
         "target_for_next_open": target,
         "target_cash_weight": 1.0 - sum(target.values()),
         "decisions": decisions,
+        "paper_account_at_close": account,
     }
 
 
@@ -578,6 +661,8 @@ def _market_state(
     close: pd.Series,
     current_session: pd.Timestamp,
     config: StockShadowConfig,
+    *,
+    open_price: float,
 ) -> dict[str, object]:
     history = close.loc[:current_session]
     moving_average = float(history.rolling(config.moving_average_sessions).mean().iloc[-1])
@@ -589,6 +674,7 @@ def _market_state(
     risk_on = latest > moving_average and volatility <= config.maximum_annualized_volatility
     return {
         "benchmark": config.benchmark,
+        "open": open_price,
         "close": latest,
         "moving_average": moving_average,
         "moving_average_sessions": config.moving_average_sessions,
@@ -597,6 +683,126 @@ def _market_state(
         "maximum_annualized_volatility": config.maximum_annualized_volatility,
         "risk_on": risk_on,
     }
+
+
+def _prior_paper_account(
+    prior_arm: dict[str, object] | None,
+    positions: dict[str, dict[str, str]],
+) -> tuple[float, dict[str, float], float]:
+    if prior_arm is None:
+        return 1.0, {}, 0.0
+    raw = prior_arm.get("paper_account_at_close")
+    if not isinstance(raw, dict):
+        raise StockShadowStateError("Prior arm is missing its self-financing paper account.")
+    try:
+        cash = float(raw["cash"])
+        cumulative_cost = float(raw["cumulative_trading_cost"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise StockShadowStateError("Prior paper account has invalid cash or cost fields.") from exc
+    raw_shares = raw.get("shares")
+    if not isinstance(raw_shares, dict):
+        raise StockShadowStateError("Prior paper account has invalid shares.")
+    shares = {str(ticker): float(value) for ticker, value in raw_shares.items()}
+    if (
+        not np.isfinite(cash)
+        or cash < -1e-10
+        or not np.isfinite(cumulative_cost)
+        or cumulative_cost < 0.0
+        or any(not np.isfinite(value) or value <= 0.0 for value in shares.values())
+    ):
+        raise StockShadowStateError("Prior paper account contains impossible values.")
+    if set(shares) != set(positions):
+        raise StockShadowStateError("Prior paper account shares disagree with positions.")
+    return max(0.0, cash), shares, cumulative_cost
+
+
+def _mark_paper_account(
+    cash: float,
+    shares: dict[str, float],
+    close: pd.Series,
+    *,
+    equity_at_open: float,
+    trading_cost: float,
+    cumulative_trading_cost: float,
+    one_way_cost_fraction: float,
+    gross_traded_notional: float,
+    mark_session: pd.Timestamp,
+    share_rebase_factors: dict[str, float],
+) -> dict[str, object]:
+    marks: dict[str, float | None] = {}
+    market_values: dict[str, float | None] = {}
+    for ticker, quantity in sorted(shares.items()):
+        value = _finite_float(close.get(ticker))
+        if value is None or value <= 0.0:
+            marks[ticker] = None
+            market_values[ticker] = None
+        else:
+            marks[ticker] = value
+            market_values[ticker] = quantity * value
+    valuation_complete = all(value is not None for value in market_values.values())
+    gross_exposure = (
+        sum(float(value) for value in market_values.values() if value is not None)
+        if valuation_complete
+        else None
+    )
+    total_equity = cash + gross_exposure if gross_exposure is not None else None
+    return {
+        "base_currency": "USD",
+        "accounting": "fractional_shares_no_survivor_rebalancing",
+        "adjustment_policy": "rebase_shares_to_prior_locked_close_mark",
+        "starting_equity": 1.0,
+        "mark_session": mark_session.date().isoformat(),
+        "cash": cash,
+        "shares": dict(sorted(shares.items())),
+        "share_rebase_factors_at_open": dict(sorted(share_rebase_factors.items())),
+        "adjusted_close_marks": marks,
+        "market_values": market_values,
+        "gross_exposure": gross_exposure,
+        "total_equity": total_equity,
+        "cash_weight": (
+            cash / total_equity if total_equity is not None and total_equity > 0.0 else None
+        ),
+        "valuation_complete": valuation_complete,
+        "equity_at_open_before_costs": equity_at_open,
+        "gross_turnover_at_open": (
+            gross_traded_notional / equity_at_open if equity_at_open > 0.0 else None
+        ),
+        "one_way_cost_fraction": one_way_cost_fraction,
+        "trading_cost_this_open": trading_cost,
+        "cumulative_trading_cost": cumulative_trading_cost,
+    }
+
+
+def _rebase_adjusted_shares(
+    prior_arm: dict[str, object] | None,
+    shares: dict[str, float],
+    prices: pd.DataFrame,
+) -> dict[str, float]:
+    if prior_arm is None or not shares:
+        return {}
+    account = prior_arm.get("paper_account_at_close")
+    if not isinstance(account, dict):
+        raise StockShadowStateError("Prior arm is missing its paper account for adjustment rebasing.")
+    marks = account.get("adjusted_close_marks")
+    if not isinstance(marks, dict):
+        raise StockShadowStateError("Prior paper account is missing adjusted close marks.")
+    mark_session = pd.Timestamp(str(account.get("mark_session")))
+    if mark_session not in prices.index:
+        raise StockShadowStateError("Prior account mark session is outside the current snapshot.")
+    factors: dict[str, float] = {}
+    for ticker in sorted(shares):
+        prior_mark = _finite_float(marks.get(ticker))
+        revised_mark = _required_price(
+            prices["Close"].loc[mark_session],
+            ticker,
+            "revised prior close",
+        )
+        if prior_mark is None or prior_mark <= 0.0:
+            raise StockShadowStateError(f"Prior adjusted close mark is invalid for {ticker}.")
+        factor = prior_mark / revised_mark
+        shares[ticker] *= factor
+        factors[ticker] = factor
+    return factors
 
 
 def _alpha_gate(
@@ -717,6 +923,8 @@ def _validate_config(config: StockShadowConfig) -> None:
         raise ValueError("Stock shadow must contain the frozen consensus and guarded arms.")
     if config.maximum_holding_sessions < 1:
         raise ValueError("maximum_holding_sessions must be positive.")
+    if config.round_trip_cost_bps < 0.0:
+        raise ValueError("round_trip_cost_bps cannot be negative.")
 
 
 def _latest_state_path(state_dir: Path) -> Path | None:

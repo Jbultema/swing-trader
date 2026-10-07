@@ -84,6 +84,20 @@ no earlier than the next regular-session open. It refuses to fill a missing pape
 current roster. Hard-loss, ATR-trailing, trend, short-momentum, rank-decay, and 21-session time exits
 are retained as explicit reasons. No command places an order.
 
+Each arm carries a self-financing fractional-share paper account. New positions use available cash,
+surviving positions are not resized for free, and the frozen 50 bp round-trip assumption is charged
+as 25 bp at entry and 25 bp at exit. If Yahoo revises adjusted history after a distribution or
+split, shares are rebased to the prior state's locked close mark so a provider revision cannot create
+a fake gain. The immutable evaluator attributes each close-to-close return to the prior decision's
+data gate and compares the same eligible sessions with a costed SPY buy-and-hold path. Rolling
+5-, 21-, and 63-session policy windows are reported only when every intervening decision gate and
+valuation passed.
+
+No prospective performance headline is considered mature until the lineage contains at least 126
+eligible sessions, 30 completed exits, and 10 risk-off sessions. At 21 eligible paired sessions the
+report begins a 2,000-sample paired stationary-bootstrap interval, but meeting any monitoring
+threshold still does not authorize a trade.
+
 The `No-paid stock shadow` workflow runs at 00:30 UTC Tuesday through Saturday, corresponding to
 the prior U.S. weekday close. It restores the exact content-hashed lineage from the durable evidence
 branch, retries transient Yahoo misses twice as single-symbol requests, and archives candidates,
@@ -91,6 +105,10 @@ validations, earnings inputs, decisions, and run diagnostics. The state lineage 
 implementation and frozen config; a code/config change starts a new paper sequence from cash rather
 than joining incomparable rules. A holiday is a recorded no-op, while a genuinely missed trading
 session fails closed for manual reconciliation.
+
+The dashboard's stock tab shows the latest state gate, implementation-lineage status, market regime,
+next-open targets, cash/equity/cost accounting, and every BUY/HOLD/SELL/SKIP reason. It hides no
+failed gate and labels the market-guard arm as a diagnostic comparator.
 
 These current-universe snapshots may never be projected backward as historical membership. Before
 any retrospective individual-stock experiment, normalized prices and point-in-time membership must

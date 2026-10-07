@@ -62,7 +62,9 @@ Official references:
    recorded session. Gaps do not get reconstructed using today's roster. Implementation and config
    hashes define separate lineages, so changed logic cannot be spliced into an old performance path.
 4. Evaluate targets at the next available open and at 5, 21, and 63 sessions. Retain failed data
-   gates as operational evidence but exclude them from eligible performance.
+   gates as operational evidence but exclude them from eligible performance. The live paper ledger
+   is self-financing: no daily resizing, fractional shares, explicit entry/exit costs, and
+   adjustment-safe share rebasing to the prior locked close.
 5. Permit historical performance only for date ranges whose point-in-time member observations,
    252-session warm-up, corporate actions, and terminal returns pass the preregistered gates. A
    shorter clean period is preferable to a longer biased one.
@@ -79,6 +81,11 @@ The free Alpha quota is shared across the project. ETF monthly reconciliation is
 Sunday and stored with a capture timestamp and content hash for at most eight days. Stock checks run
 after weekday closes. This schedule prevents two individually free workflows from jointly exceeding
 the documented 25-call daily allowance.
+
+Prospective monitoring remains deliberately slow. The system will not describe the paper result as
+mature before 126 eligible sessions, 30 completed exits, and 10 eligible risk-off sessions. Paired
+stationary-bootstrap uncertainty begins only after 21 eligible sessions, uses the same gated dates
+for the primary arm and SPY, and remains a diagnostic rather than trading authority.
 
 The practical result is slower than buying a curated database, but it is honest: public and free
 data can support a strong prospective system and selected covered historical replications. It
