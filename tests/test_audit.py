@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 
 from swing_trader.audit import audit_operational_artifacts
 from swing_trader.cli import app
+from swing_trader.provenance import implementation_sha256
 from swing_trader.shadow import record_shadow_snapshot
 
 
@@ -92,7 +93,7 @@ def _bundle(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         "decision_data_gate_passed": False,
         "data_quality_status": "secondary_source_unavailable",
         "data_end": "2026-10-06",
-        "implementation_sha256": "implementation-v1",
+        "implementation_sha256": implementation_sha256(),
         "specification": specification,
     }
     manifest["specification_sha256"] = hashlib.sha256(

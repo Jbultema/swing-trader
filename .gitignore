@@ -9,5 +9,7 @@ data/processed/
 reports/latest/
 reports/runs/
 reports/shadow/
+reports/private/
+config/portfolio.toml
 .streamlit/secrets.toml
 .env

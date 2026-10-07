@@ -21,14 +21,17 @@ from swing_trader.data import (
 from swing_trader.prospective import write_prospective_evaluation
 from swing_trader.research import run_research
 from swing_trader.shadow import record_shadow_snapshot
+from swing_trader.ticket import write_trade_preview
 
 app = typer.Typer(no_args_is_help=True)
 data_app = typer.Typer(no_args_is_help=True)
 research_app = typer.Typer(no_args_is_help=True)
 shadow_app = typer.Typer(no_args_is_help=True)
+ticket_app = typer.Typer(no_args_is_help=True)
 app.add_typer(data_app, name="data")
 app.add_typer(research_app, name="research")
 app.add_typer(shadow_app, name="shadow")
+app.add_typer(ticket_app, name="ticket")
 
 
 def _root() -> Path:
@@ -146,6 +149,20 @@ def shadow_evaluate(
         f"Evaluated {result['unique_schema_v3_decisions']} unique schema-v3 decisions; "
         f"{summary['eligible_unique_decisions']} passed their original data gate."
     )
+
+
+@ticket_app.command("preview")
+def ticket_preview(
+    portfolio: Annotated[Path, typer.Option("--portfolio")] = Path("config/portfolio.toml"),
+    prices_path: Annotated[Path, typer.Option("--prices")] = Path("data/raw/prices.parquet"),
+    decisions_path: Annotated[Path, typer.Option("--decisions")] = Path(
+        "reports/latest/latest_decisions.json"
+    ),
+    output: Annotated[Path, typer.Option("--output")] = Path("reports/private/trade_preview.json"),
+) -> None:
+    """Build a local, non-executable retirement-sleeve share preview."""
+    preview = write_trade_preview(load_prices(prices_path), decisions_path, portfolio, output)
+    typer.echo(f"Wrote {preview['status']} to {output}; no order was placed or authorized.")
 
 
 def _refresh_data_bundle(

@@ -53,3 +53,5 @@ Alpha Vantage documentation: <https://www.alphavantage.co/documentation/>. Recon
 The first v1 run opened the 2024-present labeled holdout and exposed a daily-resizing defect that violated the weekly-rebalance specification. V2 fixes that defect, so the interval is now diagnostic rather than sealed evidence. No retrospective test can substitute for locked prospective shadow decisions.
 
 See [Research basis](docs/research_basis.md), [validation protocol](docs/validation_protocol.md), and [system design](docs/system_design.md).
+
+For a local account-specific but still non-executable share estimate, copy `config/portfolio.example.toml` to the ignored `config/portfolio.toml`, restrict its menu to the actual plan, and run `poetry run swing-trader ticket preview`. See [retirement-account readiness](docs/account_readiness.md).

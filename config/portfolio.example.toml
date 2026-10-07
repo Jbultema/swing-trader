@@ -1,0 +1,17 @@
+[account]
+account_type = "roth_ira"
+cash = 100000.0
+fractional_shares = false
+minimum_trade_dollars = 25.0
+
+# For a 401(k), list only funds or brokerage-window ETFs actually permitted by the plan.
+# The preview fails rather than substituting an unavailable security.
+allowed_tickers = [
+  "SPY", "QQQ", "IWM", "MDY",
+  "XLB", "XLE", "XLF", "XLI", "XLK", "XLP", "XLU", "XLV", "XLY",
+  "EFA", "EEM", "GLD", "IEF",
+]
+
+# Include only the sleeve this project is permitted to manage. Unlisted account assets are untouched.
+[holdings]
+SPY = 0.0

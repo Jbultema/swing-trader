@@ -20,6 +20,7 @@ from swing_trader.backtest import (
 )
 from swing_trader.config import AppConfig
 from swing_trader.metrics import performance_metrics, regime_metrics
+from swing_trader.provenance import implementation_sha256
 from swing_trader.strategy import StrategyRun, build_strategy
 from swing_trader.validation import build_validation_artifacts
 
@@ -190,24 +191,12 @@ def _write_artifacts(
         "data_end": str(prices.index.max().date()),
         "specification": specification,
         "specification_sha256": hashlib.sha256(specification_payload).hexdigest(),
-        "implementation_sha256": _implementation_sha256(),
+        "implementation_sha256": implementation_sha256(),
     }
     (output_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
     )
     build_validation_artifacts(prices, config, results, output_dir)
-
-
-def _implementation_sha256() -> str:
-    """Hash the complete installed strategy package with stable path ordering."""
-    package_root = Path(__file__).parent
-    digest = hashlib.sha256()
-    for path in sorted(package_root.glob("*.py")):
-        digest.update(path.name.encode())
-        digest.update(b"\0")
-        digest.update(path.read_bytes())
-        digest.update(b"\0")
-    return digest.hexdigest()
 
 
 def latest_champion_decisions(

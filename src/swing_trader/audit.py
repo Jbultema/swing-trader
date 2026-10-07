@@ -5,6 +5,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from swing_trader.provenance import implementation_sha256
 from swing_trader.shadow import verify_shadow_snapshot
 
 
@@ -92,6 +93,8 @@ def audit_operational_artifacts(
             ).hexdigest()
         if expected != actual:
             errors.append("Manifest specification hash does not match its contents.")
+        if manifest.get("implementation_sha256") != implementation_sha256():
+            errors.append("Manifest implementation hash does not match the current package code.")
 
     gate = bool(quality.get("decision_data_gate_passed", False))
     quality_status = str(quality.get("status", "unknown"))
