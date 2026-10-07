@@ -8,6 +8,7 @@ import plotly.express as px
 import streamlit as st
 
 from swing_trader.finra_activity import audit_finra_activity_snapshot
+from swing_trader.sec_filing_events import audit_sec_event_snapshot
 from swing_trader.stock_audit import audit_stock_research_bundle
 from swing_trader.stock_prospective import verify_stock_shadow_evaluation
 from swing_trader.stock_shadow_state import (
@@ -239,6 +240,26 @@ with stock:
                 )
                 st.dataframe(
                     pd.DataFrame(finra_manifest["candidate_diagnostics"]),
+                    hide_index=True,
+                    width="stretch",
+                )
+
+        sec_paths = sorted((lineage_dir / "sec-events").glob("sec-events-*.manifest.json"))
+        if sec_paths:
+            sec_path = sec_paths[-1]
+            sec_audit = audit_sec_event_snapshot(sec_path)
+            st.subheader("Experimental SEC filing-event context")
+            if not sec_audit.integrity_passed:
+                st.error("The latest SEC filing-event diagnostic failed its integrity check.")
+            else:
+                sec_manifest = json.loads(sec_path.read_text())
+                st.caption(
+                    "Official EDGAR acceptance metadata for the candidate shortlist. Filing "
+                    "counts are not sentiment, earnings surprises, or directional signals and "
+                    "were not used for candidate ranking or the portfolio target."
+                )
+                st.dataframe(
+                    pd.DataFrame(sec_manifest["candidate_diagnostics"]),
                     hide_index=True,
                     width="stretch",
                 )

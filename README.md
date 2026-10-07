@@ -64,6 +64,7 @@ poetry run swing-trader data snapshot-stock-universe
 poetry run swing-trader data snapshot-stock-prices
 poetry run swing-trader shadow screen-stocks
 poetry run swing-trader data snapshot-finra-activity
+poetry run swing-trader data snapshot-sec-events
 poetry run swing-trader shadow validate-stock-candidates
 poetry run swing-trader data snapshot-earnings --horizon 3month
 poetry run swing-trader shadow record-stocks
@@ -85,6 +86,15 @@ context for the same shortlist. It validates each full source file before filter
 source hashes to the candidate, universe, and price manifests. These values are not short interest,
 carry no bullish or bearish label, and are explicitly excluded from ranking and portfolio state.
 Run `poetry run swing-trader data verify-finra-activity` to audit the latest standalone snapshot.
+
+The official, keyless SEC sidecar locks acceptance-time metadata for 8-K, 10-Q, 10-K, Form 4,
+6-K, and beneficial-ownership filings for the same candidate shortlist. It validates issuer/ticker
+identity and the complete recent-filing schema, excludes filings accepted after capture, preserves
+source hashes and filing links, and is likewise prohibited from changing ranks or positions. Run
+`poetry run swing-trader data verify-sec-events` to audit a snapshot. If an execution network is
+blocked by SEC access controls, `data probe-sec-access` preserves a machine-readable failure record
+and the daily stock workflow continues with an explicit unavailable diagnostic rather than an
+unofficial mirror.
 
 `record-stocks` starts from cash, records decisions made after the completed close, and applies them
 no earlier than the next regular-session open. It refuses to fill a missing paper session with the

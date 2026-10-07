@@ -10,6 +10,7 @@ import pytest
 from swing_trader.stock_daily import (
     StockDailyError,
     _record_or_reuse_finra_activity,
+    _record_or_reuse_sec_events,
     _require_consecutive_session,
     _stage_archived_states,
 )
@@ -28,6 +29,22 @@ def test_missing_finra_retry_inputs_remain_nonblocking(tmp_path: Path) -> None:
     assert path is None
     assert diagnostic is not None
     assert diagnostic["step"] == "finra_activity"
+
+
+def test_missing_sec_retry_inputs_remain_nonblocking(tmp_path: Path) -> None:
+    status, path, diagnostic = _record_or_reuse_sec_events(
+        tmp_path / "missing-candidate.json",
+        tmp_path / "missing-universe.json",
+        tmp_path / "missing-prices.json",
+        tmp_path / "sec",
+        pd.Timestamp("2026-10-07T20:00:00Z").to_pydatetime(),
+        "swing-trader contact https://github.com/Jbultema/swing-trader",
+    )
+
+    assert status == "failed_nonblocking_experimental"
+    assert path is None
+    assert diagnostic is not None
+    assert diagnostic["step"] == "sec_filing_events"
 
 
 def test_archived_state_staging_verifies_hashes_and_prior_chain(tmp_path: Path) -> None:

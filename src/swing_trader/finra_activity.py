@@ -311,6 +311,13 @@ def download_candidate_finra_activity(
     if not verify_candidate_snapshot(candidate_path):
         raise FinraActivityError("Candidate snapshot failed its content-hash check.")
     candidate = _read_json(candidate_path)
+    candidate_inputs = candidate.get("inputs")
+    if not isinstance(candidate_inputs, dict):
+        raise FinraActivityError("Candidate snapshot has no input bindings.")
+    if file_sha256(universe_manifest_path) != candidate_inputs.get("universe_manifest_sha256"):
+        raise FinraActivityError("Candidate snapshot is not bound to the supplied universe.")
+    if file_sha256(price_manifest_path) != candidate_inputs.get("price_manifest_sha256"):
+        raise FinraActivityError("Candidate snapshot is not bound to the supplied prices.")
     symbols = candidate.get("validation_symbols")
     if not isinstance(symbols, list) or not symbols or not all(isinstance(x, str) for x in symbols):
         raise FinraActivityError("Candidate snapshot has no valid validation-symbol list.")

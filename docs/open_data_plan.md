@@ -19,7 +19,7 @@ backtest whose missing failures would mechanically flatter performance.
 | `pitindex` | MIT package built from public sources | Point-in-time membership research and independent roster diagnostic | Delisted identity/action provenance is incomplete; the published wheel updater is currently broken |
 | Yahoo via `yfinance` | Public unofficial endpoint, no key | Full-universe adjusted OHLCV screening and immutable daily snapshots | No service guarantee; missing/recycled delisted symbols make old stock backtests incomplete |
 | Alpha Vantage free tier | Free personal key, 25 calls/day | Candidate/holding-only independent daily checks and one bulk earnings calendar call | Cannot validate all 500 names every day; adjusted daily history is not on the free endpoint |
-| SEC EDGAR | Public, keyless, authoritative filings | Acceptance-time 8-K/10-Q/10-K/Form 4 events and as-filed facts | This execution environment currently receives SEC HTTP 403; scheduled GitHub-hosted access must be tested separately |
+| SEC EDGAR | Public, keyless, authoritative filings | Implemented candidate-bound acceptance-time 8-K/10-Q/10-K/Form 4/6-K/ownership event sidecar | This execution environment currently receives SEC HTTP 403; GitHub-hosted access is tested separately and failure never changes ranks/state |
 | FRED | Public, keyless CSV | Cash return and macro-regime series | Macro data are not stock-specific catalysts |
 | FINRA Reg SHO | Public, keyless daily file; license not assumed open | Implemented candidate-bound off-exchange activity diagnostic | Covers FINRA-reported off-exchange activity, not exchange volume, short interest, or a directional signal |
 | Nasdaq Data Link WIKI Prices | Public-domain archive, free account key | Pre-April-2018 replication/cross-check only | Provider discontinued support and explicitly does not recommend it for investment analysis |
@@ -79,6 +79,9 @@ Official references:
    bind the exact source-byte hash to a candidate-only parquet. Keep the resulting 1/5/20-session
    ratios outside ranking and portfolio state until a preregistered prospective experiment has
    enough observations to judge them.
+8. Fetch SEC submissions only for CIKs in the exact candidate-bound universe. Use the acceptance
+   timestamp as the causal boundary, preserve each response hash, and treat form/item counts as
+   neutral event context. Never infer filing sentiment from metadata alone.
 
 Operationally, full-universe Yahoo downloads use batches for speed, then retry incomplete symbols
 twice as single-name requests. The 99% current-close gate remains unchanged; retries recover
@@ -118,8 +121,17 @@ predictive edge. The nightly workflow records retrieval failure as a nonblocking
 diagnostic, and the manifest sets `candidate_ranking_input`, `portfolio_state_input`, and
 `action_authorized` to false.
 
-SEC remains an important public workaround for timestamped 8-K, 10-Q, 10-K, and Form 4 events, but
-the official submissions endpoint returned HTTP 403 from this execution environment on 2026-10-07
-even with a declared research user agent. SEC collection therefore remains unimplemented in the
-decision path until a GitHub-hosted access probe passes and can be archived reproducibly; the bot
-does not silently substitute an unofficial filing mirror.
+## Implemented SEC workaround
+
+`swing-trader data snapshot-sec-events` requests the official SEC submissions JSON for the exact
+CIKs represented by the candidate/benchmark shortlist. It validates the payload CIK, requested
+ticker associations, recent-filing array shapes, accession numbers, and acceptance timestamps;
+then locks only tracked filings accepted at or before capture. The snapshot preserves response
+hashes, diagnostic form/item counts, market-phase timing, and exact candidate/universe/price
+bindings. Its manifest disables sentiment, direction, ranking, portfolio-state, and action use.
+
+The official endpoint returned HTTP 403 from this execution environment on 2026-10-07 even with a
+declared research user agent. The module and daily nonblocking recovery path are implemented and
+tested, but live availability is not claimed until the dedicated GitHub-hosted access probe passes.
+The probe writes a retained success/failure artifact; the bot does not silently substitute an
+unofficial filing mirror.

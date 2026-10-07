@@ -229,6 +229,9 @@ requires dated point-in-time classifications, not today's company narrative.
   arithmetic, then locks 21 sessions of candidate-bound 1/5/20-session activity context. It retains
   exact source hashes and is explicitly prohibited from ranking candidates or changing a portfolio
   state. Daily short-sale volume is never labeled short interest or bearish pressure.
+- `sec_filing_events.py` validates official submissions JSON by CIK and ticker, applies the EDGAR
+  acceptance timestamp as the point-in-time boundary, locks exact source hashes and filing links,
+  and exposes neutral filing-event diagnostics without sentiment, ranking, state, or action use.
 - `stock_data.py` and `swing-trader data audit-stocks` fail closed on missing historical members,
   member-date gaps, or inadequate 252-session warm-up.
 - `execution.py` compares each asset-level trade with median dollar volume known before the open and

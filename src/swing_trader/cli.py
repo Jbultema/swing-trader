@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -33,6 +34,15 @@ from swing_trader.finra_activity import (
 )
 from swing_trader.prospective import write_prospective_evaluation
 from swing_trader.research import run_research
+from swing_trader.sec_filing_events import (
+    DEFAULT_SEC_USER_AGENT,
+    SecFilingEventError,
+    audit_sec_event_snapshot,
+    download_candidate_sec_events,
+    fetch_sec_submission,
+    latest_sec_event_manifest,
+    parse_sec_submission,
+)
 from swing_trader.shadow import record_shadow_snapshot
 from swing_trader.stock_audit import audit_stock_research_bundle
 from swing_trader.stock_candidates import latest_candidate_snapshot, record_current_stock_candidates
@@ -247,10 +257,16 @@ def data_snapshot_finra_activity(
     lookback_sessions: Annotated[int, typer.Option("--lookback-sessions")] = 21,
 ) -> None:
     """Lock free FINRA activity context; never interpret it as short interest."""
+    candidate = latest_candidate_snapshot(candidates)
+    universe_manifest, price_manifest = _candidate_bound_stock_manifests(
+        candidate,
+        universe_snapshots,
+        price_snapshots,
+    )
     snapshot = download_candidate_finra_activity(
-        latest_candidate_snapshot(candidates),
-        latest_current_sp500_manifest(universe_snapshots),
-        latest_stock_price_manifest(price_snapshots),
+        candidate,
+        universe_manifest,
+        price_manifest,
         output,
         lookback_sessions=lookback_sessions,
     )
@@ -274,6 +290,109 @@ def data_verify_finra_activity(
     )
     typer.echo(json.dumps(result.to_dict(), indent=2))
     if not result.passed:
+        raise typer.Exit(code=2)
+
+
+@data_app.command("snapshot-sec-events")
+def data_snapshot_sec_events(
+    candidates: Annotated[Path, typer.Option("--candidates")] = Path(
+        "reports/stock-shadow/candidates"
+    ),
+    universe_snapshots: Annotated[Path, typer.Option("--universe-snapshots")] = Path(
+        "data/stock-shadow/universe"
+    ),
+    price_snapshots: Annotated[Path, typer.Option("--price-snapshots")] = Path(
+        "data/stock-shadow/prices"
+    ),
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "data/stock-shadow/sec-events"
+    ),
+    lookback_calendar_days: Annotated[int, typer.Option("--lookback-calendar-days")] = 90,
+) -> None:
+    """Lock official SEC filing metadata; never infer sentiment from filing counts."""
+    _load_local_environment()
+    user_agent = os.getenv("SEC_USER_AGENT", "").strip() or DEFAULT_SEC_USER_AGENT
+    candidate = latest_candidate_snapshot(candidates)
+    universe_manifest, price_manifest = _candidate_bound_stock_manifests(
+        candidate,
+        universe_snapshots,
+        price_snapshots,
+    )
+    snapshot = download_candidate_sec_events(
+        candidate,
+        universe_manifest,
+        price_manifest,
+        output,
+        user_agent=user_agent,
+        lookback_calendar_days=lookback_calendar_days,
+    )
+    typer.echo(
+        f"Locked {snapshot.rows} tracked SEC events for {snapshot.tickers} issuers; "
+        "metadata context only, no ranking changed and no order was placed."
+    )
+
+
+@data_app.command("verify-sec-events")
+def data_verify_sec_events(
+    snapshots: Annotated[Path, typer.Option("--snapshots")] = Path(
+        "data/stock-shadow/sec-events"
+    ),
+    max_age_hours: Annotated[float, typer.Option("--max-age-hours")] = 48.0,
+) -> None:
+    """Fail closed if the latest SEC event context is stale, modified, or unsafe."""
+    result = audit_sec_event_snapshot(
+        latest_sec_event_manifest(snapshots),
+        max_age_hours=max_age_hours,
+    )
+    typer.echo(json.dumps(result.to_dict(), indent=2))
+    if not result.passed:
+        raise typer.Exit(code=2)
+
+
+@data_app.command("probe-sec-access")
+def data_probe_sec_access(
+    cik: Annotated[str, typer.Option("--cik")],
+    ticker: Annotated[str, typer.Option("--ticker")],
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "reports/sec-access-probe.json"
+    ),
+) -> None:
+    """Write a non-trading connectivity proof for the official SEC submissions API."""
+    _load_local_environment()
+    captured_at = datetime.now(UTC)
+    user_agent = os.getenv("SEC_USER_AGENT", "").strip() or DEFAULT_SEC_USER_AGENT
+    report: dict[str, object] = {
+        "schema_version": 1,
+        "record_type": "sec_public_api_access_probe",
+        "provider": "U.S. SEC EDGAR submissions API",
+        "data_cost_policy": "no_paid_sources",
+        "captured_at_utc": captured_at.isoformat(),
+        "cik": cik,
+        "ticker": ticker.upper(),
+        "action_authorized": False,
+    }
+    try:
+        document = fetch_sec_submission(cik, (ticker.upper(),), user_agent)
+        _, validation = parse_sec_submission(document, captured_at=captured_at)
+        report.update(
+            {
+                "status": "passed" if validation.passed else "failed",
+                "source_url": document.url,
+                "source_sha256": document.sha256,
+                "source_bytes": len(document.content),
+                "source_fetched_at_utc": document.fetched_at_utc,
+                "content_type": document.content_type,
+                "validation": validation.to_dict(),
+            }
+        )
+    except SecFilingEventError as exc:
+        report.update({"status": "failed", "error": str(exc)})
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("x") as handle:
+        json.dump(report, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+    if report["status"] != "passed":
         raise typer.Exit(code=2)
 
 
@@ -376,11 +495,14 @@ def stock_daily(
         root,
         archive_root=archive_root,
         api_key=os.getenv("ALPHA_VANTAGE_API_KEY", "").strip(),
+        sec_user_agent=(
+            os.getenv("SEC_USER_AGENT", "").strip() or DEFAULT_SEC_USER_AGENT
+        ),
     )
     typer.echo(
         f"Stock shadow {result.status} for {result.session} in {result.lineage_id}; "
         f"Alpha={result.alpha_status}, earnings={result.earnings_status}, "
-        f"FINRA={result.finra_status}; no order was placed."
+        f"FINRA={result.finra_status}, SEC={result.sec_status}; no order was placed."
     )
 
 
@@ -644,3 +766,25 @@ def _load_data_quality(path: Path) -> dict[str, object]:
             "decision_data_gate_passed": False,
         }
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _candidate_bound_stock_manifests(
+    candidate_path: Path,
+    universe_dir: Path,
+    price_dir: Path,
+) -> tuple[Path, Path]:
+    payload = json.loads(candidate_path.read_text(encoding="utf-8"))
+    inputs = payload.get("inputs") if isinstance(payload, dict) else None
+    if not isinstance(inputs, dict):
+        raise ValueError("Candidate snapshot has no input bindings.")
+    names: list[str] = []
+    for key in ("universe_manifest", "price_manifest"):
+        value = inputs.get(key)
+        if not isinstance(value, str) or Path(value).name != value:
+            raise ValueError(f"Candidate snapshot has an invalid {key} binding.")
+        names.append(value)
+    universe_path = universe_dir / names[0]
+    price_path = price_dir / names[1]
+    if not universe_path.exists() or not price_path.exists():
+        raise FileNotFoundError("Candidate-bound universe or price manifest is unavailable.")
+    return universe_path, price_path

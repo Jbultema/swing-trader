@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -13,6 +14,7 @@ from swing_trader.finra_activity import (
     FinraSourceDocument,
     audit_finra_activity_snapshot,
     build_finra_activity_diagnostics,
+    download_candidate_finra_activity,
     finra_activity_for_candidate,
     parse_finra_short_volume_file,
     write_finra_activity_snapshot,
@@ -122,8 +124,6 @@ def test_finra_snapshot_can_be_reused_only_for_exact_candidate_bytes(tmp_path: P
         "as_of_session": "2026-10-06",
         "validation_symbols": ["A", "BRK.B"],
     }
-    import hashlib
-
     canonical = json.dumps(candidate, sort_keys=True, separators=(",", ":")).encode()
     candidate["record_sha256"] = hashlib.sha256(canonical).hexdigest()
     candidate_path = tmp_path / "candidate.json"
@@ -146,6 +146,31 @@ def test_finra_snapshot_can_be_reused_only_for_exact_candidate_bytes(tmp_path: P
 
     candidate_path.write_text(candidate_path.read_text() + "\n")
     assert finra_activity_for_candidate(output, candidate_path) is None
+
+
+def test_finra_download_rejects_manifests_not_bound_to_candidate(tmp_path: Path) -> None:
+    candidate: dict[str, object] = {
+        "schema_version": 1,
+        "as_of_session": "2026-10-06",
+        "validation_symbols": ["A"],
+        "inputs": {
+            "universe_manifest_sha256": "expected-universe",
+            "price_manifest_sha256": "expected-prices",
+        },
+    }
+    import hashlib
+
+    canonical = json.dumps(candidate, sort_keys=True, separators=(",", ":")).encode()
+    candidate["record_sha256"] = hashlib.sha256(canonical).hexdigest()
+    candidate_path = tmp_path / "candidate.json"
+    candidate_path.write_text(json.dumps(candidate))
+    universe = tmp_path / "universe.json"
+    prices = tmp_path / "prices.json"
+    universe.write_text("{}")
+    prices.write_text("{}")
+
+    with pytest.raises(FinraActivityError, match="not bound"):
+        download_candidate_finra_activity(candidate_path, universe, prices, tmp_path / "out")
 
 
 def _document(session: date, captured: datetime) -> FinraSourceDocument:

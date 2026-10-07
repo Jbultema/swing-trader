@@ -22,6 +22,12 @@ from swing_trader.finra_activity import (
     finra_activity_for_candidate,
 )
 from swing_trader.provenance import file_sha256
+from swing_trader.sec_filing_events import (
+    DEFAULT_SEC_USER_AGENT,
+    SecFilingEventError,
+    download_candidate_sec_events,
+    sec_events_for_candidate,
+)
 from swing_trader.stock_candidates import record_current_stock_candidates
 from swing_trader.stock_live_data import download_current_stock_prices
 from swing_trader.stock_prospective import write_stock_shadow_evaluation
@@ -50,6 +56,7 @@ class StockDailyResult:
     alpha_status: str
     earnings_status: str
     finra_status: str
+    sec_status: str
     evaluation_path: Path | None
 
 
@@ -58,6 +65,7 @@ def run_stock_shadow_daily(
     *,
     archive_root: Path | None = None,
     api_key: str = "",
+    sec_user_agent: str = DEFAULT_SEC_USER_AGENT,
     now: datetime | None = None,
 ) -> StockDailyResult:
     """Refresh public inputs and advance one no-paid, non-executable paper state."""
@@ -100,7 +108,16 @@ def run_stock_shadow_daily(
                 previous,
                 recorded_at,
             )
-            diagnostics = [] if finra_diagnostic is None else [finra_diagnostic]
+            sec_status, sec_path, sec_diagnostic = _recover_sec_for_existing_state(
+                root,
+                lineage_dir,
+                previous,
+                recorded_at,
+                sec_user_agent,
+            )
+            diagnostics = [
+                value for value in (finra_diagnostic, sec_diagnostic) if value is not None
+            ]
             run_record = _write_run_record(
                 lineage_dir,
                 recorded_at,
@@ -113,6 +130,11 @@ def run_stock_shadow_daily(
                     "finra_activity": None if finra_path is None else finra_path.name,
                     "finra_activity_file_sha256": (
                         None if finra_path is None else file_sha256(finra_path)
+                    ),
+                    "sec_status": sec_status,
+                    "sec_events": None if sec_path is None else sec_path.name,
+                    "sec_events_file_sha256": (
+                        None if sec_path is None else file_sha256(sec_path)
                     ),
                     "diagnostics": diagnostics,
                     "data_cost_policy": "no_paid_sources",
@@ -128,6 +150,7 @@ def run_stock_shadow_daily(
                 "not_called",
                 "not_called",
                 finra_status,
+                sec_status,
                 None,
             )
         _require_consecutive_session(previous, prices.manifest_path, session)
@@ -146,12 +169,20 @@ def run_stock_shadow_daily(
         lineage_dir / "finra-activity",
         recorded_at,
     )
+    sec_status, sec_path, sec_diagnostic = _record_or_reuse_sec_events(
+        candidate.path,
+        universe.manifest_path,
+        prices.manifest_path,
+        lineage_dir / "sec-events",
+        recorded_at,
+        sec_user_agent,
+    )
     earnings_path: Path | None = None
     earnings_status = "key_not_configured"
     alpha_status = "key_not_configured"
-    diagnostics: list[dict[str, str]] = (
-        [] if finra_diagnostic is None else [finra_diagnostic]
-    )
+    diagnostics: list[dict[str, str]] = [
+        value for value in (finra_diagnostic, sec_diagnostic) if value is not None
+    ]
     if api_key.strip():
         try:
             earnings_path = download_alpha_earnings_calendar(
@@ -217,6 +248,9 @@ def run_stock_shadow_daily(
             "finra_activity_file_sha256": (
                 None if finra_path is None else file_sha256(finra_path)
             ),
+            "sec_status": sec_status,
+            "sec_events": None if sec_path is None else sec_path.name,
+            "sec_events_file_sha256": None if sec_path is None else file_sha256(sec_path),
             "diagnostics": diagnostics,
             "data_cost_policy": "no_paid_sources",
             "action_authorized": False,
@@ -231,6 +265,7 @@ def run_stock_shadow_daily(
         alpha_status,
         earnings_status,
         finra_status,
+        sec_status,
         evaluation_path,
     )
 
@@ -323,6 +358,71 @@ def _recover_finra_for_existing_state(
         price_path,
         lineage_dir / "finra-activity",
         recorded_at,
+    )
+
+
+def _record_or_reuse_sec_events(
+    candidate_path: Path,
+    universe_manifest_path: Path,
+    price_manifest_path: Path,
+    output_dir: Path,
+    recorded_at: datetime,
+    user_agent: str,
+) -> tuple[str, Path | None, dict[str, str] | None]:
+    try:
+        existing = sec_events_for_candidate(output_dir, candidate_path)
+        if existing is not None:
+            return "already_passed_experimental_context_only", existing, None
+        snapshot = download_candidate_sec_events(
+            candidate_path,
+            universe_manifest_path,
+            price_manifest_path,
+            output_dir,
+            user_agent=user_agent,
+            now=recorded_at,
+        )
+        return "passed_experimental_context_only", snapshot.manifest_path, None
+    except (SecFilingEventError, OSError, ValueError) as exc:
+        return (
+            "failed_nonblocking_experimental",
+            None,
+            {"step": "sec_filing_events", "error": str(exc)},
+        )
+
+
+def _recover_sec_for_existing_state(
+    root: Path,
+    lineage_dir: Path,
+    state: dict[str, object],
+    recorded_at: datetime,
+    user_agent: str,
+) -> tuple[str, Path | None, dict[str, str] | None]:
+    inputs = state.get("inputs")
+    if not isinstance(inputs, dict):
+        return (
+            "failed_nonblocking_experimental",
+            None,
+            {"step": "sec_filing_events", "error": "Existing state has no input bindings."},
+        )
+    try:
+        candidate_path = lineage_dir / "candidates" / str(inputs["candidate_snapshot"])
+        universe_path = (
+            root / "data/stock-shadow/universe" / str(inputs["universe_manifest"])
+        )
+        price_path = root / "data/stock-shadow/prices" / str(inputs["price_manifest"])
+    except KeyError as exc:
+        return (
+            "failed_nonblocking_experimental",
+            None,
+            {"step": "sec_filing_events", "error": f"Existing state input is missing: {exc}"},
+        )
+    return _record_or_reuse_sec_events(
+        candidate_path,
+        universe_path,
+        price_path,
+        lineage_dir / "sec-events",
+        recorded_at,
+        user_agent,
     )
 
 

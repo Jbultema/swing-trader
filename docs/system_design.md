@@ -19,6 +19,7 @@ public current roster + stale-reference diagnostic
        -> completed-session adjusted OHLCV + 99% coverage gate
        -> three close-known momentum screens -> one frozen consensus
        -> public FINRA activity sidecar (diagnostic only; no ranking/state input)
+       -> public SEC filing-event sidecar (diagnostic only; no sentiment/ranking/state input)
        -> free-quota independent checks for primary candidates/holdings only
        -> next-open primary targets + diagnostic market-guard comparator + explicit exits
        -> immutable prospective outcomes; human remains the only executor
@@ -44,6 +45,13 @@ rows are retained. Its manifest binds the candidate, universe, price panel, and 
 hashes while setting ranking, portfolio-state, directional-interpretation, and action authority to
 false. This lets the project accumulate a clean public activity series before deciding whether a
 preregistered interaction experiment is justified.
+
+The SEC sidecar retrieves the official per-CIK submissions JSON only for the exact candidate and
+benchmark symbols bound to the locked universe and price manifests. It uses EDGAR acceptance time,
+not filing date, as the causal availability boundary; validates CIK/ticker identity and every
+columnar-array length; retains exact source hashes; and labels filing counts as event metadata, not
+sentiment. Local or hosted access failure is nonblocking diagnostic evidence and cannot silently
+activate an alternate source.
 
 Each arm also stores a self-financing paper account: fractional shares, cash, adjusted marks,
 turnover, entry/exit costs, and total equity. Existing shares are not resized when rankings change.
