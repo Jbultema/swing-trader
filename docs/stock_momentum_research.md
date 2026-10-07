@@ -16,9 +16,15 @@ technical-indicator search:
    to the 52-week high, and recent versus baseline volume. Medhat and Schmeling report that
    high-turnover stocks exhibit short-term momentum while low-turnover stocks exhibit reversal.
    The implemented volume ratio is a participation proxy, not share turnover; a provider with
-   point-in-time shares outstanding is required to reproduce their characteristic exactly. George
-   and Hwang report that nearness to the 52-week high contains information beyond conventional
-   momentum.
+   point-in-time shares outstanding is required to reproduce their characteristic exactly. Alpha
+   Vantage's documented `SHARES_OUTSTANDING` endpoint returned `premium_only` to a redacted,
+   quota-accounted free-key probe on 2026-10-07. The open workaround captures only the latest Yahoo
+   shares value and permits its use from capture forward; it does not backfill provider history.
+   The first 503-name capture passed with 500 usable observations (99.40%), while ERIE, WAT, and WBD
+   failed the 130-day age limit. The frozen internal name `short_volume` means short-horizon plus
+   relative volume; it never means FINRA short-sale volume or the new, not-yet-integrated academic
+   share-turnover signal. George and Hwang report that nearness to the 52-week high contains
+   information beyond conventional momentum.
 2. **Smooth momentum** combines 12-1 and 63-session return ranks with the Da-Gurun-Warachka
    information-discreteness measure. It favors gains accumulated through many small moves rather
    than a few jumps.

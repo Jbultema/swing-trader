@@ -81,6 +81,16 @@ A preregistered set of short-volume diagnostic arms holds the same top-ten large
 most 5, 10, or 21 sessions with identical exit rules and 50 bp round-trip costs. Those arms use
 Yahoo only, remain explicitly ineligible for primary performance, and exist to test whether faster
 turnover adds value before the project promotes any shorter holding rule.
+Here `short_volume` is an immutable internal identifier for short-horizon price momentum plus
+relative trading-volume participation. It is neither FINRA short-sale volume nor the academic
+volume/shares-outstanding turnover characteristic. Alpha Vantage's endpoint was premium-only on
+the probed free account. A separate Yahoo `Ticker.get_shares_full` collector now locks one
+current-roster value per ticker for use only after capture; it never treats Yahoo's historical
+timestamps as point-in-time backfill. The 2026-10-07 live snapshot passed its hash and universe
+binding with 500 of 503 names usable (99.40%); ERIE, WAT, and WBD were stale under the frozen
+130-day limit. Run `poetry run swing-trader data snapshot-stock-shares` and then
+`poetry run swing-trader data verify-stock-shares` to reproduce the gate. This feed is not yet a
+portfolio-state input, so the existing arms still use the explicitly labeled relative-volume proxy.
 The evaluator reports where each arm's return occurred (overnight, explicit next-open cost, or
 intraday), starts paired uncertainty after 21 sessions, and applies family-wide error control after
 63 sessions; none of those diagnostic results can qualify the primary record.

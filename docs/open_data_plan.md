@@ -42,6 +42,11 @@ Official references:
 - Stooq was historically attractive as a bulk, independent OHLCV source, but its U.S. archive
   returned HTTP 401 in a live 2026-10-07 check and recent access requires an interactive key. It is
   not an unattended dependency.
+- Alpha Vantage documents quarterly `SHARES_OUTSTANDING`, which would support the academic
+  volume/shares turnover characteristic. A redacted, quota-accounted 2026-10-07 probe using the
+  personal free key returned `premium_only`; the hash-verified artifact contains only the response
+  fingerprint, schema keys, classification, and row counts. It retains neither the key nor provider
+  message. The project therefore does not silently replace share turnover with that paid field.
 - A new GitHub `sp500-data` project publishes useful verification ideas, but it has no clear data or
   code license, has no established adoption, and its own README reports only 76% historical-member
   price coverage in 2015. It is research input, not imported data.
@@ -120,6 +125,27 @@ while testing the shorter-holding hypothesis prospectively instead of selecting 
 The evaluator separates overnight, explicit execution-cost, and intraday performance for every arm,
 then starts paired inference after 21 sessions and family-wide multiple-testing control after 63.
 Those additions require no new provider and do not alter the frozen decision lineage.
+
+`short_volume` is a frozen internal identifier for short-horizon price momentum plus a relative
+20-versus-126-session volume participation proxy. It is not FINRA short-sale volume and it is not
+Medhat-Schmeling share turnover. Exact replication would require point-in-time shares outstanding,
+and Alpha Vantage's documented field was premium-only on the tested free key.
+
+The implemented open workaround is prospective rather than historical. `snapshot-stock-shares`
+queries Yahoo's unofficial `Ticker.get_shares_full` endpoint for the exact locked current roster,
+retains only the latest value, and marks it usable no earlier than its own capture time. Provider
+history is counted and discarded, never backfilled into earlier sessions. The immutable parquet and
+manifest require the exact roster, positive shares, no future timestamps, at least 99% coverage,
+and a maximum 130-day provider-observation age; they bind the current-universe hash and explicitly
+disable historical backfill and action authority. `verify-stock-shares` recalculates the gate and
+checks both file hashes and the universe binding.
+
+The 2026-10-07 live proof recorded 503 roster rows and 19,263 source observations, discarded 18,760
+historical rows, and passed with 500 usable names (99.40%). There were no missing, fetch-error,
+invalid, future, duplicate, unexpected, or absent-roster names. ERIE, WAT, and WBD were excluded as
+stale. This proves that open data can support a forward-only share-turnover test; it does not make
+Yahoo historical shares point-in-time or authorize an exact signal before that signal is separately
+implemented and preregistered.
 
 The practical result is slower than buying a curated database, but it is honest: public and free
 data can support a strong prospective system and selected covered historical replications. It

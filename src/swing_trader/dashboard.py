@@ -33,6 +33,17 @@ def _percentage(value: object) -> str:
     return "N/A" if value is None else f"{float(value):.1%}"
 
 
+def _stock_signal_label(value: object) -> str:
+    if value == "short_volume":
+        return (
+            "short-horizon price plus relative-volume proxy "
+            "(not FINRA short volume or academic share turnover)"
+        )
+    if value == "consensus":
+        return "three-family consensus"
+    return str(value or "legacy")
+
+
 def _decimal(value: object) -> str:
     return "N/A" if value is None else f"{float(value):.4f}"
 
@@ -238,7 +249,7 @@ with stock:
                 st.caption(
                     f"Next-open target cash: {float(arm['target_cash_weight']):.1%}; "
                     f"role: {arm['prospective_role']}; signal: "
-                    f"{arm.get('signal_family', 'legacy')}; independently validated: "
+                    f"{_stock_signal_label(arm.get('signal_family'))}; independently validated: "
                     f"{arm.get('independent_price_validation_applies', False)}."
                 )
                 st.dataframe(target, hide_index=True, width="stretch")

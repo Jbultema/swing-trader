@@ -11,6 +11,7 @@ import pandas as pd
 import typer
 from dotenv import load_dotenv
 
+from swing_trader.alpha_capability import probe_alpha_shares_outstanding
 from swing_trader.alpha_validation import (
     latest_alpha_validation_for_candidate,
     validate_candidate_snapshot_with_alpha,
@@ -62,6 +63,11 @@ from swing_trader.stock_shadow_state import (
     record_stock_shadow_state,
     stock_shadow_lineage_dir,
     verify_stock_shadow_state,
+)
+from swing_trader.stock_shares import (
+    audit_current_stock_share_snapshot,
+    download_current_stock_shares,
+    latest_stock_share_manifest,
 )
 from swing_trader.stock_universe import (
     audit_current_sp500_snapshot,
@@ -160,6 +166,31 @@ def data_refresh_alpha_monthly_cache(
     )
 
 
+@data_app.command("probe-alpha-shares")
+def data_probe_alpha_shares(
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "data/stock-shadow/provider-capabilities/alpha-vantage"
+    ),
+    quota_dir: Annotated[Path, typer.Option("--quota-dir")] = Path(
+        "data/stock-shadow/provider-quota/alpha-vantage"
+    ),
+    symbol: Annotated[str, typer.Option("--symbol")] = "MSFT",
+) -> None:
+    """Record redacted evidence of free-tier shares-outstanding access."""
+    _load_local_environment()
+    key = os.getenv("ALPHA_VANTAGE_API_KEY", "").strip()
+    result = probe_alpha_shares_outstanding(
+        key,
+        output,
+        quota_dir=quota_dir,
+        symbol=symbol,
+    )
+    typer.echo(
+        f"Alpha {result.endpoint} capability={result.status}; "
+        f"free-tier usable={result.usable_on_free_tier}; evidence={result.path.name}."
+    )
+
+
 @data_app.command("snapshot-earnings")
 def data_snapshot_earnings(
     output: Annotated[Path, typer.Option("--output")] = Path("data/events/earnings"),
@@ -194,6 +225,60 @@ def data_verify_stock_universe(
     """Fail closed if the latest current-universe snapshot is stale or modified."""
     manifest = latest_current_sp500_manifest(snapshots)
     result = audit_current_sp500_snapshot(manifest, max_age_hours=max_age_hours)
+    typer.echo(json.dumps(result.to_dict(), indent=2))
+    if not result.passed:
+        raise typer.Exit(code=2)
+
+
+@data_app.command("snapshot-stock-shares")
+def data_snapshot_stock_shares(
+    universe_snapshots: Annotated[Path, typer.Option("--universe-snapshots")] = Path(
+        "data/stock-shadow/universe"
+    ),
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "data/stock-shadow/shares-outstanding"
+    ),
+    minimum_coverage_fraction: Annotated[
+        float, typer.Option("--minimum-coverage-fraction")
+    ] = 0.99,
+    maximum_observation_age_calendar_days: Annotated[
+        int, typer.Option("--maximum-observation-age-calendar-days")
+    ] = 130,
+    max_workers: Annotated[int, typer.Option("--max-workers")] = 4,
+) -> None:
+    """Lock current shares outstanding for future-only share-turnover research."""
+    snapshot = download_current_stock_shares(
+        latest_current_sp500_manifest(universe_snapshots),
+        output,
+        minimum_coverage_fraction=minimum_coverage_fraction,
+        maximum_observation_age_calendar_days=maximum_observation_age_calendar_days,
+        max_workers=max_workers,
+    )
+    typer.echo(
+        f"Locked {snapshot.rows} current-roster share rows; "
+        f"usable coverage {snapshot.validation.coverage_fraction:.2%}; "
+        "future-only research, no historical backfill and no order was placed."
+    )
+    if not snapshot.validation.passed:
+        raise typer.Exit(code=2)
+
+
+@data_app.command("verify-stock-shares")
+def data_verify_stock_shares(
+    universe_snapshots: Annotated[Path, typer.Option("--universe-snapshots")] = Path(
+        "data/stock-shadow/universe"
+    ),
+    share_snapshots: Annotated[Path, typer.Option("--share-snapshots")] = Path(
+        "data/stock-shadow/shares-outstanding"
+    ),
+    max_age_hours: Annotated[float, typer.Option("--max-age-hours")] = 48.0,
+) -> None:
+    """Fail closed if the latest prospective shares snapshot is stale or modified."""
+    result = audit_current_stock_share_snapshot(
+        latest_stock_share_manifest(share_snapshots),
+        universe_manifest_path=latest_current_sp500_manifest(universe_snapshots),
+        max_age_hours=max_age_hours,
+    )
     typer.echo(json.dumps(result.to_dict(), indent=2))
     if not result.passed:
         raise typer.Exit(code=2)
