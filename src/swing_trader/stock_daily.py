@@ -16,6 +16,11 @@ from swing_trader.alpha_validation import (
 )
 from swing_trader.data import MarketDataError
 from swing_trader.events import download_alpha_earnings_calendar
+from swing_trader.finra_activity import (
+    FinraActivityError,
+    download_candidate_finra_activity,
+    finra_activity_for_candidate,
+)
 from swing_trader.provenance import file_sha256
 from swing_trader.stock_candidates import record_current_stock_candidates
 from swing_trader.stock_live_data import download_current_stock_prices
@@ -44,6 +49,7 @@ class StockDailyResult:
     run_record_path: Path
     alpha_status: str
     earnings_status: str
+    finra_status: str
     evaluation_path: Path | None
 
 
@@ -88,6 +94,13 @@ def run_stock_shadow_daily(
         previous = _read_json(previous_path)
         prior_session = str(previous.get("as_of_session"))
         if prior_session == session:
+            finra_status, finra_path, finra_diagnostic = _recover_finra_for_existing_state(
+                root,
+                lineage_dir,
+                previous,
+                recorded_at,
+            )
+            diagnostics = [] if finra_diagnostic is None else [finra_diagnostic]
             run_record = _write_run_record(
                 lineage_dir,
                 recorded_at,
@@ -96,6 +109,12 @@ def run_stock_shadow_daily(
                     "lineage_id": lineage_id,
                     "session": session,
                     "previous_state": previous_path.name,
+                    "finra_status": finra_status,
+                    "finra_activity": None if finra_path is None else finra_path.name,
+                    "finra_activity_file_sha256": (
+                        None if finra_path is None else file_sha256(finra_path)
+                    ),
+                    "diagnostics": diagnostics,
                     "data_cost_policy": "no_paid_sources",
                     "action_authorized": False,
                 },
@@ -108,6 +127,7 @@ def run_stock_shadow_daily(
                 run_record,
                 "not_called",
                 "not_called",
+                finra_status,
                 None,
             )
         _require_consecutive_session(previous, prices.manifest_path, session)
@@ -119,10 +139,19 @@ def run_stock_shadow_daily(
         required_validation_symbols=held,
         now=recorded_at,
     )
+    finra_status, finra_path, finra_diagnostic = _record_or_reuse_finra_activity(
+        candidate.path,
+        universe.manifest_path,
+        prices.manifest_path,
+        lineage_dir / "finra-activity",
+        recorded_at,
+    )
     earnings_path: Path | None = None
     earnings_status = "key_not_configured"
     alpha_status = "key_not_configured"
-    diagnostics: list[dict[str, str]] = []
+    diagnostics: list[dict[str, str]] = (
+        [] if finra_diagnostic is None else [finra_diagnostic]
+    )
     if api_key.strip():
         try:
             earnings_path = download_alpha_earnings_calendar(
@@ -183,6 +212,11 @@ def run_stock_shadow_daily(
             "candidate_record_sha256": candidate.record_sha256,
             "alpha_status": alpha_status,
             "earnings_status": earnings_status,
+            "finra_status": finra_status,
+            "finra_activity": None if finra_path is None else finra_path.name,
+            "finra_activity_file_sha256": (
+                None if finra_path is None else file_sha256(finra_path)
+            ),
             "diagnostics": diagnostics,
             "data_cost_policy": "no_paid_sources",
             "action_authorized": False,
@@ -196,6 +230,7 @@ def run_stock_shadow_daily(
         run_record,
         alpha_status,
         earnings_status,
+        finra_status,
         evaluation_path,
     )
 
@@ -228,6 +263,67 @@ def _stage_archived_states(source: Path, destination: Path) -> None:
             shutil.copy2(path, target)
         previous_name = path.name
         previous_hash = str(payload["record_sha256"])
+
+
+def _record_or_reuse_finra_activity(
+    candidate_path: Path,
+    universe_manifest_path: Path,
+    price_manifest_path: Path,
+    output_dir: Path,
+    recorded_at: datetime,
+) -> tuple[str, Path | None, dict[str, str] | None]:
+    try:
+        existing = finra_activity_for_candidate(output_dir, candidate_path)
+        if existing is not None:
+            return "already_passed_experimental_context_only", existing, None
+        snapshot = download_candidate_finra_activity(
+            candidate_path,
+            universe_manifest_path,
+            price_manifest_path,
+            output_dir,
+            now=recorded_at,
+        )
+        return "passed_experimental_context_only", snapshot.manifest_path, None
+    except (FinraActivityError, OSError, ValueError) as exc:
+        return (
+            "failed_nonblocking_experimental",
+            None,
+            {"step": "finra_activity", "error": str(exc)},
+        )
+
+
+def _recover_finra_for_existing_state(
+    root: Path,
+    lineage_dir: Path,
+    state: dict[str, object],
+    recorded_at: datetime,
+) -> tuple[str, Path | None, dict[str, str] | None]:
+    inputs = state.get("inputs")
+    if not isinstance(inputs, dict):
+        return (
+            "failed_nonblocking_experimental",
+            None,
+            {"step": "finra_activity", "error": "Existing state has no input bindings."},
+        )
+    try:
+        candidate_path = lineage_dir / "candidates" / str(inputs["candidate_snapshot"])
+        universe_path = (
+            root / "data/stock-shadow/universe" / str(inputs["universe_manifest"])
+        )
+        price_path = root / "data/stock-shadow/prices" / str(inputs["price_manifest"])
+    except KeyError as exc:
+        return (
+            "failed_nonblocking_experimental",
+            None,
+            {"step": "finra_activity", "error": f"Existing state input is missing: {exc}"},
+        )
+    return _record_or_reuse_finra_activity(
+        candidate_path,
+        universe_path,
+        price_path,
+        lineage_dir / "finra-activity",
+        recorded_at,
+    )
 
 
 def _require_consecutive_session(

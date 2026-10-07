@@ -21,7 +21,7 @@ backtest whose missing failures would mechanically flatter performance.
 | Alpha Vantage free tier | Free personal key, 25 calls/day | Candidate/holding-only independent daily checks and one bulk earnings calendar call | Cannot validate all 500 names every day; adjusted daily history is not on the free endpoint |
 | SEC EDGAR | Public, keyless, authoritative filings | Acceptance-time 8-K/10-Q/10-K/Form 4 events and as-filed facts | This execution environment currently receives SEC HTTP 403; scheduled GitHub-hosted access must be tested separately |
 | FRED | Public, keyless CSV | Cash return and macro-regime series | Macro data are not stock-specific catalysts |
-| FINRA Reg SHO | Public API | Experimental daily short-volume participation feature | Covers FINRA-reported off-exchange activity, not total short interest or a direct bearish signal |
+| FINRA Reg SHO | Public, keyless daily file; license not assumed open | Implemented candidate-bound off-exchange activity diagnostic | Covers FINRA-reported off-exchange activity, not exchange volume, short interest, or a directional signal |
 | Nasdaq Data Link WIKI Prices | Public-domain archive, free account key | Pre-April-2018 replication/cross-check only | Provider discontinued support and explicitly does not recommend it for investment analysis |
 
 Official references:
@@ -30,6 +30,10 @@ Official references:
   <https://www.alphavantage.co/support/>
 - SEC APIs and nightly bulk archives: <https://www.sec.gov/search-filings/edgar-application-programming-interfaces>
 - FINRA Reg SHO daily volume: <https://developer.finra.org/docs/api-explorer/query_api-equity-reg_sho_daily_short_sale_volume>
+  and the consolidated file pattern
+  <https://cdn.finra.org/equity/regsho/daily/CNMSshvol20261006.txt>
+- FINRA's explanation of daily short-sale volume versus short interest:
+  <https://www.finra.org/investors/insights/short-interest>
 - Public-domain WIKI archive status: <https://data.nasdaq.com/databases/WIKIP>
 - `pitindex`: <https://github.com/arielNacamulli/pitindex>
 
@@ -70,6 +74,11 @@ Official references:
    shorter clean period is preferable to a longer biased one.
 6. Treat SEC, FINRA, and future-earnings data as event/risk features captured before a decision;
    never backfill today's event view into old signals.
+7. Download FINRA files only for completed sessions already present in the locked price panel.
+   Validate the documented header, integer trailer count, date, uniqueness, and volume arithmetic;
+   bind the exact source-byte hash to a candidate-only parquet. Keep the resulting 1/5/20-session
+   ratios outside ranking and portfolio state until a preregistered prospective experiment has
+   enough observations to judge them.
 
 Operationally, full-universe Yahoo downloads use batches for speed, then retry incomplete symbols
 twice as single-name requests. The 99% current-close gate remains unchanged; retries recover
@@ -91,3 +100,26 @@ The practical result is slower than buying a curated database, but it is honest:
 data can support a strong prospective system and selected covered historical replications. It
 cannot justify a universal survivor-free historical claim when missing names are correlated with
 failure.
+
+## Implemented FINRA workaround
+
+`swing-trader data snapshot-finra-activity` retrieves 21 consolidated daily files from FINRA's
+public CDN for the exact sessions in the candidate's locked price snapshot. It preserves fractional
+reported volumes, maps FINRA's class-share slash only for ticker matching, validates every full
+source file before filtering, and records each source URL and byte hash. The normalized snapshot is
+bound to the candidate, price, and universe manifests and can be re-audited with
+`swing-trader data verify-finra-activity`.
+
+The 2026-10-07 live proof locked 231 rows for 11 candidate/benchmark symbols across 21 completed
+sessions with 100% latest-session coverage. One initial run failed safely because the valid ticker
+`NA` was interpreted by pandas as a missing-value token; the parser now disables default NA-token
+inference and carries a regression test. This is operational evidence for the feed, not evidence of
+predictive edge. The nightly workflow records retrieval failure as a nonblocking experimental
+diagnostic, and the manifest sets `candidate_ranking_input`, `portfolio_state_input`, and
+`action_authorized` to false.
+
+SEC remains an important public workaround for timestamped 8-K, 10-Q, 10-K, and Form 4 events, but
+the official submissions endpoint returned HTTP 403 from this execution environment on 2026-10-07
+even with a declared research user agent. SEC collection therefore remains unimplemented in the
+decision path until a GitHub-hosted access probe passes and can be archived reproducibly; the bot
+does not silently substitute an unofficial filing mirror.

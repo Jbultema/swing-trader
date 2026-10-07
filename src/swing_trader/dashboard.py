@@ -7,6 +7,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from swing_trader.finra_activity import audit_finra_activity_snapshot
 from swing_trader.stock_audit import audit_stock_research_bundle
 from swing_trader.stock_prospective import verify_stock_shadow_evaluation
 from swing_trader.stock_shadow_state import (
@@ -219,6 +220,28 @@ with stock:
                     f"role: {arm['prospective_role']}."
                 )
                 st.dataframe(target, hide_index=True, width="stretch")
+
+        finra_paths = sorted(
+            (lineage_dir / "finra-activity").glob("finra-activity-*.manifest.json")
+        )
+        if finra_paths:
+            finra_path = finra_paths[-1]
+            finra_audit = audit_finra_activity_snapshot(finra_path)
+            st.subheader("Experimental FINRA activity context")
+            if not finra_audit.integrity_passed:
+                st.error("The latest FINRA activity diagnostic failed its integrity check.")
+            else:
+                finra_manifest = json.loads(finra_path.read_text())
+                st.caption(
+                    "Public FINRA-reported off-exchange short-sale volume. This is not short "
+                    "interest, has no bullish/bearish interpretation, and was not used for "
+                    "candidate ranking or the portfolio target."
+                )
+                st.dataframe(
+                    pd.DataFrame(finra_manifest["candidate_diagnostics"]),
+                    hide_index=True,
+                    width="stretch",
+                )
 
         evaluation_paths = sorted((lineage_dir / "evaluations").glob("evaluation-*.json"))
         if not evaluation_paths:

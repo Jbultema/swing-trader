@@ -26,6 +26,11 @@ from swing_trader.data import (
     reconcile_monthly_adjusted,
 )
 from swing_trader.events import download_alpha_earnings_calendar, latest_earnings_snapshot
+from swing_trader.finra_activity import (
+    audit_finra_activity_snapshot,
+    download_candidate_finra_activity,
+    latest_finra_activity_manifest,
+)
 from swing_trader.prospective import write_prospective_evaluation
 from swing_trader.research import run_research
 from swing_trader.shadow import record_shadow_snapshot
@@ -225,6 +230,53 @@ def data_verify_stock_prices(
         raise typer.Exit(code=2)
 
 
+@data_app.command("snapshot-finra-activity")
+def data_snapshot_finra_activity(
+    candidates: Annotated[Path, typer.Option("--candidates")] = Path(
+        "reports/stock-shadow/candidates"
+    ),
+    universe_snapshots: Annotated[Path, typer.Option("--universe-snapshots")] = Path(
+        "data/stock-shadow/universe"
+    ),
+    price_snapshots: Annotated[Path, typer.Option("--price-snapshots")] = Path(
+        "data/stock-shadow/prices"
+    ),
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "data/stock-shadow/finra-activity"
+    ),
+    lookback_sessions: Annotated[int, typer.Option("--lookback-sessions")] = 21,
+) -> None:
+    """Lock free FINRA activity context; never interpret it as short interest."""
+    snapshot = download_candidate_finra_activity(
+        latest_candidate_snapshot(candidates),
+        latest_current_sp500_manifest(universe_snapshots),
+        latest_stock_price_manifest(price_snapshots),
+        output,
+        lookback_sessions=lookback_sessions,
+    )
+    typer.echo(
+        f"Locked {snapshot.sessions} FINRA sessions and {snapshot.rows} candidate rows; "
+        "experimental context only, no ranking changed and no order was placed."
+    )
+
+
+@data_app.command("verify-finra-activity")
+def data_verify_finra_activity(
+    snapshots: Annotated[Path, typer.Option("--snapshots")] = Path(
+        "data/stock-shadow/finra-activity"
+    ),
+    max_age_hours: Annotated[float, typer.Option("--max-age-hours")] = 48.0,
+) -> None:
+    """Fail closed if the latest FINRA context is stale, modified, or unsafe."""
+    result = audit_finra_activity_snapshot(
+        latest_finra_activity_manifest(snapshots),
+        max_age_hours=max_age_hours,
+    )
+    typer.echo(json.dumps(result.to_dict(), indent=2))
+    if not result.passed:
+        raise typer.Exit(code=2)
+
+
 @research_app.command("run")
 def research_run(
     config_path: Annotated[Path, typer.Option("--config")] = Path("config/default.toml"),
@@ -327,7 +379,8 @@ def stock_daily(
     )
     typer.echo(
         f"Stock shadow {result.status} for {result.session} in {result.lineage_id}; "
-        f"Alpha={result.alpha_status}, earnings={result.earnings_status}; no order was placed."
+        f"Alpha={result.alpha_status}, earnings={result.earnings_status}, "
+        f"FINRA={result.finra_status}; no order was placed."
     )
 
 

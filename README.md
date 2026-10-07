@@ -63,6 +63,7 @@ The no-paid individual-stock path locks every input before it can observe the ne
 poetry run swing-trader data snapshot-stock-universe
 poetry run swing-trader data snapshot-stock-prices
 poetry run swing-trader shadow screen-stocks
+poetry run swing-trader data snapshot-finra-activity
 poetry run swing-trader shadow validate-stock-candidates
 poetry run swing-trader data snapshot-earnings --horizon 3month
 poetry run swing-trader shadow record-stocks
@@ -78,6 +79,12 @@ diagnostic comparator rather than consuming enough calls to make the primary wor
 A local ledger permits at most 24 of the documented 25 daily calls, leaving room for the one-call
 bulk earnings calendar. Missing, stale, divergent, or quota-limited validation still produces an
 immutable diagnostic state but makes it ineligible for primary prospective performance.
+
+The public, keyless FINRA sidecar locks 21 completed sessions of off-exchange short-sale-volume
+context for the same shortlist. It validates each full source file before filtering and binds exact
+source hashes to the candidate, universe, and price manifests. These values are not short interest,
+carry no bullish or bearish label, and are explicitly excluded from ranking and portfolio state.
+Run `poetry run swing-trader data verify-finra-activity` to audit the latest standalone snapshot.
 
 `record-stocks` starts from cash, records decisions made after the completed close, and applies them
 no earlier than the next regular-session open. It refuses to fill a missing paper session with the

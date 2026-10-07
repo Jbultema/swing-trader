@@ -66,6 +66,9 @@ dashboard rather than collapsed into a generic `SELL`.
   caveats: https://github.com/arielNacamulli/pitindex
 - SEC EDGAR submissions and XBRL facts are free, timestamped, keyless, and updated throughout the
   day: https://www.sec.gov/search-filings/edgar-application-programming-interfaces
+- FINRA publishes keyless consolidated daily short-sale-volume files. They describe only trades
+  reported to FINRA facilities and are neither consolidated exchange volume nor short interest:
+  https://developer.finra.org/docs/api-explorer/query_api-equity-reg_sho_daily_short_sale_volume
 - Yahoo through `yfinance` is adequate for a disposable prototype and provider cross-checks, but it
   is an unofficial endpoint and cannot guarantee complete delisted-symbol history.
 - Alpaca provides free historical U.S. equity data since 2016, but its free real-time feed is IEX
@@ -222,6 +225,10 @@ requires dated point-in-time classifications, not today's company narrative.
   BUY/HOLD/SELL/SKIP ledger suitable for the explainability dashboard.
 - `events.py` validates and immutably snapshots prospective Alpha Vantage earnings calendars and
   maps report timing into causal pre-event and post-event session flags.
+- `finra_activity.py` validates each full public FINRA file, including its trailer count and volume
+  arithmetic, then locks 21 sessions of candidate-bound 1/5/20-session activity context. It retains
+  exact source hashes and is explicitly prohibited from ranking candidates or changing a portfolio
+  state. Daily short-sale volume is never labeled short interest or bearish pressure.
 - `stock_data.py` and `swing-trader data audit-stocks` fail closed on missing historical members,
   member-date gaps, or inadequate 252-session warm-up.
 - `execution.py` compares each asset-level trade with median dollar volume known before the open and

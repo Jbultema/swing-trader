@@ -18,6 +18,7 @@ public current roster + stale-reference diagnostic
        -> immutable prospective-only universe snapshot
        -> completed-session adjusted OHLCV + 99% coverage gate
        -> three close-known momentum screens -> one frozen consensus
+       -> public FINRA activity sidecar (diagnostic only; no ranking/state input)
        -> free-quota independent checks for primary candidates/holdings only
        -> next-open primary targets + diagnostic market-guard comparator + explicit exits
        -> immutable prospective outcomes; human remains the only executor
@@ -36,6 +37,13 @@ Implementation/config hashes name each durable lineage. The hosted job restores 
 lineage, records holidays as no-ops before spending optional-provider calls, and fails on a missed
 trading session. Public-price batches receive bounded single-symbol retries, but the 99% close
 coverage threshold is never relaxed.
+
+The FINRA sidecar downloads only dates already proven to be completed price sessions. Each source
+file must pass schema, trailer-count, uniqueness, and volume-consistency gates before the candidate
+rows are retained. Its manifest binds the candidate, universe, price panel, and exact FINRA source
+hashes while setting ranking, portfolio-state, directional-interpretation, and action authority to
+false. This lets the project accumulate a clean public activity series before deciding whether a
+preregistered interaction experiment is justified.
 
 Each arm also stores a self-financing paper account: fractional shares, cash, adjusted marks,
 turnover, entry/exit costs, and total equity. Existing shares are not resized when rankings change.
