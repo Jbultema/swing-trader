@@ -13,6 +13,7 @@ from swing_trader.backtest import (
     buy_and_hold_weights,
     classic_dual_momentum_weights,
     guarded_dual_momentum_weights,
+    long_only_time_series_momentum_weights,
     month_end_mask,
     moving_average_weights,
     panic_guarded_dual_momentum_weights,
@@ -43,6 +44,10 @@ def run_research(
         "buy_hold_spy": buy_and_hold_weights(close, config.data.benchmark),
         "spy_200d_trend": moving_average_weights(close, config.data.benchmark, 200),
         "classic_12m_dual_momentum": champion_weights,
+        "long_only_time_series_momentum": long_only_time_series_momentum_weights(
+            close,
+            config.data.tickers,
+        ),
         "dual_momentum_asset_trend_exit": guarded_dual_momentum_weights(
             close,
             config.data.tickers,

@@ -81,6 +81,23 @@ def classic_dual_momentum_weights(
     return scheduled.reindex(columns=prices.columns, fill_value=0.0)
 
 
+def long_only_time_series_momentum_weights(
+    prices: pd.DataFrame,
+    tickers: tuple[str, ...],
+    lookback_days: int = 252,
+) -> pd.DataFrame:
+    """Monthly equal weight across assets with positive own 12-month momentum.
+
+    This is an unlevered, long-only comparator inspired by published time-series
+    momentum, not a replication of the literature's long/short futures portfolios.
+    """
+    momentum = prices[list(tickers)].div(prices[list(tickers)].shift(lookback_days)).sub(1.0)
+    selected = momentum > 0.0
+    weights = selected.astype(float).div(selected.sum(axis=1).replace(0.0, 1.0), axis=0)
+    scheduled = weights.loc[month_end_mask(prices.index)].reindex(prices.index).ffill().fillna(0.0)
+    return scheduled.reindex(columns=prices.columns, fill_value=0.0)
+
+
 def guarded_dual_momentum_weights(
     prices: pd.DataFrame,
     tickers: tuple[str, ...],

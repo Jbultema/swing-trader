@@ -19,6 +19,10 @@ The operating hypothesis is intentionally modest: trends can persist over interm
 - No short side or derivative proxy for the published trend-following portfolios.
 - No optimization against the sealed-holdout score after its first run.
 
+## Published-approach comparators
+
+The report includes a monthly, equal-weight, long-only translation of the Moskowitz–Ooi–Pedersen time-series-momentum sign rule: every ETF with positive own trailing-12-month momentum is held, otherwise its capital remains in cash. It deliberately omits short futures, leverage, and volatility scaling, so it is a constraint-matched comparator rather than a claimed replication. The champion differs by adding cross-sectional concentration in the top three positive assets. SPY buy-and-hold and the simple SPY 200-session trend rule remain non-momentum controls.
+
 ## Falsifiable thesis
 
 After conservative costs, the candidate should reduce maximum drawdown and improve Calmar ratio versus buy-and-hold SPY over the full sample and most hostile regimes. It need not beat SPY CAGR in persistent bull markets. Failure on drawdown control, unstable results across reasonable parameter neighborhoods, or weak prospective shadow performance invalidates promotion.

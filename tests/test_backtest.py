@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from swing_trader.backtest import (
+    long_only_time_series_momentum_weights,
     month_end_mask,
     panic_guarded_dual_momentum_weights,
     run_backtest,
@@ -58,3 +59,18 @@ def test_panic_guard_exits_to_cash_after_market_crash() -> None:
         top_n=1,
     )
     assert weights.iloc[-1].sum() == 0.0
+
+
+def test_long_only_time_series_momentum_holds_only_positive_assets() -> None:
+    dates = pd.bdate_range("2024-01-02", periods=400)
+    prices = pd.DataFrame(
+        {
+            "A": [100.0 + value for value in range(len(dates))],
+            "B": [500.0 - value for value in range(len(dates))],
+        },
+        index=dates,
+    )
+    weights = long_only_time_series_momentum_weights(prices, ("A", "B"))
+
+    assert weights.iloc[-1]["A"] == 1.0
+    assert weights.iloc[-1]["B"] == 0.0

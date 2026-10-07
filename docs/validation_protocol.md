@@ -17,6 +17,7 @@ shadow interval is the next valid holdout.
 - Buy and hold SPY.
 - SPY above/below its 200-session moving average.
 - A simple 12-month long-only dual-momentum rotation.
+- A constraint-matched long-only translation of published 12-month time-series momentum.
 - The frozen candidate with identical data, timing, and transaction-cost assumptions.
 
 ## Required diagnostics
