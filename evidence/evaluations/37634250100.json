@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "evaluation_method": "first adjusted open after the locked as-of close through the adjusted open 5, 21, or 63 sessions later; model return deducts frozen one-way turnover cost",
+  "evaluated_through": "2026-10-07",
+  "horizons_sessions": [
+    5,
+    21,
+    63
+  ],
+  "records_seen": 6,
+  "unique_schema_v3_decisions": 1,
+  "excluded_records": [
+    {
+      "file": "20261007T020750.773333Z-8a1bd0da62b8.json",
+      "reason": "not_self_contained_schema_v3"
+    }
+  ],
+  "outcomes": [
+    {
+      "record_sha256": "4df9a94a06d2128edee6ffd3df4a66b1fcfd15b8125f45fecdf019fda367b6d7",
+      "recorded_at_utc": "2026-10-07T02:14:52.948515+00:00",
+      "as_of_close": "2026-10-06",
+      "last_monthly_decision": "2026-09-30",
+      "specification_sha256": "0121ede05ce2bbd51b5d734c9f58188c828c7f17659444da46ab9645c186b0b5",
+      "implementation_sha256": "5574ab264783b4e3fb06d119bc0396daabda7ca66e141560ff6d759bc5123c26",
+      "data_gate_passed": false,
+      "target_weights": {
+        "XLE": 0.3333333333333333,
+        "XLK": 0.3333333333333333,
+        "EEM": 0.3333333333333333
+      },
+      "modeled_one_way_turnover": 0.0,
+      "horizons": {
+        "5": {
+          "matured": false
+        },
+        "21": {
+          "matured": false
+        },
+        "63": {
+          "matured": false
+        }
+      },
+      "entry_date": "2026-10-07"
+    }
+  ],
+  "eligible_summary": {
+    "eligible_unique_decisions": 0,
+    "by_horizon": {
+      "5": {
+        "matured_decisions": 0,
+        "mean_model_net_return": null,
+        "mean_net_excess_return": null
+      },
+      "21": {
+        "matured_decisions": 0,
+        "mean_model_net_return": null,
+        "mean_net_excess_return": null
+      },
+      "63": {
+        "matured_decisions": 0,
+        "mean_model_net_return": null,
+        "mean_net_excess_return": null
+      }
+    }
+  }
+}
