@@ -38,6 +38,7 @@ jobs:
           path: |
             data/stock-shadow/universe/
             data/stock-shadow/prices/
+            data/stock-shadow/shares-outstanding/
             data/stock-shadow/provider-quota/
             reports/stock-shadow/lineages/
           if-no-files-found: error

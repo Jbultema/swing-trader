@@ -189,7 +189,7 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
         tuple(arm_equity),
     )
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "record_type": "prospective_stock_shadow_evaluation",
         "research_status": "prospective_paper_only_not_trading_authority",
         "data_cost_policy": "no_paid_sources",
@@ -255,10 +255,15 @@ def _diagnostic_arm_comparisons(
 ) -> dict[str, object]:
     arm_names = tuple(diagnostic_returns)
     per_arm: dict[str, object] = {}
-    same_signal_reference = "short_volume_hold21"
-    reference = diagnostic_returns.get(same_signal_reference)
+    reference_arms = {
+        "short_volume": "short_volume_hold21",
+        "share_turnover": "share_turnover_hold21",
+    }
     for position, arm_name in enumerate(arm_names):
         values = diagnostic_returns[arm_name]
+        family = _diagnostic_arm_family(arm_name)
+        same_signal_reference = reference_arms[family]
+        reference = diagnostic_returns.get(same_signal_reference)
         row: dict[str, object] = {
             "versus_primary_consensus": _paired_diagnostic(
                 values,
@@ -282,11 +287,13 @@ def _diagnostic_arm_comparisons(
                 "reference": same_signal_reference,
             }
         else:
-            row["versus_same_signal_hold21"] = _paired_diagnostic(
+            comparison = _paired_diagnostic(
                 values,
                 reference,
                 seed=20261207 + position,
             )
+            comparison["reference"] = same_signal_reference
+            row["versus_same_signal_hold21"] = comparison
         per_arm[arm_name] = row
 
     complete = pd.concat(
@@ -335,7 +342,7 @@ def _diagnostic_arm_comparisons(
         "status": "diagnostic_only_not_primary_evidence",
         "minimum_paired_sessions": MINIMUM_DIAGNOSTIC_PAIRED_SESSIONS,
         "minimum_family_sessions": MINIMUM_DIAGNOSTIC_FAMILY_SESSIONS,
-        "same_signal_reference_arm": same_signal_reference,
+        "same_signal_reference_arms": reference_arms,
         "method": (
             "paired stationary bootstrap for each preregistered arm; common stationary "
             "bootstrap and Benjamini-Yekutieli correction across the complete arm family"
@@ -743,17 +750,26 @@ def _diagnostic_arm_names(
     diagnostic = tuple(
         sorted(
             set(first_arms) - base,
-            key=lambda name: int(name.removeprefix("short_volume_hold")),
+            key=lambda name: (
+                _diagnostic_arm_family(name),
+                int(name.rsplit("hold", maxsplit=1)[1]),
+            ),
         )
     )
-    if any(not name.startswith("short_volume_hold") for name in diagnostic):
-        raise StockProspectiveEvaluationError("State contains an unknown diagnostic arm.")
     expected = base | set(diagnostic)
     for _, payload in states:
         arms = payload.get("arms")
         if not isinstance(arms, dict) or set(arms) != expected:
             raise StockProspectiveEvaluationError("State arm registry changed within the lineage.")
     return diagnostic
+
+
+def _diagnostic_arm_family(arm_name: str) -> str:
+    if arm_name.startswith("short_volume_hold"):
+        return "short_volume"
+    if arm_name.startswith("share_turnover_hold"):
+        return "share_turnover"
+    raise StockProspectiveEvaluationError(f"State contains an unknown diagnostic arm: {arm_name}")
 
 
 def _spy_equity(states: list[tuple[Path, dict[str, object]]]) -> list[float]:

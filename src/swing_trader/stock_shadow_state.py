@@ -18,7 +18,14 @@ from swing_trader.stock_live_data import (
     audit_current_stock_price_snapshot,
     load_locked_current_universe,
 )
+from swing_trader.stock_shares import audit_current_stock_share_snapshot
 from swing_trader.stock_signals import SCORE_COLUMNS, ExitPolicy, build_stock_features, exit_reasons
+from swing_trader.stock_turnover import (
+    SHARE_TURNOVER_METHOD,
+    SHARE_TURNOVER_SIGNAL_FAMILY,
+    ShareTurnoverSignalConfig,
+    build_share_turnover_features,
+)
 
 
 class StockShadowStateError(ValueError):
@@ -39,6 +46,7 @@ class StockShadowConfig:
     maximum_annualized_volatility: float
     arms: tuple[str, ...]
     short_volume_holding_sessions: tuple[int, ...]
+    share_turnover_holding_sessions: tuple[int, ...]
     earnings_lead_sessions: int
     earnings_cooling_sessions: int
     round_trip_cost_bps: float
@@ -74,6 +82,9 @@ def load_stock_shadow_config(path: Path) -> tuple[StockShadowConfig, dict[str, o
         short_volume_holding_sessions=tuple(
             int(value) for value in raw["experiments"]["short_volume_holding_sessions"]
         ),
+        share_turnover_holding_sessions=tuple(
+            int(value) for value in raw["experiments"]["share_turnover_holding_sessions"]
+        ),
         earnings_lead_sessions=int(raw["events"]["earnings_lead_sessions"]),
         earnings_cooling_sessions=int(raw["events"]["earnings_cooling_sessions"]),
         round_trip_cost_bps=float(raw["evaluation"]["round_trip_cost_bps"]),
@@ -87,6 +98,7 @@ def record_stock_shadow_state(
     candidate_path: Path,
     universe_manifest_path: Path,
     price_manifest_path: Path,
+    share_manifest_path: Path,
     config_path: Path,
     state_dir: Path,
     *,
@@ -119,6 +131,11 @@ def record_stock_shadow_state(
         candidate_inputs.get("price_manifest_sha256"),
         "price manifest",
     )
+    _require_bound_file(
+        share_manifest_path,
+        candidate_inputs.get("share_manifest_sha256"),
+        "share manifest",
+    )
     price_audit = audit_current_stock_price_snapshot(
         price_manifest_path,
         universe_manifest_path=universe_manifest_path,
@@ -127,6 +144,15 @@ def record_stock_shadow_state(
     if not price_audit.passed:
         raise StockShadowStateError(
             f"Stock-price snapshot failed its gate: {json.dumps(price_audit.to_dict())}"
+        )
+    share_audit = audit_current_stock_share_snapshot(
+        share_manifest_path,
+        universe_manifest_path=universe_manifest_path,
+        now=recorded_at,
+    )
+    if not share_audit.passed:
+        raise StockShadowStateError(
+            f"Stock-share snapshot failed its gate: {json.dumps(share_audit.to_dict())}"
         )
     universe, universe_manifest = load_locked_current_universe(
         universe_manifest_path,
@@ -138,6 +164,10 @@ def record_stock_shadow_state(
     prices.index = pd.DatetimeIndex(pd.to_datetime(prices.index)).tz_localize(None)
     if pd.Timestamp(prices.index.max()) != current_session:
         raise StockShadowStateError("Candidate and price snapshots do not share the latest session.")
+    share_manifest = _read_json(share_manifest_path)
+    shares = pd.read_parquet(
+        share_manifest_path.parent / str(share_manifest["data_file"])
+    )
 
     config, raw_config = load_stock_shadow_config(config_path)
     specification = {
@@ -145,6 +175,11 @@ def record_stock_shadow_state(
         "signal": {
             "families": list(SCORE_COLUMNS),
             "consensus": candidate.get("consensus_method"),
+            "experimental_share_turnover": {
+                "family": SHARE_TURNOVER_SIGNAL_FAMILY,
+                "method": SHARE_TURNOVER_METHOD,
+                "holding_sessions": list(config.share_turnover_holding_sessions),
+            },
             "signal_at": "regular_session_close",
             "execute_at": "next_regular_session_open",
         },
@@ -172,12 +207,31 @@ def record_stock_shadow_state(
     membership.loc[:, membership.columns.intersection(sorted(current_tickers))] = True
     features = build_stock_features(prices, membership)
     day = features.xs(current_session, level="date")
+    turnover_features = build_share_turnover_features(
+        prices,
+        shares,
+        current_session,
+        config=ShareTurnoverSignalConfig(),
+    )
+    day = day.join(
+        turnover_features.drop(
+            columns=["close", "median_dollar_volume_20d"],
+            errors="ignore",
+        ),
+        how="left",
+    )
     consensus_rank = _consensus_rank(day)
     candidates = _consensus_tickers(candidate, config.maximum_positions)
     short_volume_rank = _family_rank(day, "short_volume")
     short_volume_candidates = _family_tickers(
         candidate,
         "short_volume",
+        config.maximum_positions,
+    )
+    share_turnover_rank = turnover_features["selection_rank"]
+    share_turnover_candidates = _experimental_tickers(
+        candidate,
+        SHARE_TURNOVER_SIGNAL_FAMILY,
         config.maximum_positions,
     )
     market_state = _market_state(
@@ -236,7 +290,8 @@ def record_stock_shadow_state(
                 else "diagnostic_market_guard_comparator"
             )
             independently_validated = arm_name == "consensus"
-        else:
+            signal_family = "consensus"
+        elif arm_name.startswith("short_volume_hold"):
             holding = _short_volume_holding_from_arm(arm_name, config)
             arm_rank = short_volume_rank
             arm_candidates = short_volume_candidates
@@ -249,6 +304,24 @@ def record_stock_shadow_state(
             entry_reason = "top_short_volume_entry"
             prospective_role = f"diagnostic_short_volume_max_hold_{holding}_sessions"
             independently_validated = False
+            signal_family = "short_volume"
+        else:
+            holding = _share_turnover_holding_from_arm(arm_name, config)
+            arm_rank = share_turnover_rank
+            arm_candidates = share_turnover_candidates
+            arm_policy = ExitPolicy(
+                hard_stop_fraction=config.hard_stop_fraction,
+                atr_multiple=config.atr_multiple,
+                maximum_holding_sessions=holding,
+                rank_exit_multiple=config.rank_exit_multiple,
+            )
+            entry_reason = "top_share_turnover_skip3_entry"
+            prospective_role = (
+                "diagnostic_academic_share_turnover_skip3_"
+                f"max_hold_{holding}_sessions"
+            )
+            independently_validated = False
+            signal_family = SHARE_TURNOVER_SIGNAL_FAMILY
         prior_arm = None
         if previous is not None:
             previous_arms = previous.get("arms")
@@ -279,7 +352,7 @@ def record_stock_shadow_state(
             "valuation_complete"
         ) is True
         arm["prospective_role"] = prospective_role
-        arm["signal_family"] = "consensus" if primary_arm or guarded else "short_volume"
+        arm["signal_family"] = signal_family
         arm["maximum_holding_sessions"] = arm_policy.maximum_holding_sessions
         arm["independent_price_validation_applies"] = independently_validated
         arm["eligible_for_primary_prospective_performance"] = bool(
@@ -296,7 +369,7 @@ def record_stock_shadow_state(
     assert isinstance(primary_arm, dict)
     primary_eligible = bool(primary_arm["eligible_for_primary_prospective_performance"])
     payload: dict[str, object] = {
-        "schema_version": 3,
+        "schema_version": 4,
         "record_type": "prospective_stock_shadow_state",
         "research_status": "paper_only_human_execution_required",
         "data_cost_policy": "no_paid_sources",
@@ -314,6 +387,19 @@ def record_stock_shadow_state(
         "market_state": market_state,
         "independent_price_validation": alpha_gate,
         "earnings_risk_validation": earnings_gate,
+        "share_turnover_data_validation": {
+            "status": "passed",
+            "passed": True,
+            "artifact": share_manifest_path.name,
+            "manifest_sha256": file_sha256(share_manifest_path),
+            "coverage_fraction": share_manifest.get("validation", {}).get(
+                "coverage_fraction"
+            ) if isinstance(share_manifest.get("validation"), dict) else None,
+            "stale_tickers": share_manifest.get("validation", {}).get("stale_tickers", [])
+            if isinstance(share_manifest.get("validation"), dict)
+            else [],
+            "historical_backfill_authorized": False,
+        },
         "eligible_for_primary_prospective_performance": primary_eligible,
         "operational_action_gate_passed": primary_eligible,
         "arms": arm_payloads,
@@ -327,6 +413,10 @@ def record_stock_shadow_state(
             "price_manifest": price_manifest_path.name,
             "price_manifest_sha256": file_sha256(price_manifest_path),
             "price_tabular_sha256": price_manifest.get("tabular_sha256"),
+            "share_manifest": share_manifest_path.name,
+            "share_manifest_sha256": file_sha256(share_manifest_path),
+            "share_tabular_sha256": share_manifest.get("tabular_sha256"),
+            "share_data_role": share_manifest.get("data_role"),
             "config": config_path.name,
             "config_sha256": file_sha256(config_path),
         },
@@ -670,6 +760,15 @@ def _decision(
         "return_12_1": _finite_float(row.get("return_12_1")),
         "proximity_52w_high": _finite_float(row.get("proximity_52w_high")),
         "volume_ratio_20_126": _finite_float(row.get("volume_ratio_20_126")),
+        "formation_return_t20_t3": _finite_float(row.get("formation_return_t20_t3")),
+        "share_turnover_t20_t3": _finite_float(row.get("share_turnover_t20_t3")),
+        "shares_outstanding_at_capture": _finite_float(
+            row.get("shares_outstanding_at_capture")
+        ),
+        "return_percentile": _finite_float(row.get("return_percentile")),
+        "share_turnover_percentile": _finite_float(
+            row.get("share_turnover_percentile")
+        ),
         "atr_fraction_14d": _finite_float(row.get("atr_fraction_14d")),
         "position": position,
     }
@@ -725,6 +824,30 @@ def _family_tickers(
     return tickers
 
 
+def _experimental_tickers(
+    candidate: dict[str, object],
+    family: str,
+    maximum_positions: int,
+) -> list[str]:
+    signals = candidate.get("experimental_signals")
+    if not isinstance(signals, dict):
+        raise StockShadowStateError("Candidate snapshot is missing experimental signals.")
+    signal = signals.get(family)
+    if not isinstance(signal, dict):
+        raise StockShadowStateError(f"Candidate snapshot is missing experiment {family}.")
+    rows = signal.get("candidates")
+    if not isinstance(rows, list):
+        raise StockShadowStateError(f"Experimental candidates are missing for {family}.")
+    selected = sorted(
+        (row for row in rows if isinstance(row, dict) and row.get("ticker")),
+        key=lambda row: int(row["rank"]),
+    )
+    tickers = [str(row["ticker"]) for row in selected[:maximum_positions]]
+    if not tickers or len(tickers) > maximum_positions or len(tickers) != len(set(tickers)):
+        raise StockShadowStateError(f"Experimental candidate size is invalid: {family}")
+    return tickers
+
+
 def _short_volume_holding_from_arm(
     arm_name: str,
     config: StockShadowConfig,
@@ -737,6 +860,22 @@ def _short_volume_holding_from_arm(
     except ValueError as exc:
         raise StockShadowStateError(f"Invalid stock shadow arm: {arm_name}") from exc
     if holding not in config.short_volume_holding_sessions:
+        raise StockShadowStateError(f"Unregistered stock shadow arm: {arm_name}")
+    return holding
+
+
+def _share_turnover_holding_from_arm(
+    arm_name: str,
+    config: StockShadowConfig,
+) -> int:
+    prefix = "share_turnover_hold"
+    if not arm_name.startswith(prefix):
+        raise StockShadowStateError(f"Unsupported stock shadow arm: {arm_name}")
+    try:
+        holding = int(arm_name.removeprefix(prefix))
+    except ValueError as exc:
+        raise StockShadowStateError(f"Invalid stock shadow arm: {arm_name}") from exc
+    if holding not in config.share_turnover_holding_sessions:
         raise StockShadowStateError(f"Unregistered stock shadow arm: {arm_name}")
     return holding
 
@@ -1013,10 +1152,22 @@ def _validate_config(config: StockShadowConfig) -> None:
         config.short_volume_holding_sessions
     ):
         raise ValueError("Short-volume holding sessions must be unique.")
+    if not config.share_turnover_holding_sessions:
+        raise ValueError("Stock shadow must register share-turnover holding experiments.")
+    if any(value < 1 for value in config.share_turnover_holding_sessions):
+        raise ValueError("Share-turnover holding sessions must be positive.")
+    if len(set(config.share_turnover_holding_sessions)) != len(
+        config.share_turnover_holding_sessions
+    ):
+        raise ValueError("Share-turnover holding sessions must be unique.")
     expected_arms = {
         "consensus",
         "consensus_market_guard",
         *(f"short_volume_hold{value}" for value in config.short_volume_holding_sessions),
+        *(
+            f"share_turnover_hold{value}"
+            for value in config.share_turnover_holding_sessions
+        ),
     }
     if set(config.arms) != expected_arms or len(config.arms) != len(expected_arms):
         raise ValueError("Stock shadow arms do not match the frozen experiment registry.")

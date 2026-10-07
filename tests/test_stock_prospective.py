@@ -74,7 +74,7 @@ def test_prospective_evaluator_uses_prior_decision_gate_and_self_financing_equit
     assert result["diagnostic_all_sessions"]["experimental_arms"][
         "short_volume_hold5"
     ]["sessions"] == 2
-    assert result["schema_version"] == 4
+    assert result["schema_version"] == 5
     assert result["transitions"][0]["diagnostic_arm_net_returns"][
         "short_volume_hold5"
     ] == pytest.approx(0.02)
@@ -146,6 +146,63 @@ def test_diagnostic_arm_inference_waits_for_preregistered_sample_sizes(
     assert family["variants"][0]["variant"] == "short_volume_hold5"
 
 
+def test_diagnostic_comparisons_use_a_hold21_reference_per_signal_family(
+    tmp_path: Path,
+) -> None:
+    states = tmp_path / "states"
+    states.mkdir()
+    first = _state(
+        states / "state-a.json",
+        session="2026-10-05",
+        initialization=True,
+        previous=None,
+        previous_hash=None,
+        eligible=True,
+        primary_equity=1.0,
+        guarded_equity=1.0,
+        spy_open=100.0,
+        spy_close=100.0,
+        diagnostic_equities={
+            "short_volume_hold5": 1.0,
+            "short_volume_hold21": 1.0,
+            "share_turnover_hold5": 1.0,
+            "share_turnover_hold21": 1.0,
+        },
+    )
+    first_payload = json.loads(first.read_text())
+    _state(
+        states / "state-b.json",
+        session="2026-10-06",
+        initialization=False,
+        previous=first.name,
+        previous_hash=first_payload["record_sha256"],
+        eligible=True,
+        primary_equity=1.01,
+        guarded_equity=1.01,
+        spy_open=100.0,
+        spy_close=101.0,
+        diagnostic_equities={
+            "short_volume_hold5": 1.01,
+            "short_volume_hold21": 1.02,
+            "share_turnover_hold5": 1.03,
+            "share_turnover_hold21": 1.04,
+        },
+    )
+
+    comparisons = evaluate_stock_shadow_lineage(states)["diagnostic_arm_comparisons"]
+
+    assert comparisons["same_signal_reference_arms"] == {
+        "short_volume": "short_volume_hold21",
+        "share_turnover": "share_turnover_hold21",
+    }
+    assert comparisons["per_arm"]["share_turnover_hold21"][
+        "versus_same_signal_hold21"
+    ]["status"] == "reference_arm"
+    assert comparisons["per_arm"]["share_turnover_hold5"][
+        "versus_same_signal_hold21"
+    ]["reference"] == "share_turnover_hold21"
+
+
 def test_prospective_evaluator_rejects_broken_state_chain(tmp_path: Path) -> None:
     states = tmp_path / "states"
     states.mkdir()
@@ -183,6 +240,7 @@ def _state(
     spy_open: float,
     spy_close: float,
     diagnostic_equity: float | None = None,
+    diagnostic_equities: dict[str, float] | None = None,
     executions: list[dict[str, str]] | None = None,
 ) -> Path:
     execution_rows = executions or []
@@ -192,6 +250,8 @@ def _state(
     }
     if diagnostic_equity is not None:
         arms["short_volume_hold5"] = _arm(diagnostic_equity, [])
+    for arm_name, equity in (diagnostic_equities or {}).items():
+        arms[arm_name] = _arm(equity, [])
     payload: dict[str, object] = {
         "schema_version": 1,
         "record_type": "prospective_stock_shadow_state",

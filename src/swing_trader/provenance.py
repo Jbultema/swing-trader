@@ -13,8 +13,10 @@ STOCK_POLICY_SOURCE_FILES = (
     "events.py",
     "stock_candidates.py",
     "stock_live_data.py",
+    "stock_shares.py",
     "stock_shadow_state.py",
     "stock_signals.py",
+    "stock_turnover.py",
     "stock_universe.py",
 )
 STOCK_EVALUATION_SOURCE_FILES = (

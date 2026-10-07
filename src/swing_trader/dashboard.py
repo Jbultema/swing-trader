@@ -41,7 +41,20 @@ def _stock_signal_label(value: object) -> str:
         )
     if value == "consensus":
         return "three-family consensus"
+    if value == "share_turnover_skip3":
+        return (
+            "academic short-term momentum adaptation: prior return plus true "
+            "volume/shares turnover, latest three sessions skipped"
+        )
     return str(value or "legacy")
+
+
+def _stock_arm_sort_key(name: str) -> tuple[int, int]:
+    if name.startswith("short_volume_hold"):
+        return (0, int(name.removeprefix("short_volume_hold")))
+    if name.startswith("share_turnover_hold"):
+        return (1, int(name.removeprefix("share_turnover_hold")))
+    return (-1, 0)
 
 
 def _decimal(value: object) -> str:
@@ -205,11 +218,18 @@ with stock:
             )
             for arm_name in sorted(
                 stock_state["arms"],
-                key=lambda name: int(name.removeprefix("short_volume_hold"))
-                if name.startswith("short_volume_hold")
-                else -1,
+                key=_stock_arm_sort_key,
             )
             if arm_name.startswith("short_volume_hold")
+        )
+        arm_labels.extend(
+            (
+                arm_name,
+                "Diagnostic academic share turnover · "
+                f"maximum hold {stock_state['arms'][arm_name]['maximum_holding_sessions']} sessions",
+            )
+            for arm_name in sorted(stock_state["arms"], key=_stock_arm_sort_key)
+            if arm_name.startswith("share_turnover_hold")
         )
         for arm_name, arm_label in arm_labels:
             arm = stock_state["arms"][arm_name]
@@ -223,18 +243,27 @@ with stock:
                     decisions_frame["reasons"] = decisions_frame["reasons"].map(
                         lambda values: ", ".join(str(value) for value in values)
                     )
+                    decision_columns = [
+                        "ticker",
+                        "action",
+                        "reasons",
+                        "selection_rank",
+                        "close",
+                        "return_21d",
+                        "return_63d",
+                        "formation_return_t20_t3",
+                        "share_turnover_t20_t3",
+                        "return_percentile",
+                        "share_turnover_percentile",
+                        "atr_fraction_14d",
+                        "effective_at",
+                    ]
                     st.dataframe(
                         decisions_frame[
                             [
-                                "ticker",
-                                "action",
-                                "reasons",
-                                "selection_rank",
-                                "close",
-                                "return_21d",
-                                "return_63d",
-                                "atr_fraction_14d",
-                                "effective_at",
+                                column
+                                for column in decision_columns
+                                if column in decisions_frame
                             ]
                         ],
                         hide_index=True,

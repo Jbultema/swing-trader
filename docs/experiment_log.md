@@ -27,3 +27,19 @@ The top-three champion produced higher CAGR and Calmar, but its 0.765 Sharpe did
 This diagnostic was added after the champion had been selected, so it cannot be used to claim a new holdout winner. QQQ plus XLK represented 21.2% of average modeled exposure and as much as 66.7%. Removing both reduced full-sample CAGR from 12.21% to 10.33%, confirming that technology overlap contributed materially but did not create the entire result.
 
 Removing every sector ETF produced 11.08% CAGR, 0.78 Sharpe, 23.65% maximum drawdown, and 4.65 times annual turnover. The narrower broad-asset-class universe produced 8.58% CAGR. Across 17 leave-one-asset-out variants, CAGR ranged from 10.91% to 12.76%. The result is therefore not dependent on any single current fund, but the all-asset champion's incremental return is partly compensation for sector overlap and concentration. The simpler no-sector variant is a prospective challenger, not a retrospectively promoted replacement.
+
+## Exact share-turnover forward test — initialized, no performance yet
+
+After the 2026-10-07 close, policy lineage
+`policy-e9d9cbfb21f1-config-304c8f60d6cb` initialized from cash. The open Yahoo
+shares-outstanding gate passed for 500 of 503 current constituents (99.40%); ERIE, WAT, and WBD
+were excluded as stale. Independent top quintiles of t-20-to-t-3 return and share turnover
+intersected in 31 names. The locked top ten were MRNA, ILMN, P, ON, LITE, SWKS, COHR, GNRC, SMCI,
+and RVTY. Separate 5-, 10-, and 21-session maximum-hold arms all recorded those next-open targets.
+
+This record has one state and zero realized transitions, so CAGR, Sharpe, drawdown, hit rate, and
+excess return are all undefined. Alpha Vantage and earnings checks failed because the daily free
+quota had already been consumed; the primary consensus state therefore failed its eligibility gate.
+The exact Yahoo-only diagnostics initialized correctly, FINRA context passed, all candidate/state
+hashes verified, and no order was placed. The next completed session is the first possible return
+observation; 21 sessions are required before paired intervals and 63 before family-wide inference.

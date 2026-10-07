@@ -39,6 +39,7 @@ from swing_trader.stock_shadow_state import (
     stock_shadow_lineage_id,
     verify_stock_shadow_state,
 )
+from swing_trader.stock_shares import download_current_stock_shares
 from swing_trader.stock_universe import download_current_sp500_snapshot
 
 
@@ -69,6 +70,7 @@ def run_stock_shadow_daily(
     now: datetime | None = None,
 ) -> StockDailyResult:
     """Refresh public inputs and advance one no-paid, non-executable paper state."""
+    fixed_now = now is not None
     recorded_at = _as_utc(now or datetime.now(UTC))
     config_path = root / "config/stock_shadow.toml"
     lineage_id = stock_shadow_lineage_id(config_path)
@@ -155,11 +157,29 @@ def run_stock_shadow_daily(
             )
         _require_consecutive_session(previous, prices.manifest_path, session)
 
+    shares = download_current_stock_shares(
+        universe.manifest_path,
+        root / "data/stock-shadow/shares-outstanding",
+        now=recorded_at if fixed_now else None,
+    )
+    if not shares.validation.passed:
+        raise StockDailyError(
+            "Current shares-outstanding snapshot failed its gate: "
+            + json.dumps(shares.validation.to_dict(), sort_keys=True)
+        )
+    if not fixed_now:
+        share_manifest = _read_json(shares.manifest_path)
+        recorded_at = max(
+            recorded_at,
+            _as_utc(datetime.fromisoformat(str(share_manifest["captured_at_utc"]))),
+        )
+
     candidate = record_current_stock_candidates(
         universe.manifest_path,
         prices.manifest_path,
         lineage_dir / "candidates",
         required_validation_symbols=held,
+        share_manifest_path=shares.manifest_path,
         now=recorded_at,
     )
     finra_status, finra_path, finra_diagnostic = _record_or_reuse_finra_activity(
@@ -217,6 +237,7 @@ def run_stock_shadow_daily(
         candidate.path,
         universe.manifest_path,
         prices.manifest_path,
+        shares.manifest_path,
         config_path,
         state_dir,
         alpha_validation_path=alpha_path,
@@ -241,6 +262,8 @@ def run_stock_shadow_daily(
             "evaluation_file_sha256": file_sha256(evaluation_path),
             "candidate": candidate.path.name,
             "candidate_record_sha256": candidate.record_sha256,
+            "share_manifest": shares.manifest_path.name,
+            "share_manifest_file_sha256": file_sha256(shares.manifest_path),
             "alpha_status": alpha_status,
             "earnings_status": earnings_status,
             "finra_status": finra_status,

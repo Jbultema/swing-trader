@@ -25,6 +25,7 @@ from swing_trader.stock_shadow_state import (
     stock_shadow_lineage_id,
     verify_stock_shadow_state,
 )
+from swing_trader.stock_shares import write_current_stock_share_snapshot
 from swing_trader.stock_signals import ExitPolicy
 from swing_trader.stock_universe import (
     SEC_COMPANY_TICKERS_URL,
@@ -197,10 +198,37 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
         requested_start=date(2025, 1, 1),
         requested_end_exclusive=date(2026, 10, 7),
     )
+    share_frame = pd.DataFrame(
+        {
+            "ticker": symbols,
+            "shares_outstanding": pd.array(
+                [2_000_000 - position * 1_000 for position in range(len(symbols))],
+                dtype="Int64",
+            ),
+            "provider_observation_date": pd.to_datetime(["2026-10-01"] * len(symbols)),
+            "captured_at_utc": [now.isoformat()] * len(symbols),
+            "source_status": ["available"] * len(symbols),
+            "source_observation_count": [1] * len(symbols),
+            "discarded_historical_observations": [0] * len(symbols),
+            "provider_request_attempts": [1] * len(symbols),
+        }
+    )
+    share_snapshot = write_current_stock_share_snapshot(
+        share_frame,
+        symbols,
+        tmp_path / "shares",
+        universe_manifest_path=universe.manifest_path,
+        universe_manifest=universe_manifest,
+        captured_at=now,
+        request_start=date(2025, 9, 2),
+        request_end_exclusive=date(2026, 10, 8),
+        minimum_coverage_fraction=1.0,
+    )
     candidate = record_current_stock_candidates(
         universe.manifest_path,
         price_snapshot.manifest_path,
         tmp_path / "candidates",
+        share_manifest_path=share_snapshot.manifest_path,
         now=now,
     )
 
@@ -208,6 +236,7 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
         candidate.path,
         universe.manifest_path,
         price_snapshot.manifest_path,
+        share_snapshot.manifest_path,
         Path(__file__).parents[1] / "config/stock_shadow.toml",
         tmp_path / "states",
         now=now,
@@ -221,6 +250,9 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
         "short_volume_hold5": 10,
         "short_volume_hold10": 10,
         "short_volume_hold21": 10,
+        "share_turnover_hold5": 10,
+        "share_turnover_hold10": 10,
+        "share_turnover_hold21": 10,
     }
     assert payload["eligible_for_primary_prospective_performance"] is False
     assert payload["operational_action_gate_passed"] is False
@@ -237,6 +269,13 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
     )
     assert payload["arms"]["short_volume_hold5"]["independent_price_validation_applies"] is False
     assert payload["arms"]["short_volume_hold5"]["maximum_holding_sessions"] == 5
+    assert payload["arms"]["share_turnover_hold5"]["prospective_role"] == (
+        "diagnostic_academic_share_turnover_skip3_max_hold_5_sessions"
+    )
+    assert payload["arms"]["share_turnover_hold5"]["signal_family"] == (
+        "share_turnover_skip3"
+    )
+    assert payload["share_turnover_data_validation"]["passed"] is True
     assert verify_stock_shadow_state(result.path)
     evaluation = write_stock_shadow_evaluation(
         result.path.parent,
@@ -307,8 +346,12 @@ def _config() -> StockShadowConfig:
             "short_volume_hold5",
             "short_volume_hold10",
             "short_volume_hold21",
+            "share_turnover_hold5",
+            "share_turnover_hold10",
+            "share_turnover_hold21",
         ),
         short_volume_holding_sessions=(5, 10, 21),
+        share_turnover_holding_sessions=(5, 10, 21),
         earnings_lead_sessions=2,
         earnings_cooling_sessions=1,
         round_trip_cost_bps=50.0,
@@ -400,10 +443,10 @@ def _large_prices(
     sessions: pd.DatetimeIndex,
     tickers: tuple[str, ...],
 ) -> pd.DataFrame:
-    trend = np.linspace(1.0, 1.35, len(sessions))
     close = pd.DataFrame(
         {
-            ticker: (50.0 + position / 10.0) * trend
+            ticker: (50.0 + position / 10.0)
+            * np.linspace(1.0, 1.10 + position / 1_000.0, len(sessions))
             for position, ticker in enumerate(tickers)
         },
         index=sessions,

@@ -661,6 +661,9 @@ def shadow_screen_stocks(
     price_snapshots: Annotated[Path, typer.Option("--price-snapshots")] = Path(
         "data/stock-shadow/prices"
     ),
+    share_snapshots: Annotated[Path, typer.Option("--share-snapshots")] = Path(
+        "data/stock-shadow/shares-outstanding"
+    ),
     output: Annotated[Path, typer.Option("--output")] = Path(
         "reports/stock-shadow/candidates"
     ),
@@ -676,6 +679,7 @@ def shadow_screen_stocks(
         latest_current_sp500_manifest(universe_snapshots),
         latest_stock_price_manifest(price_snapshots),
         output,
+        share_manifest_path=latest_stock_share_manifest(share_snapshots),
         required_validation_symbols=held_tickers_from_latest_state(
             stock_shadow_lineage_dir(state_root, config_path) / "states",
             arm_names=("consensus",),
@@ -719,6 +723,9 @@ def shadow_record_stocks(
     price_snapshots: Annotated[Path, typer.Option("--price-snapshots")] = Path(
         "data/stock-shadow/prices"
     ),
+    share_snapshots: Annotated[Path, typer.Option("--share-snapshots")] = Path(
+        "data/stock-shadow/shares-outstanding"
+    ),
     candidates: Annotated[Path, typer.Option("--candidates")] = Path(
         "reports/stock-shadow/candidates"
     ),
@@ -742,6 +749,7 @@ def shadow_record_stocks(
         candidate,
         latest_current_sp500_manifest(universe_snapshots),
         latest_stock_price_manifest(price_snapshots),
+        latest_stock_share_manifest(share_snapshots),
         config_path,
         state_dir,
         alpha_validation_path=latest_alpha_validation_for_candidate(

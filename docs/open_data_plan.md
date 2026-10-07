@@ -117,11 +117,12 @@ mature before 126 eligible sessions, 30 completed exits, and 10 eligible risk-of
 stationary-bootstrap uncertainty begins only after 21 eligible sessions, uses the same gated dates
 for the primary arm and SPY, and remains a diagnostic rather than trading authority.
 
-The primary consensus remains the only Alpha-validated arm. Separate short-volume arms with 5, 10,
-and 21-session maximum holds use identical next-open accounting, exit rules, and 50 bp round-trip
-costs, but only the locked Yahoo snapshot. Their all-session metrics are visible as unvalidated
-diagnostics and cannot contribute to the primary evidence threshold. This preserves the free quota
-while testing the shorter-holding hypothesis prospectively instead of selecting a recent winner.
+The primary consensus remains the only Alpha-validated arm. Separate short-volume proxy and exact
+share-turnover arms with 5, 10, and 21-session maximum holds use identical next-open accounting,
+exit rules, and 50 bp round-trip costs, but only the locked Yahoo snapshots. Their all-session
+metrics are visible as unvalidated diagnostics and cannot contribute to the primary evidence
+threshold. This preserves the free quota while testing the shorter-holding hypothesis prospectively
+instead of selecting a recent winner.
 The evaluator separates overnight, explicit execution-cost, and intraday performance for every arm,
 then starts paired inference after 21 sessions and family-wide multiple-testing control after 63.
 Those additions require no new provider and do not alter the frozen decision lineage.
@@ -144,8 +145,16 @@ The 2026-10-07 live proof recorded 503 roster rows and 19,263 source observation
 historical rows, and passed with 500 usable names (99.40%). There were no missing, fetch-error,
 invalid, future, duplicate, unexpected, or absent-roster names. ERIE, WAT, and WBD were excluded as
 stale. This proves that open data can support a forward-only share-turnover test; it does not make
-Yahoo historical shares point-in-time or authorize an exact signal before that signal is separately
-implemented and preregistered.
+Yahoo historical shares point-in-time.
+
+The preregistered `share_turnover_skip3` arms now implement that forward test. At each close, the
+screen independently ranks the return and share-turnover characteristics over sessions t-20 through
+t-3, retains the top quintile of each, and selects at most ten names from their intersection by the
+average percentile. Captured shares become eligible only at their manifest timestamp, so the first
+lineage starts from cash and cannot manufacture a backtest. The 5-, 10-, and 21-session arms share
+the same exits and 50 bp round-trip cost assumption. Their evaluator compares holding horizons
+within the exact-signal family; they remain Yahoo-only diagnostics with no action authority and no
+performance conclusion until forward transitions accrue.
 
 The practical result is slower than buying a curated database, but it is honest: public and free
 data can support a strong prospective system and selected covered historical replications. It

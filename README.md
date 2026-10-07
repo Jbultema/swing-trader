@@ -62,6 +62,7 @@ The no-paid individual-stock path locks every input before it can observe the ne
 ```bash
 poetry run swing-trader data snapshot-stock-universe
 poetry run swing-trader data snapshot-stock-prices
+poetry run swing-trader data snapshot-stock-shares
 poetry run swing-trader shadow screen-stocks
 poetry run swing-trader data snapshot-finra-activity
 poetry run swing-trader data snapshot-sec-events
@@ -77,10 +78,11 @@ The candidate screen forms one top-ten consensus from the three frozen signal fa
 Vantage's free quota checks only the primary consensus portfolio's existing holdings, its new
 candidates, and SPY: at most 21 daily-price requests. The market-guard arm is retained as a
 diagnostic comparator rather than consuming enough calls to make the primary workflow unreliable.
-A preregistered set of short-volume diagnostic arms holds the same top-ten large-cap screen for at
-most 5, 10, or 21 sessions with identical exit rules and 50 bp round-trip costs. Those arms use
-Yahoo only, remain explicitly ineligible for primary performance, and exist to test whether faster
-turnover adds value before the project promotes any shorter holding rule.
+A preregistered set of short-volume proxy arms and exact share-turnover arms holds each signal's
+top-ten large-cap screen for at most 5, 10, or 21 sessions with identical exit rules and 50 bp
+round-trip costs. Those arms use Yahoo only, remain explicitly ineligible for primary performance,
+and exist to test whether faster turnover adds value before the project promotes any shorter
+holding rule.
 Here `short_volume` is an immutable internal identifier for short-horizon price momentum plus
 relative trading-volume participation. It is neither FINRA short-sale volume nor the academic
 volume/shares-outstanding turnover characteristic. Alpha Vantage's endpoint was premium-only on
@@ -89,11 +91,17 @@ current-roster value per ticker for use only after capture; it never treats Yaho
 timestamps as point-in-time backfill. The 2026-10-07 live snapshot passed its hash and universe
 binding with 500 of 503 names usable (99.40%); ERIE, WAT, and WBD were stale under the frozen
 130-day limit. Run `poetry run swing-trader data snapshot-stock-shares` and then
-`poetry run swing-trader data verify-stock-shares` to reproduce the gate. This feed is not yet a
-portfolio-state input, so the existing arms still use the explicitly labeled relative-volume proxy.
+`poetry run swing-trader data verify-stock-shares` to reproduce the gate. The exact
+`share_turnover_skip3` experiment independently takes the top quintile of prior-month return and
+the top quintile of 18-session volume divided by captured shares, omitting the latest three
+sessions, then selects the ten strongest intersections. It starts only from the capture-forward
+policy lineage; no historical share values are inferred.
 The evaluator reports where each arm's return occurred (overnight, explicit next-open cost, or
-intraday), starts paired uncertainty after 21 sessions, and applies family-wide error control after
-63 sessions; none of those diagnostic results can qualify the primary record.
+intraday), compares each 5/10-session arm with its own signal family's 21-session reference, starts
+paired uncertainty after 21 sessions, and applies family-wide error control after 63 sessions; none
+of those diagnostic results can qualify the primary record. The exact arms have no realized
+prospective transition yet, so they currently provide candidates and explanations—not a
+performance claim.
 A local ledger permits at most 24 of the documented 25 daily calls, leaving room for the one-call
 bulk earnings calendar. Missing, stale, divergent, or quota-limited validation still produces an
 immutable diagnostic state but makes it ineligible for primary prospective performance.
@@ -143,8 +151,9 @@ diagnostic-collector changes no longer erase portfolio continuity. A holiday is 
 while a genuinely missed trading session fails closed for manual reconciliation.
 
 The dashboard's stock tab shows the latest state gate, decision-policy lineage status, market regime,
-next-open targets, cash/equity/cost accounting, and every BUY/HOLD/SELL/SKIP reason. It hides no
-failed gate and labels the market-guard arm as a diagnostic comparator.
+next-open targets, cash/equity/cost accounting, captured shares, share turnover, independent return
+and turnover percentiles, and every BUY/HOLD/SELL/SKIP reason. It hides no failed gate and labels
+the market-guard, short-volume, and exact share-turnover arms as diagnostic comparators.
 
 These current-universe snapshots may never be projected backward as historical membership. Before
 any retrospective individual-stock experiment, normalized prices and point-in-time membership must

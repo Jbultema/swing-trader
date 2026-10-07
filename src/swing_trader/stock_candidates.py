@@ -18,7 +18,15 @@ from swing_trader.stock_live_data import (
     audit_current_stock_price_snapshot,
     load_locked_current_universe,
 )
+from swing_trader.stock_shares import audit_current_stock_share_snapshot
 from swing_trader.stock_signals import SCORE_COLUMNS, build_stock_features, rank_stock_candidates
+from swing_trader.stock_turnover import (
+    SHARE_TURNOVER_METHOD,
+    SHARE_TURNOVER_SIGNAL_FAMILY,
+    ShareTurnoverSignalConfig,
+    build_share_turnover_features,
+    rank_share_turnover_candidates,
+)
 
 
 class CandidateSnapshotError(ValueError):
@@ -39,6 +47,7 @@ def record_current_stock_candidates(
     price_manifest_path: Path,
     output_dir: Path,
     *,
+    share_manifest_path: Path,
     families: tuple[str, ...] = tuple(SCORE_COLUMNS),
     top_n: int = 10,
     validation_symbol_limit: int = 23,
@@ -61,6 +70,15 @@ def record_current_stock_candidates(
         raise CandidateSnapshotError(
             f"Stock-price snapshot failed its gate: {json.dumps(price_audit.to_dict())}"
         )
+    share_audit = audit_current_stock_share_snapshot(
+        share_manifest_path,
+        universe_manifest_path=universe_manifest_path,
+        now=recorded_at,
+    )
+    if not share_audit.passed:
+        raise CandidateSnapshotError(
+            f"Stock-share snapshot failed its gate: {json.dumps(share_audit.to_dict())}"
+        )
     price_manifest = _read_json(price_manifest_path)
     prices_path = price_manifest_path.parent / str(price_manifest["data_file"])
     prices = pd.read_parquet(prices_path)
@@ -71,6 +89,22 @@ def record_current_stock_candidates(
     membership.loc[:, current] = True
     features = build_stock_features(prices, membership)
     as_of = pd.Timestamp(prices.index.max())
+    share_manifest = _read_json(share_manifest_path)
+    shares_path = share_manifest_path.parent / str(share_manifest["data_file"])
+    shares = pd.read_parquet(shares_path)
+    turnover_config = ShareTurnoverSignalConfig()
+    turnover_features = build_share_turnover_features(
+        prices,
+        shares,
+        as_of,
+        config=turnover_config,
+    )
+    turnover_candidates = rank_share_turnover_candidates(
+        turnover_features,
+        top_n=top_n,
+    )
+    if turnover_candidates.empty:
+        raise CandidateSnapshotError("Share-turnover screen produced no candidates.")
     family_rows, consensus_rows, validation_symbols = screen_latest_candidates(
         features,
         as_of,
@@ -83,7 +117,7 @@ def record_current_stock_candidates(
     market_state = _market_state(prices["Close"][benchmark].dropna(), as_of)
     primary_close = prices["Close"].loc[as_of]
     payload: dict[str, object] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "record_type": "prospective_stock_candidate_screen",
         "data_cost_policy": "no_paid_sources",
         "research_status": "candidate_screen_not_portfolio_state",
@@ -99,6 +133,24 @@ def record_current_stock_candidates(
             "agreement_count_desc_then_mean_family_rank_asc_then_mean_score_desc"
         ),
         "consensus_candidates": consensus_rows,
+        "experimental_signals": {
+            SHARE_TURNOVER_SIGNAL_FAMILY: {
+                "method": SHARE_TURNOVER_METHOD,
+                "role": "prospective_yahoo_only_diagnostic_not_primary_evidence",
+                "long_only_adaptation": (
+                    "top ten by combined percentile inside independent top return and "
+                    "share-turnover quintiles; equal-weight position cap"
+                ),
+                "lookback_sessions": turnover_config.lookback_sessions,
+                "skip_recent_sessions": turnover_config.skip_recent_sessions,
+                "measurement_sessions": turnover_config.measurement_sessions,
+                "quantile_threshold": turnover_config.quantile_threshold,
+                "candidate_count_before_top_n": int(
+                    turnover_features["candidate_eligible"].sum()
+                ),
+                "candidates": _share_turnover_candidate_rows(turnover_candidates),
+            }
+        },
         "validation_symbol_limit": validation_symbol_limit,
         "validation_symbols": validation_symbols,
         "primary_latest_close": {
@@ -114,6 +166,11 @@ def record_current_stock_candidates(
             "price_manifest_sha256": file_sha256(price_manifest_path),
             "price_tabular_sha256": price_manifest.get("tabular_sha256"),
             "feature_tabular_sha256": tabular_sha256(features.loc[[as_of]]),
+            "share_manifest": share_manifest_path.name,
+            "share_manifest_sha256": file_sha256(share_manifest_path),
+            "share_tabular_sha256": share_manifest.get("tabular_sha256"),
+            "share_data_role": share_manifest.get("data_role"),
+            "share_turnover_feature_tabular_sha256": tabular_sha256(turnover_features),
             "stock_policy_sha256": stock_policy_sha256(),
             "implementation_sha256": implementation_sha256(),
         },
@@ -129,6 +186,33 @@ def record_current_stock_candidates(
         handle.write("\n")
     unique = {row["ticker"] for row in family_rows}
     return CandidateSnapshot(path, as_of.date().isoformat(), len(unique), len(validation_symbols), record_hash)
+
+
+def _share_turnover_candidate_rows(frame: pd.DataFrame) -> list[dict[str, object]]:
+    return [
+        {
+            "ticker": str(row["ticker"]),
+            "signal_family": SHARE_TURNOVER_SIGNAL_FAMILY,
+            "rank": int(row["candidate_rank"]),
+            "selection_rank": int(row["selection_rank"]),
+            "score": float(row["score_share_turnover_skip3"]),
+            "close": float(row["close"]),
+            "formation_return_t20_t3": float(row["formation_return_t20_t3"]),
+            "share_turnover_t20_t3": float(row["share_turnover_t20_t3"]),
+            "shares_outstanding_at_capture": int(row["shares_outstanding_at_capture"]),
+            "return_percentile": float(row["return_percentile"]),
+            "share_turnover_percentile": float(row["share_turnover_percentile"]),
+            "why": [
+                "eligible_current_constituent",
+                "price_and_liquidity_floor_passed",
+                "independent_top_prior_return_quintile",
+                "independent_top_share_turnover_quintile",
+                "latest_three_sessions_excluded_from_formation",
+                "shares_usable_only_from_snapshot_capture_forward",
+            ],
+        }
+        for row in frame.to_dict(orient="records")
+    ]
 
 
 def screen_latest_candidates(

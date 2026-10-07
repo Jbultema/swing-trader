@@ -112,7 +112,7 @@ def download_current_stock_shares(
     every value becomes usable no earlier than ``captured_at_utc``. Historical rows are
     deliberately discarded rather than treated as point-in-time observations.
     """
-    captured_at = _as_utc(now or datetime.now(UTC))
+    requested_at = _as_utc(now or datetime.now(UTC))
     if request_lookback_calendar_days <= maximum_observation_age_calendar_days:
         raise ValueError("Request lookback must exceed the maximum allowed observation age.")
     if max_workers < 1:
@@ -121,7 +121,7 @@ def download_current_stock_shares(
         raise ValueError("retry_attempts must be positive.")
     universe, universe_manifest = load_locked_current_universe(
         universe_manifest_path,
-        now=captured_at,
+        now=requested_at,
     )
     tickers = tuple(str(value) for value in universe["ticker"])
     if len(tickers) != len(set(tickers)):
@@ -132,8 +132,8 @@ def download_current_stock_shares(
         else tuple(ticker.replace(".", "-") for ticker in tickers)
     )
     fetcher = share_fetcher or _fetch_yahoo_shares
-    request_start = captured_at.date() - timedelta(days=request_lookback_calendar_days)
-    request_end = captured_at.date() + timedelta(days=1)
+    request_start = requested_at.date() - timedelta(days=request_lookback_calendar_days)
+    request_end = requested_at.date() + timedelta(days=1)
     rows: dict[str, dict[str, object]] = {}
 
     def collect(ticker: str, provider_symbol: str) -> tuple[str, dict[str, object]]:
@@ -142,7 +142,6 @@ def download_current_stock_shares(
             fetcher,
             request_start=request_start,
             request_end=request_end,
-            captured_at=captured_at,
             retry_attempts=retry_attempts,
             retry_delay_seconds=retry_delay_seconds,
             sleeper=sleeper,
@@ -157,6 +156,7 @@ def download_current_stock_shares(
             ticker, result = future.result()
             rows[ticker] = result
 
+    captured_at = requested_at if now is not None else datetime.now(UTC)
     frame = pd.DataFrame(
         [
             {
@@ -476,7 +476,6 @@ def _collect_one_share_value(
     *,
     request_start: date,
     request_end: date,
-    captured_at: datetime,
     retry_attempts: int,
     retry_delay_seconds: float,
     sleeper: Callable[[float], None],

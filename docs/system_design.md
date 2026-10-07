@@ -17,7 +17,9 @@ The core is intentionally small. Research code creates immutable artifacts; the 
 public current roster + stale-reference diagnostic
        -> immutable prospective-only universe snapshot
        -> completed-session adjusted OHLCV + 99% coverage gate
+       -> capture-forward shares outstanding + 99% coverage/age gate
        -> three close-known momentum screens -> one frozen consensus
+       -> exact return x share-turnover intersections (diagnostic arms only)
        -> public FINRA activity sidecar (diagnostic only; no ranking/state input)
        -> public SEC filing-event sidecar (diagnostic only; no sentiment/ranking/state input)
        -> free-quota independent checks for primary candidates/holdings only
@@ -33,7 +35,9 @@ either a visibly biased diagnostic or omitted.
 The primary arm holds at most ten names. Its held-name union with ten new consensus candidates and
 SPY requires at most 21 Alpha Vantage daily calls. The market-guard arm cannot expand that quota:
 it is labeled as a diagnostic comparator and is never counted as primary prospective performance.
-Both arms start from cash and must advance through immediately consecutive recorded sessions.
+The 5/10/21-session short-volume proxy and exact share-turnover arms are Yahoo-only diagnostics;
+they cannot expand the free quota or qualify the primary record. All arms start from cash and must
+advance through immediately consecutive recorded sessions.
 A decision-policy/config hash names each durable lineage. It covers universe and price handling,
 independent gates, candidate construction, signals, exits, and paper accounting. The full package
 hash is retained on every state and the evaluator has its own code hash, so UI or neutral sidecar
