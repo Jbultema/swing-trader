@@ -23,6 +23,7 @@ decisions = json.loads((REPORTS / "latest_decisions.json").read_text())
 metrics = pd.read_csv(REPORTS / "metrics.csv")
 equity = pd.read_csv(REPORTS / "equity.csv", parse_dates=["date"]).set_index("date")
 regimes = pd.read_csv(REPORTS / "regime_metrics.csv")
+validation = json.loads((REPORTS / "validation_summary.json").read_text())
 
 status, as_of, exposure = st.columns(3)
 status.metric("Status", "RESEARCH ONLY")
@@ -65,6 +66,17 @@ with risk:
     st.warning("Stops reduce modeled exposure after observed damage; they cannot prevent overnight gaps or guarantee an execution price.")
 
 with methods:
+    st.subheader("Validation warning")
+    pbo = validation["approximate_pbo"][
+        "probability_selected_variant_below_oos_median"
+    ]
+    bootstrap = validation["paired_block_bootstrap"]
+    st.warning(
+        f"Approximate PBO is {pbo:.1%}. The paired block bootstrap estimates only a "
+        f"{bootstrap['probability_champion_mean_return_exceeds_spy']:.1%} chance that "
+        "historical mean return exceeded SPY; the 95% interval crosses zero."
+    )
+    st.json(validation)
     st.json(manifest)
     st.markdown(
         "The candidate was specified from published momentum and volatility-management priors. "

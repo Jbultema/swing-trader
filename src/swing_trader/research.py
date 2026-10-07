@@ -274,8 +274,7 @@ def latest_champion_decisions(
         "earliest_execution": "next regular session open after a scheduled decision",
         "mode": "research_only_human_execution_required",
         "market": {
-            "risk_on": True,
-            "stress": False,
+            "allocation_gate": "positive_asset_level_12_month_momentum",
             "gross_exposure_cap": float(target.sum()),
             "note": "Champion uses asset-level absolute momentum; panic guard is a separate comparator.",
         },
