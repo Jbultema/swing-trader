@@ -1,0 +1,86 @@
+{
+  "schema_version": 2,
+  "recorded_from_manifest_utc": "2026-10-07T02:07:50.773333+00:00",
+  "system": "robust_dual_momentum_v1",
+  "specification_sha256": "0121ede05ce2bbd51b5d734c9f58188c828c7f17659444da46ab9645c186b0b5",
+  "implementation_sha256": "7f4e016451decfa625756b800b69c11ee1365b6e63543bfd36af604275f9ab63",
+  "research_status": "retrospective_candidate_not_live_approved",
+  "action_authorized": false,
+  "data_quality_status": "secondary_source_unavailable",
+  "decision": {
+    "as_of_close": "2026-10-06",
+    "last_monthly_decision": "2026-09-30",
+    "next_scheduled_review_estimate": "2026-10-30",
+    "earliest_execution": "next regular session open after a scheduled decision",
+    "mode": "research_only_data_unreconciled_no_action",
+    "action_authorized": false,
+    "data_reconciled": false,
+    "data_quality_status": "secondary_source_unavailable",
+    "market": {
+      "allocation_gate": "positive_asset_level_12_month_momentum",
+      "gross_exposure_cap": 1.0,
+      "note": "Champion uses asset-level absolute momentum; panic guard is a separate comparator."
+    },
+    "capital_preservation_overlay": {
+      "triggered": false,
+      "hypothetical_action": "HOLD",
+      "target_gross_exposure": 1.0,
+      "benchmark_volatility": 0.10429345814354272,
+      "volatility_trigger": 0.35,
+      "benchmark_drawdown_from_200d_high": 0.0,
+      "drawdown_trigger": -0.12,
+      "authority": "comparator_only_not_champion"
+    },
+    "hypothetical_actions": [
+      {
+        "ticker": "XLE",
+        "action": "HOLD",
+        "current_weight": 0.3333333333333333,
+        "target_weight": 0.3333333333333333,
+        "change_weight": 0.0,
+        "why": "XLE ranked 2 on positive trailing-12-month momentum (40.1%) at the 2026-09-30 monthly decision.",
+        "momentum_12m": 0.4009630946944631,
+        "rank": 2.0,
+        "exit_rule": "Exit at month-end if momentum is non-positive or rank falls outside top three."
+      },
+      {
+        "ticker": "XLK",
+        "action": "HOLD",
+        "current_weight": 0.3333333333333333,
+        "target_weight": 0.3333333333333333,
+        "change_weight": 0.0,
+        "why": "XLK ranked 1 on positive trailing-12-month momentum (40.4%) at the 2026-09-30 monthly decision.",
+        "momentum_12m": 0.4037318841848365,
+        "rank": 1.0,
+        "exit_rule": "Exit at month-end if momentum is non-positive or rank falls outside top three."
+      },
+      {
+        "ticker": "EEM",
+        "action": "HOLD",
+        "current_weight": 0.3333333333333333,
+        "target_weight": 0.3333333333333333,
+        "change_weight": 0.0,
+        "why": "EEM ranked 3 on positive trailing-12-month momentum (28.0%) at the 2026-09-30 monthly decision.",
+        "momentum_12m": 0.2802770650745794,
+        "rank": 3.0,
+        "exit_rule": "Exit at month-end if momentum is non-positive or rank falls outside top three."
+      }
+    ]
+  },
+  "data_quality": {
+    "status": "secondary_source_unavailable",
+    "decision_data_gate_passed": false,
+    "checked_at_utc": "2026-10-07T02:07:29.888075+00:00",
+    "secondary_error": "ALPHA_VANTAGE_API_KEY is not configured.",
+    "primary_provider": "Yahoo Finance via yfinance",
+    "secondary_provider": "Alpha Vantage monthly adjusted",
+    "primary_latest_date": "2026-10-06",
+    "primary_age_calendar_days": 1,
+    "max_primary_age_calendar_days": 4,
+    "all_primary_tickers_current": true,
+    "primary_fresh": true,
+    "primary_snapshot_sha256": "2a573ebb1098fe921b7e8c929e83b6fca90bdf7b5f9861c8f77b6a6a41da675b",
+    "primary_snapshot_downloaded_at_utc": "2026-10-07T02:07:29.887578+00:00"
+  },
+  "record_sha256": "8a1bd0da62b886226ba21533b289ff9e406721053e0e8e1922a5944b97f11a8c"
+}
