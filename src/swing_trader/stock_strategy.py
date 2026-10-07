@@ -31,6 +31,7 @@ def build_stock_strategy_plan(
     maximum_positions: int = 10,
     maximum_position_weight: float = 0.10,
     policy: ExitPolicy | None = None,
+    entry_blackout: pd.DataFrame | None = None,
 ) -> StockStrategyPlan:
     """Create stateful next-open stock targets without using future signals.
 
@@ -54,6 +55,11 @@ def build_stock_strategy_plan(
     dates = pd.DatetimeIndex(features.index.get_level_values("date").unique()).sort_values()
     tickers = pd.Index(features.index.get_level_values("ticker").unique()).sort_values()
     opens = adjusted_open.reindex(index=dates, columns=tickers)
+    blackout = (
+        pd.DataFrame(False, index=dates, columns=tickers)
+        if entry_blackout is None
+        else entry_blackout.reindex(index=dates, columns=tickers).fillna(False).astype(bool)
+    )
     target = pd.DataFrame(0.0, index=dates, columns=tickers)
     positions: dict[str, _Position] = {}
     prior_target: set[str] = set()
@@ -78,6 +84,8 @@ def build_stock_strategy_plan(
         scores = pd.to_numeric(day[score_column], errors="coerce")
         ranked = scores.where(eligible & positive_trend).dropna().sort_values(ascending=False)
         ranks = pd.Series(range(1, len(ranked) + 1), index=ranked.index, dtype=float)
+        blocked_entries = [ticker for ticker in ranked.index if bool(blackout.at[date, ticker])]
+        entry_ranked = ranked.drop(index=blocked_entries)
 
         exits: dict[str, list[str]] = {}
         for ticker, position in positions.items():
@@ -113,7 +121,7 @@ def build_stock_strategy_plan(
 
         survivors = set(positions) - exits.keys()
         selected = set(survivors)
-        for ticker in ranked.index:
+        for ticker in entry_ranked.index:
             ticker_text = str(ticker)
             if len(selected) >= maximum_positions:
                 break
@@ -137,6 +145,23 @@ def build_stock_strategy_plan(
                     ranks,
                     score_column,
                     position,
+                )
+            )
+        for ticker in blocked_entries:
+            ticker_text = str(ticker)
+            if ticker_text in positions or float(ranks[ticker]) > maximum_positions:
+                continue
+            ledger.append(
+                _decision_row(
+                    date,
+                    ticker_text,
+                    "SKIP",
+                    ["scheduled_earnings_entry_blackout"],
+                    family,
+                    day,
+                    ranks,
+                    score_column,
+                    positions.get(str(ticker)),
                 )
             )
         for ticker in sorted(selected):

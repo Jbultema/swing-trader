@@ -139,6 +139,15 @@ research queue distinguishes information that was genuinely knowable before a de
 Future earnings dates may be used prospectively to explain gap risk or block new entries, but they
 cannot be backfilled from today's calendar and presented as historical evidence.
 
+The implemented `swing-trader data snapshot-earnings` command writes a timestamped, hashed,
+non-overwriting Alpha Vantage calendar and labels its manifest
+`prospective_event_risk_only_not_historical_backfill`. The parser fails closed on unexpected
+schemas, empty responses, or malformed rows. On 2026-10-07 the configured endpoint returned the
+documented header followed by a malformed character-wise row, consistent with a provider/quota
+error, so no live snapshot was accepted. When a valid snapshot is available, pre-market and
+after-close events create appropriately shifted new-entry blackouts; existing positions remain
+governed by the preregistered price, rank, ATR, loss, and time exits.
+
 ## Open-source implementation findings
 
 - Microsoft Qlib offers point-in-time data abstractions, factor pipelines, walk-forward modeling,
@@ -175,7 +184,10 @@ No candidate becomes actionable merely because it has a higher retrospective CAG
 - `stock_signals.py` calculates the three causal feature families from dated OHLCV and mandatory
   point-in-time membership.
 - `stock_strategy.py` maintains next-open entry prices, close-based high-water marks, holding age,
-  rank decay, and a multi-reason BUY/HOLD/SELL ledger suitable for the explainability dashboard.
+  rank decay, optional prospective earnings-entry blackouts, and a multi-reason
+  BUY/HOLD/SELL/SKIP ledger suitable for the explainability dashboard.
+- `events.py` validates and immutably snapshots prospective Alpha Vantage earnings calendars and
+  maps report timing into causal pre-event and post-event session flags.
 - `stock_data.py` and `swing-trader data audit-stocks` fail closed on missing historical members,
   member-date gaps, or inadequate 252-session warm-up.
 - `sharadar.py` normalizes and hashes licensed bulk prices, constituent events, and corporate

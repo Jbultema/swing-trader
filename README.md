@@ -72,6 +72,16 @@ normalized artifacts under ignored `data/stock/`, and records unsupported termin
 than inventing a delisting return. The research command fails closed on incomplete point-in-time
 coverage, an unpriced held security, or excessive volume participation.
 
+Prospective operation can also lock the next Alpha Vantage earnings calendar before decisions:
+
+```bash
+poetry run swing-trader data snapshot-earnings --horizon 3month
+```
+
+These immutable snapshots are event-risk inputs only. They may block a new position before a
+scheduled report and produce an explicit `scheduled_earnings_entry_blackout` explanation, but they
+do not force an existing holding to exit and are never used to manufacture historical test data.
+
 Alpha Vantage documentation: <https://www.alphavantage.co/documentation/>. Reconciliation materially improves error detection, but neither provider is a broker-grade execution quote. Broker-side price checks and prospective shadow evidence remain required before live use.
 
 The connector spaces Alpha Vantage requests and reuses a complete secondary snapshot for up to 24 hours, keeping the 17-symbol validation within the standard 25-request daily allowance.

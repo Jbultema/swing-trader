@@ -21,6 +21,7 @@ from swing_trader.data import (
     load_prices,
     reconcile_monthly_adjusted,
 )
+from swing_trader.events import download_alpha_earnings_calendar
 from swing_trader.prospective import write_prospective_evaluation
 from swing_trader.research import run_research
 from swing_trader.shadow import record_shadow_snapshot
@@ -125,6 +126,18 @@ def data_update_cash(
         f"Saved {len(returns):,} cash-return observations through "
         f"{returns.index.max().date()} to {output}."
     )
+
+
+@data_app.command("snapshot-earnings")
+def data_snapshot_earnings(
+    output: Annotated[Path, typer.Option("--output")] = Path("data/events/earnings"),
+    horizon: Annotated[str, typer.Option("--horizon")] = "3month",
+) -> None:
+    """Lock a prospective earnings calendar; never use it as a historical backfill."""
+    _load_local_environment()
+    key = os.getenv("ALPHA_VANTAGE_API_KEY", "").strip()
+    path = download_alpha_earnings_calendar(key, output, horizon=horizon)
+    typer.echo(f"Locked prospective earnings snapshot {path.name}; no order was placed.")
 
 
 @research_app.command("run")
