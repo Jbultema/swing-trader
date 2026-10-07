@@ -11,6 +11,23 @@ public daily OHLCV -> validation + immutable snapshot
 
 The core is intentionally small. Research code creates immutable artifacts; the dashboard only reads them. This prevents a UI refresh from silently changing historical results or a research score from becoming an order.
 
+## No-paid individual-stock path
+
+```text
+public current roster + stale-reference diagnostic
+       -> immutable prospective-only universe snapshot
+       -> completed-session adjusted OHLCV + 99% coverage gate
+       -> three close-known momentum screens
+       -> free-quota independent checks for candidates/holdings only
+       -> next-open paper targets + explicit exits
+       -> immutable prospective outcomes; human remains the only executor
+```
+
+Every artifact is labeled `data_cost_policy=no_paid_sources`. Current membership is never projected
+backward. A historical interval is eligible for performance reporting only if its point-in-time
+member-date price and corporate-action coverage passes the same fail-closed audit. Otherwise it is
+either a visibly biased diagnostic or omitted.
+
 The scheduled workflow downloads data, reconciles completed-month returns against Alpha Vantage when its repository secret is configured, runs validation, locks a content-hashed shadow record, and uploads a read-only artifact. It has `contents: read` permission and no broker credentials. A missing or failed secondary feed leaves hypothetical research visible but invalidates every action. Human execution is a hard system boundary.
 
 ## Champion exit hierarchy

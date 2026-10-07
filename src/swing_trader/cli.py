@@ -10,6 +10,7 @@ import pandas as pd
 import typer
 from dotenv import load_dotenv
 
+from swing_trader.alpha_validation import validate_candidate_snapshot_with_alpha
 from swing_trader.audit import audit_operational_artifacts
 from swing_trader.cash import download_fred_cash_returns, load_cash_returns
 from swing_trader.config import AppConfig, load_config
@@ -27,9 +28,20 @@ from swing_trader.research import run_research
 from swing_trader.shadow import record_shadow_snapshot
 from swing_trader.sharadar import write_sharadar_panel
 from swing_trader.stock_audit import audit_stock_research_bundle
+from swing_trader.stock_candidates import latest_candidate_snapshot, record_current_stock_candidates
 from swing_trader.stock_config import load_stock_experiment_config
 from swing_trader.stock_data import write_stock_coverage_audit
+from swing_trader.stock_live_data import (
+    audit_current_stock_price_snapshot,
+    download_current_stock_prices,
+    latest_stock_price_manifest,
+)
 from swing_trader.stock_research import run_stock_research
+from swing_trader.stock_universe import (
+    audit_current_sp500_snapshot,
+    download_current_sp500_snapshot,
+    latest_current_sp500_manifest,
+)
 from swing_trader.ticket import write_trade_preview
 
 app = typer.Typer(no_args_is_help=True)
@@ -139,6 +151,75 @@ def data_snapshot_earnings(
     key = os.getenv("ALPHA_VANTAGE_API_KEY", "").strip()
     path = download_alpha_earnings_calendar(key, output, horizon=horizon)
     typer.echo(f"Locked prospective earnings snapshot {path.name}; no order was placed.")
+
+
+@data_app.command("snapshot-stock-universe")
+def data_snapshot_stock_universe(
+    output: Annotated[Path, typer.Option("--output")] = Path("data/stock-shadow/universe"),
+) -> None:
+    """Lock the currently observed S&P 500 roster for prospective use only."""
+    snapshot = download_current_sp500_snapshot(output)
+    typer.echo(
+        f"Locked {snapshot.rows} current constituents in {snapshot.data_path.name}; "
+        "prospective use only, no historical backfill and no order was placed."
+    )
+
+
+@data_app.command("verify-stock-universe")
+def data_verify_stock_universe(
+    snapshots: Annotated[Path, typer.Option("--snapshots")] = Path(
+        "data/stock-shadow/universe"
+    ),
+    max_age_hours: Annotated[float, typer.Option("--max-age-hours")] = 48.0,
+) -> None:
+    """Fail closed if the latest current-universe snapshot is stale or modified."""
+    manifest = latest_current_sp500_manifest(snapshots)
+    result = audit_current_sp500_snapshot(manifest, max_age_hours=max_age_hours)
+    typer.echo(json.dumps(result.to_dict(), indent=2))
+    if not result.passed:
+        raise typer.Exit(code=2)
+
+
+@data_app.command("snapshot-stock-prices")
+def data_snapshot_stock_prices(
+    universe_snapshots: Annotated[Path, typer.Option("--universe-snapshots")] = Path(
+        "data/stock-shadow/universe"
+    ),
+    output: Annotated[Path, typer.Option("--output")] = Path("data/stock-shadow/prices"),
+    lookback_calendar_days: Annotated[int, typer.Option("--lookback-calendar-days")] = 800,
+) -> None:
+    """Lock current-roster adjusted OHLCV after all prospective data gates pass."""
+    universe_manifest = latest_current_sp500_manifest(universe_snapshots)
+    snapshot = download_current_stock_prices(
+        universe_manifest,
+        output,
+        lookback_calendar_days=lookback_calendar_days,
+    )
+    typer.echo(
+        f"Locked {snapshot.rows} sessions for {snapshot.tickers} available symbols; "
+        f"latest session {snapshot.validation.latest_session}; no order was placed."
+    )
+
+
+@data_app.command("verify-stock-prices")
+def data_verify_stock_prices(
+    universe_snapshots: Annotated[Path, typer.Option("--universe-snapshots")] = Path(
+        "data/stock-shadow/universe"
+    ),
+    price_snapshots: Annotated[Path, typer.Option("--price-snapshots")] = Path(
+        "data/stock-shadow/prices"
+    ),
+    max_age_hours: Annotated[float, typer.Option("--max-age-hours")] = 48.0,
+) -> None:
+    """Fail closed if the latest prospective price snapshot is stale or modified."""
+    result = audit_current_stock_price_snapshot(
+        latest_stock_price_manifest(price_snapshots),
+        universe_manifest_path=latest_current_sp500_manifest(universe_snapshots),
+        max_age_hours=max_age_hours,
+    )
+    typer.echo(json.dumps(result.to_dict(), indent=2))
+    if not result.passed:
+        raise typer.Exit(code=2)
 
 
 @research_app.command("run")
@@ -275,6 +356,54 @@ def shadow_record(
 ) -> None:
     output = record_shadow_snapshot(report_dir, shadow_dir)
     typer.echo(f"Locked prospective snapshot: {output}")
+
+
+@shadow_app.command("screen-stocks")
+def shadow_screen_stocks(
+    universe_snapshots: Annotated[Path, typer.Option("--universe-snapshots")] = Path(
+        "data/stock-shadow/universe"
+    ),
+    price_snapshots: Annotated[Path, typer.Option("--price-snapshots")] = Path(
+        "data/stock-shadow/prices"
+    ),
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "reports/stock-shadow/candidates"
+    ),
+) -> None:
+    """Lock explainable stock candidates from fresh close-known inputs; never place orders."""
+    result = record_current_stock_candidates(
+        latest_current_sp500_manifest(universe_snapshots),
+        latest_stock_price_manifest(price_snapshots),
+        output,
+    )
+    typer.echo(
+        f"Locked {result.family_candidates} unique candidates as of {result.as_of_session}; "
+        f"{result.validation_symbols} symbols require independent validation; no order was placed."
+    )
+
+
+@shadow_app.command("validate-stock-candidates")
+def shadow_validate_stock_candidates(
+    candidates: Annotated[Path, typer.Option("--candidates")] = Path(
+        "reports/stock-shadow/candidates"
+    ),
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "data/stock-shadow/alpha-validation"
+    ),
+    quota_dir: Annotated[Path, typer.Option("--quota-dir")] = Path(
+        "data/stock-shadow/provider-quota/alpha-vantage"
+    ),
+) -> None:
+    """Use the free Alpha quota only on names that could be held or bought."""
+    _load_local_environment()
+    key = os.getenv("ALPHA_VANTAGE_API_KEY", "").strip()
+    path = validate_candidate_snapshot_with_alpha(
+        latest_candidate_snapshot(candidates),
+        key,
+        output,
+        quota_dir=quota_dir,
+    )
+    typer.echo(f"Locked independent candidate validation {path.name}; no order was placed.")
 
 
 @shadow_app.command("evaluate")

@@ -15,8 +15,9 @@ This is research software, not investment advice. It never connects to a broker 
 - Cash is an intentional position. The system does not short, use options, use derivatives, or borrow.
 - Unallocated capital accrues the adjusted return of the configured Treasury-bill ETF; holdings drift between actual rebalance events instead of receiving free daily rebalancing.
 - The dashboard shows the recommendation, the evidence behind it, risk-off reasons, historical comparisons, and methodology status.
-- Individual-stock research is now a separate preregistered track with causal momentum features,
-  explicit exit reasons, and a point-in-time coverage gate; it is not yet an actionable model.
+- Individual-stock research is a separate track with causal momentum features, explicit exit
+  reasons, point-in-time coverage gates, and immutable prospective screens. It uses no paid data
+  and is not yet an actionable model.
 
 ## Quick start
 
@@ -54,31 +55,35 @@ poetry run swing-trader daily
 
 `TRADING_ECONOMICS_API_KEY` is reserved for a future macro-risk connector and is not currently read by the trading model.
 
-Before any individual-stock experiment, normalized wide close and point-in-time membership panels
-must pass `poetry run swing-trader data audit-stocks`. A failed coverage gate exits nonzero and no
-stock performance report is produced.
-
-The paid-data path is prepared but does not download or purchase anything automatically:
+The no-paid individual-stock path locks every input before it can observe the next session:
 
 ```bash
-# after placing licensed Sharadar bulk exports under ignored imports/
-poetry run swing-trader data import-sharadar
-poetry run swing-trader data update-cash
-poetry run swing-trader research stocks
-poetry run swing-trader research verify-stocks
+poetry run swing-trader data snapshot-stock-universe
+poetry run swing-trader data snapshot-stock-prices
+poetry run swing-trader shadow screen-stocks
+poetry run swing-trader shadow validate-stock-candidates
 ```
 
-The importer requires `stocks.csv.zip`, `sp500.csv.zip`, and `actions.csv.zip`, writes hashed
-normalized artifacts under ignored `data/stock/`, and records unsupported terminal events rather
-than inventing a delisting return. The research command fails closed on incomplete point-in-time
-coverage, an unpriced held security, or excessive volume participation.
+The universe combines the currently observed public S&P 500 table with strict schema checks and a
+non-authoritative `pitindex` comparison. The adjusted price panel comes from Yahoo through
+`yfinance`, excludes a still-open market session, and requires at least 99% current-close coverage.
+The candidate screen then spends Alpha Vantage's free quota only on the finite set of names that
+could be held or bought, plus SPY. A local quota ledger reserves at most 24 of the documented 25
+daily calls so one call remains available for the bulk earnings calendar. Missing, stale, divergent,
+or quota-limited validation leaves the screen research-only.
+
+These current-universe snapshots may never be projected backward as historical membership. Before
+any retrospective individual-stock experiment, normalized prices and point-in-time membership must
+still pass `poetry run swing-trader data audit-stocks`. If open sources cannot reach the required
+99% member-date and corporate-action coverage for a period, that period receives no performance
+claim. The workaround is locked prospective evidence, not a survivor-only backtest.
 
 The stock report also writes the complete variant registry, expanding walk-forward path,
 stationary-bootstrap uncertainty, family-wide and false-discovery-adjusted tests, approximate PBO,
 hostile-regime results, and split-specific ticker P&L concentration. Statistical significance is
 reported as a fragility diagnostic and never treated as trading authorization.
 
-The dashboard exposes a separate read-only stock-research tab only when that bundle passes artifact,
+The dashboard exposes a separate read-only stock-research tab only when a retrospective bundle passes artifact,
 implementation, input-binding, and research-authority checks. It shows the latest retrospective
 BUY/HOLD/SELL/SKIP reasons, comparator metrics, multiple-testing evidence, hostile regimes,
 execution capacity, and winner concentration; it does not relabel the result as a current trade.
@@ -99,6 +104,6 @@ The connector spaces Alpha Vantage requests and reuses a complete secondary snap
 
 The first v1 run opened the 2024-present labeled holdout and exposed a daily-resizing defect that violated the weekly-rebalance specification. V2 fixes that defect, so the interval is now diagnostic rather than sealed evidence. No retrospective test can substitute for locked prospective shadow decisions.
 
-See [Research basis](docs/research_basis.md), [stock-momentum research](docs/stock_momentum_research.md), [validation protocol](docs/validation_protocol.md), and [system design](docs/system_design.md).
+See [Research basis](docs/research_basis.md), [stock-momentum research](docs/stock_momentum_research.md), [validation protocol](docs/validation_protocol.md), [system design](docs/system_design.md), and the [open-data plan](docs/open_data_plan.md).
 
 For a local account-specific but still non-executable share estimate, copy `config/portfolio.example.toml` to the ignored `config/portfolio.toml`, restrict its menu to the actual plan, and run `poetry run swing-trader ticket preview`. See [retirement-account readiness](docs/account_readiness.md).

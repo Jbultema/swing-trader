@@ -80,38 +80,26 @@ and fewer than 252 sessions for 313. The missing set contains many acquisitions,
 ticker changes. Backtesting only the 680 names Yahoo happened to return would condition the result
 on survival and is prohibited by the validation contract.
 
-### Practical paid research tier
+### No-paid-data boundary
 
-Bloomberg is not required. The preferred first evaluation is **Sharadar Prices** because its direct
-API/bulk service advertises active and delisted securities, total-return-adjusted prices, corporate
-actions, ticker changes, and S&P 500 constituent history in one Mac-compatible dataset. It covers
-21,000 stock tickers back to 1997. Public pricing is not exposed without an account, so no purchase
-is assumed: https://sharadar.com/bundle
+Paid feeds are out of scope. The project will not use Bloomberg, Sharadar, CRSP, Norgate, Massive,
+or another commercial feed as its critical path. The existing licensed-file adapter remains inert
+compatibility code and is not part of the operating plan.
 
-**Massive Stocks Advanced** is the better candidate if minute bars become necessary. As reviewed on
-2026-10-07 it costs USD 199 per month and includes all U.S. tickers, corporate actions, flat files,
-and 20+ years of history. The cheaper USD 79 tier has only ten years, which omits two major market
-regimes in this protocol: https://massive.com/pricing?product=stocks
+The open-data workaround is deliberately asymmetric. Current-universe screening is feasible with a
+fresh public roster and one immutable Yahoo snapshot. Independent checking is then focused on the
+small set of names that could actually be held or bought, which fits Alpha Vantage's free 25-call
+daily quota. Historical performance is reported only for intervals that pass the same 99%
+point-in-time member-date coverage, warm-up, identity, corporate-action, and terminal-return gates.
+An interval that fails does not get a polished performance number.
 
-**Norgate US Stocks Platinum** advertises delisted securities, historical index constituents, and
-history to 1990 for USD 346.50 per six months or USD 630 per year. It is attractive on price, but its
-official Python and Zipline integrations are Windows-only; ASCII export would add a fragile manual
-step on this Mac: https://norgatedata.com/stockmarketpackages.php and
-https://norgatedata.com/accessibility.php
-
-Every candidate must pass the code-level coverage audit before use: no missing historical member,
-at least 99% member-date price coverage, sufficient pre-membership history for the signal warm-up,
-verified adjustment semantics, and explicit ticker/corporate-action mapping. Provider marketing is
-not treated as validation evidence.
-
-The implemented Sharadar adapter expects the `stocks`, `sp500`, and `actions` bulk tables. It
-reconstructs membership backward from the current anchor through additions/removals and reconciles
-the result against the provider's historical snapshots. It converts split-adjusted OHLC to a
-consistent total-return basis using `closeadj / close`, hashes every input/output, and retains
-Sharadar's unique suffix for recycled delisted tickers. Cash-only acquisitions and bankruptcies
-receive explicit terminal returns. Stock consideration, elections, and unexplained delistings stay
-unsupported and cause a held path to fail instead of silently receiving a zero return or fictional
-sale.
+Several apparent alternatives were rejected after live review. Stooq's U.S. bulk archive returned
+HTTP 401 on 2026-10-07 and now requires an interactive access key. A promising new GitHub price
+panel has no clear license and acknowledges only 76% historical-member coverage in 2015. Nasdaq's
+public-domain WIKI Prices archive ends in April 2018 and its publisher explicitly no longer
+recommends it for investment analysis. These can inform replication checks, not become hidden
+sources of truth. Full findings and the prospective workaround are documented in
+`docs/open_data_plan.md`.
 
 ### Forward-looking information
 
@@ -131,10 +119,9 @@ research queue distinguishes information that was genuinely knowable before a de
   historical consensus must be shown to be the value frozen at release rather than a later revised
   snapshot.
   https://docs.tradingeconomics.com/financials/earnings_revenues/
-- Sharadar as-reported fundamentals can support a point-in-time standardized-unexpected-earnings
-  family without analyst estimates. That is a second-stage experiment after the price-volume family
-  passes the basic replication and execution gates.
-  https://sharadar.com/docs/fundamentals
+- SEC as-filed XBRL facts can support a point-in-time standardized-unexpected-earnings family
+  without analyst estimates. It remains a second-stage experiment because filing concepts,
+  amendments, and fiscal periods require issuer-level reconciliation rather than a naive wide join.
 
 Future earnings dates may be used prospectively to explain gap risk or block new entries, but they
 cannot be backfilled from today's calendar and presented as historical evidence.
@@ -209,6 +196,15 @@ requires dated point-in-time classifications, not today's company narrative.
 
 ## Implemented research scaffold
 
+- `stock_universe.py` snapshots the current S&P 500 roster from public sources, binds raw-source
+  hashes, records an unavailable SEC cross-check explicitly, and prohibits historical backfill.
+- `stock_live_data.py` excludes incomplete sessions, locks adjusted current-roster OHLCV, requires
+  99% latest-close coverage, quantifies 252-session signal coverage, and binds the universe hash.
+- `stock_candidates.py` freezes all three top-ten screens and their feature-level explanations
+  before the next open. The live 2026-10-06 screen produced 18 unique names rather than 30 because
+  the families overlap.
+- `alpha_validation.py` reserves a local free-quota ledger and checks only that candidate union plus
+  SPY against Alpha Vantage daily closes. It never embeds the API key in an artifact.
 - `stock_signals.py` calculates the three causal feature families from dated OHLCV and mandatory
   point-in-time membership.
 - `stock_strategy.py` maintains next-open entry prices, close-based high-water marks, holding age,
@@ -241,7 +237,8 @@ requires dated point-in-time classifications, not today's company narrative.
   with the configured Treasury-bill proxy instead of silently assuming free daily rebalancing and
   zero-return cash.
 
-The remaining critical path is obtaining a licensed provider export, reviewing every unsupported
-terminal event actually touched by a strategy, and executing the preregistered run. No
-individual-stock performance number exists yet because the open Yahoo panel failed the coverage
-gate; synthetic integration tests prove mechanics, not edge.
+The remaining critical path is accumulating immediately consecutive prospective stock states,
+independently validating every candidate or holding within the free quota, and scoring next-open
+outcomes across enough trades and both market regimes. Historical stock performance remains
+unreported where the open panel fails its coverage gate; synthetic integration tests prove
+mechanics, not edge.

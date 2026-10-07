@@ -8,12 +8,15 @@ data/raw/
 data/processed/
 data/stock/
 data/events/
+data/pitindex-cache/
+data/stock-shadow/
 imports/
 reports/latest/
 reports/runs/
 reports/shadow/
 reports/private/
 reports/stock/
+reports/stock-shadow/
 config/portfolio.toml
 .streamlit/secrets.toml
 .env
