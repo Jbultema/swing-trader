@@ -1,0 +1,41 @@
+[data]
+start = "2004-01-01"
+benchmark = "SPY"
+cash_proxy = "BIL"
+tickers = [
+  "SPY", "QQQ", "IWM", "MDY",
+  "XLB", "XLE", "XLF", "XLI", "XLK", "XLP", "XLU", "XLV", "XLY",
+  "EFA", "EEM", "GLD", "IEF",
+]
+
+[strategy]
+top_n = 3
+rank_buffer = 2
+fast_days = 21
+medium_days = 63
+slow_days = 126
+skip_days = 5
+trend_days = 200
+fast_trend_days = 50
+volatility_days = 20
+atr_days = 20
+trailing_high_days = 63
+atr_multiple = 3.0
+target_volatility = 0.12
+max_asset_weight = 0.35
+stress_volatility = 0.35
+stress_drawdown = -0.12
+risk_off_exposure = 0.0
+rebalance_weekday = 4
+
+[execution]
+initial_capital = 100000.0
+transaction_cost_bps = 10.0
+minimum_trade_weight = 0.01
+
+[validation]
+development_end = "2018-12-31"
+validation_start = "2019-01-01"
+validation_end = "2023-12-31"
+recent_diagnostic_start = "2024-01-01"
+minimum_history_days = 252

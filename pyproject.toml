@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "swing-trader"
+version = "0.1.0"
+description = "Long-only swing and momentum research with explainable, human-executed trade tickets."
+authors = ["Jbultema"]
+readme = "README.md"
+packages = [{include = "swing_trader", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.13"
+numpy = ">=1.26,<3"
+pandas = ">=2.2,<3"
+plotly = ">=5.24,<7"
+pyarrow = ">=17,<23"
+streamlit = ">=1.40,<2"
+typer = ">=0.15,<1"
+yfinance = ">=0.2.54,<1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8,<9"
+ruff = ">=0.9,<1"
+
+[tool.poetry.scripts]
+swing-trader = "swing_trader.cli:app"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]

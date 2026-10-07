@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.py[cod]
+.DS_Store
+data/raw/
+data/processed/
+reports/latest/
+reports/runs/
+.streamlit/secrets.toml
