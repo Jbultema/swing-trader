@@ -41,20 +41,23 @@ Official references:
 - A new GitHub `sp500-data` project publishes useful verification ideas, but it has no clear data or
   code license, has no established adoption, and its own README reports only 76% historical-member
   price coverage in 2015. It is research input, not imported data.
-- Alpaca and Tiingo both offer zero-dollar accounts that may be useful local cross-checks. They are
-  proprietary services with account terms, not open data. They can be added only as optional,
-  user-supplied-key adapters; the default pipeline must work and fail honestly without them.
+- Alpaca and Tiingo both offer zero-dollar accounts, but they are proprietary services with account
+  terms rather than open data. They are not dependencies or planned fallbacks for the operating
+  path; their documentation is useful only for evaluating whether an optional manual cross-check
+  would add information.
 - GitHub or Kaggle price dumps with unclear provenance, licenses, adjustment rules, or update
   processes are not accepted merely because they are downloadable.
 
 ## Workarounds that preserve scientific validity
 
-1. Screen the full current universe from one immutable primary snapshot, then independently check
-   only the names that could be bought or held. Today's three top-ten screens overlap enough that
-   the 2026-10-06 union is 18 stocks; with SPY and one earnings-calendar request, this fits the free
-   Alpha Vantage allowance.
-2. Keep the three signal families frozen in parallel rather than choosing the best after seeing
-   future outcomes. Multiple-testing and family-wide uncertainty still apply.
+1. Screen the full current universe from one immutable primary snapshot, combine the three frozen
+   families into one preregistered top-ten consensus, then independently check only its current
+   holdings, new candidates, and SPY. The worst case is 21 daily-price calls; one bulk calendar call
+   still fits within Alpha Vantage's documented free allowance.
+2. Keep one consensus portfolio as the primary prospective arm. Preserve the market-guard version
+   as a diagnostic comparator, not a second independently optimized portfolio that can exhaust the
+   free validation budget. Multiple-testing and family-wide uncertainty still apply to historical
+   research.
 3. Start every stock strategy from cash. Each later paper state must follow the immediately prior
    recorded session. Gaps do not get reconstructed using today's roster.
 4. Evaluate targets at the next available open and at 5, 21, and 63 sessions. Retain failed data
@@ -65,6 +68,7 @@ Official references:
 6. Treat SEC, FINRA, and future-earnings data as event/risk features captured before a decision;
    never backfill today's event view into old signals.
 
-The practical result is slower than buying a curated database, but it is honest: open data can
-support a strong prospective system and selected covered historical replications. It cannot justify
-a universal survivor-free historical claim when the missing names are correlated with failure.
+The practical result is slower than buying a curated database, but it is honest: public and free
+data can support a strong prospective system and selected covered historical replications. It
+cannot justify a universal survivor-free historical claim when missing names are correlated with
+failure.

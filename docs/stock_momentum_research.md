@@ -82,9 +82,8 @@ on survival and is prohibited by the validation contract.
 
 ### No-paid-data boundary
 
-Paid feeds are out of scope. The project will not use Bloomberg, Sharadar, CRSP, Norgate, Massive,
-or another commercial feed as its critical path. The existing licensed-file adapter remains inert
-compatibility code and is not part of the operating plan.
+Paid feeds are out of scope. The project has no active Bloomberg, Sharadar, CRSP, Norgate, Massive,
+Trading Economics, or other paid-data adapter or CLI entry point.
 
 The open-data workaround is deliberately asymmetric. Current-universe screening is feasible with a
 fresh public roster and one immutable Yahoo snapshot. Independent checking is then focused on the
@@ -113,15 +112,14 @@ research queue distinguishes information that was genuinely knowable before a de
   sentiment. Its free 25-call daily allowance is enough for a bulk calendar snapshot and spot
   checks, not a daily point-in-time estimates history for roughly 500 stocks.
   https://www.alphavantage.co/documentation/
-- Trading Economics documents historical earnings actuals, consensus, release session, and update
-  timestamps. The locally configured credential returned HTTP 401 on a minimal historical earnings
-  query on 2026-10-07, so this project currently classifies it as unavailable. Even with access,
-  historical consensus must be shown to be the value frozen at release rather than a later revised
-  snapshot.
-  https://docs.tradingeconomics.com/financials/earnings_revenues/
 - SEC as-filed XBRL facts can support a point-in-time standardized-unexpected-earnings family
   without analyst estimates. It remains a second-stage experiment because filing concepts,
   amendments, and fiscal periods require issuer-level reconciliation rather than a naive wide join.
+
+There is no accepted free source for a complete historical analyst-consensus vintage panel. The
+workaround is to use SEC acceptance timestamps and as-filed facts for a separately preregistered
+fundamental-surprise family, and to capture future earnings dates prospectively for risk control.
+No consensus estimate is inferred or backfilled.
 
 Future earnings dates may be used prospectively to explain gap risk or block new entries, but they
 cannot be backfilled from today's calendar and presented as historical evidence.
@@ -203,8 +201,12 @@ requires dated point-in-time classifications, not today's company narrative.
 - `stock_candidates.py` freezes all three top-ten screens and their feature-level explanations
   before the next open. The live 2026-10-06 screen produced 18 unique names rather than 30 because
   the families overlap.
-- `alpha_validation.py` reserves a local free-quota ledger and checks only that candidate union plus
-  SPY against Alpha Vantage daily closes. It never embeds the API key in an artifact.
+- `alpha_validation.py` reserves a local free-quota ledger and checks only primary-arm holdings,
+  consensus candidates, and SPY against Alpha Vantage daily closes. It never embeds the API key in
+  an artifact.
+- `stock_shadow_state.py` advances one immediately consecutive close-to-next-open paper state,
+  recomputes adjustment-safe entry bases and high-water marks, records every exit reason, and
+  rejects session gaps. The consensus arm is primary; the guarded arm is a diagnostic comparator.
 - `stock_signals.py` calculates the three causal feature families from dated OHLCV and mandatory
   point-in-time membership.
 - `stock_strategy.py` maintains next-open entry prices, close-based high-water marks, holding age,
@@ -214,8 +216,6 @@ requires dated point-in-time classifications, not today's company narrative.
   maps report timing into causal pre-event and post-event session flags.
 - `stock_data.py` and `swing-trader data audit-stocks` fail closed on missing historical members,
   member-date gaps, or inadequate 252-session warm-up.
-- `sharadar.py` normalizes and hashes licensed bulk prices, constituent events, and corporate
-  actions; unsupported terminal events remain explicit.
 - `execution.py` compares each asset-level trade with median dollar volume known before the open and
   rejects paths above the preregistered 1% ADV limit.
 - `stock_research.py` runs the fixed signal/exit registry, required comparators, 20/50/100 bp

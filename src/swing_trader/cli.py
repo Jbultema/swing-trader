@@ -10,7 +10,10 @@ import pandas as pd
 import typer
 from dotenv import load_dotenv
 
-from swing_trader.alpha_validation import validate_candidate_snapshot_with_alpha
+from swing_trader.alpha_validation import (
+    latest_alpha_validation_for_candidate,
+    validate_candidate_snapshot_with_alpha,
+)
 from swing_trader.audit import audit_operational_artifacts
 from swing_trader.cash import download_fred_cash_returns, load_cash_returns
 from swing_trader.config import AppConfig, load_config
@@ -22,11 +25,10 @@ from swing_trader.data import (
     load_prices,
     reconcile_monthly_adjusted,
 )
-from swing_trader.events import download_alpha_earnings_calendar
+from swing_trader.events import download_alpha_earnings_calendar, latest_earnings_snapshot
 from swing_trader.prospective import write_prospective_evaluation
 from swing_trader.research import run_research
 from swing_trader.shadow import record_shadow_snapshot
-from swing_trader.sharadar import write_sharadar_panel
 from swing_trader.stock_audit import audit_stock_research_bundle
 from swing_trader.stock_candidates import latest_candidate_snapshot, record_current_stock_candidates
 from swing_trader.stock_config import load_stock_experiment_config
@@ -37,6 +39,11 @@ from swing_trader.stock_live_data import (
     latest_stock_price_manifest,
 )
 from swing_trader.stock_research import run_stock_research
+from swing_trader.stock_shadow_state import (
+    held_tickers_from_latest_state,
+    record_stock_shadow_state,
+    verify_stock_shadow_state,
+)
 from swing_trader.stock_universe import (
     audit_current_sp500_snapshot,
     download_current_sp500_snapshot,
@@ -101,30 +108,6 @@ def data_audit_stocks(
     )
     if result.status != "passed":
         raise typer.Exit(code=2)
-
-
-@data_app.command("import-sharadar")
-def data_import_sharadar(
-    stocks_path: Annotated[Path, typer.Option("--stocks")] = Path("imports/stocks.csv.zip"),
-    sp500_path: Annotated[Path, typer.Option("--sp500")] = Path("imports/sp500.csv.zip"),
-    actions_path: Annotated[Path, typer.Option("--actions")] = Path("imports/actions.csv.zip"),
-    output: Annotated[Path, typer.Option("--output")] = Path("data/stock"),
-) -> None:
-    """Normalize locally downloaded Sharadar bulk tables with a hashed manifest."""
-    panel = write_sharadar_panel(
-        stocks_path,
-        sp500_path,
-        output,
-        actions_path=actions_path,
-    )
-    unsupported = (
-        0 if panel.unsupported_terminal_events is None else len(panel.unsupported_terminal_events)
-    )
-    typer.echo(
-        f"Imported {len(panel.ohlcv):,} sessions and "
-        f"{len(panel.membership.columns):,} historical membership identifiers to {output}; "
-        f"{unsupported:,} terminal-event rows require explicit treatment."
-    )
 
 
 @data_app.command("update-cash")
@@ -369,12 +352,19 @@ def shadow_screen_stocks(
     output: Annotated[Path, typer.Option("--output")] = Path(
         "reports/stock-shadow/candidates"
     ),
+    state_dir: Annotated[Path, typer.Option("--state-dir")] = Path(
+        "reports/stock-shadow/states"
+    ),
 ) -> None:
     """Lock explainable stock candidates from fresh close-known inputs; never place orders."""
     result = record_current_stock_candidates(
         latest_current_sp500_manifest(universe_snapshots),
         latest_stock_price_manifest(price_snapshots),
         output,
+        required_validation_symbols=held_tickers_from_latest_state(
+            state_dir,
+            arm_names=("consensus",),
+        ),
     )
     typer.echo(
         f"Locked {result.family_candidates} unique candidates as of {result.as_of_session}; "
@@ -404,6 +394,61 @@ def shadow_validate_stock_candidates(
         quota_dir=quota_dir,
     )
     typer.echo(f"Locked independent candidate validation {path.name}; no order was placed.")
+
+
+@shadow_app.command("record-stocks")
+def shadow_record_stocks(
+    universe_snapshots: Annotated[Path, typer.Option("--universe-snapshots")] = Path(
+        "data/stock-shadow/universe"
+    ),
+    price_snapshots: Annotated[Path, typer.Option("--price-snapshots")] = Path(
+        "data/stock-shadow/prices"
+    ),
+    candidates: Annotated[Path, typer.Option("--candidates")] = Path(
+        "reports/stock-shadow/candidates"
+    ),
+    alpha_validations: Annotated[Path, typer.Option("--alpha-validations")] = Path(
+        "data/stock-shadow/alpha-validation"
+    ),
+    earnings_snapshots: Annotated[Path, typer.Option("--earnings-snapshots")] = Path(
+        "data/events/earnings"
+    ),
+    config_path: Annotated[Path, typer.Option("--config")] = Path(
+        "config/stock_shadow.toml"
+    ),
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "reports/stock-shadow/states"
+    ),
+) -> None:
+    """Advance the immutable next-open stock paper state; never place orders."""
+    candidate = latest_candidate_snapshot(candidates)
+    result = record_stock_shadow_state(
+        candidate,
+        latest_current_sp500_manifest(universe_snapshots),
+        latest_stock_price_manifest(price_snapshots),
+        config_path,
+        output,
+        alpha_validation_path=latest_alpha_validation_for_candidate(
+            alpha_validations,
+            candidate,
+        ),
+        earnings_path=latest_earnings_snapshot(earnings_snapshots),
+    )
+    typer.echo(
+        f"Locked {'initial' if result.initialization else 'advanced'} stock state "
+        f"for {result.as_of_session}: {result.targets}; no order was placed."
+    )
+
+
+@shadow_app.command("verify-stock-state")
+def shadow_verify_stock_state(
+    state_path: Annotated[Path, typer.Option("--state")],
+) -> None:
+    """Verify an immutable stock paper-state content hash."""
+    passed = verify_stock_shadow_state(state_path)
+    typer.echo(json.dumps({"path": str(state_path), "content_hash_passed": passed}, indent=2))
+    if not passed:
+        raise typer.Exit(code=2)
 
 
 @shadow_app.command("evaluate")

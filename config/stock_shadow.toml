@@ -1,0 +1,24 @@
+[portfolio]
+maximum_positions = 10
+maximum_position_weight = 0.10
+
+[exit]
+hard_stop_fraction = 0.08
+atr_multiple = 3.0
+rank_exit_multiple = 2.0
+maximum_holding_sessions = 21
+
+[market_guard]
+benchmark = "SPY"
+moving_average_sessions = 200
+volatility_sessions = 20
+maximum_annualized_volatility = 0.35
+arms = ["consensus", "consensus_market_guard"]
+
+[events]
+earnings_lead_sessions = 2
+earnings_cooling_sessions = 1
+
+[evaluation]
+round_trip_cost_bps = 50.0
+horizons = [5, 21, 63]

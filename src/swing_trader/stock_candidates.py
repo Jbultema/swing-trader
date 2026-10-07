@@ -38,6 +38,7 @@ def record_current_stock_candidates(
     top_n: int = 10,
     validation_symbol_limit: int = 23,
     benchmark: str = "SPY",
+    required_validation_symbols: tuple[str, ...] = (),
     now: datetime | None = None,
 ) -> CandidateSnapshot:
     """Lock one close-known, research-only candidate screen before future outcomes exist."""
@@ -65,13 +66,14 @@ def record_current_stock_candidates(
     membership.loc[:, current] = True
     features = build_stock_features(prices, membership)
     as_of = pd.Timestamp(prices.index.max())
-    family_rows, validation_symbols = screen_latest_candidates(
+    family_rows, consensus_rows, validation_symbols = screen_latest_candidates(
         features,
         as_of,
         families=families,
         top_n=top_n,
         validation_symbol_limit=validation_symbol_limit,
         benchmark=benchmark,
+        required_validation_symbols=required_validation_symbols,
     )
     market_state = _market_state(prices["Close"][benchmark].dropna(), as_of)
     primary_close = prices["Close"].loc[as_of]
@@ -88,6 +90,10 @@ def record_current_stock_candidates(
         "top_n_per_family": top_n,
         "market_state": market_state,
         "family_candidates": family_rows,
+        "consensus_method": (
+            "agreement_count_desc_then_mean_family_rank_asc_then_mean_score_desc"
+        ),
+        "consensus_candidates": consensus_rows,
         "validation_symbol_limit": validation_symbol_limit,
         "validation_symbols": validation_symbols,
         "primary_latest_close": {
@@ -127,7 +133,8 @@ def screen_latest_candidates(
     top_n: int,
     validation_symbol_limit: int,
     benchmark: str = "SPY",
-) -> tuple[list[dict[str, object]], list[str]]:
+    required_validation_symbols: tuple[str, ...] = (),
+) -> tuple[list[dict[str, object]], list[dict[str, object]], list[str]]:
     if top_n < 1 or validation_symbol_limit < 1:
         raise ValueError("Candidate and validation limits must be positive.")
     unknown = set(families) - set(SCORE_COLUMNS)
@@ -175,10 +182,35 @@ def screen_latest_candidates(
             ticker,
         ),
     )
-    shortlist = ordered[:validation_symbol_limit]
+    consensus_tickers = ordered[:top_n]
+    consensus = [
+        {
+            "rank": rank,
+            "ticker": ticker,
+            "agreement_count": len(ranks_by_ticker[ticker]),
+            "signal_families": sorted(
+                row["signal_family"] for row in rows if row["ticker"] == ticker
+            ),
+            "mean_family_rank": sum(ranks_by_ticker[ticker]) / len(ranks_by_ticker[ticker]),
+            "mean_score": sum(scores_by_ticker[ticker]) / len(scores_by_ticker[ticker]),
+            "why": [
+                f"top_{top_n}_consensus",
+                f"appears_in_{len(ranks_by_ticker[ticker])}_of_{len(families)}_families",
+            ],
+        }
+        for rank, ticker in enumerate(consensus_tickers, start=1)
+    ]
+    required = list(dict.fromkeys(str(value) for value in required_validation_symbols))
+    if len(required) + 1 > validation_symbol_limit:
+        raise CandidateSnapshotError(
+            "Required holdings plus the benchmark exceed the free validation-symbol limit."
+        )
+    shortlist = list(dict.fromkeys([*required, *consensus_tickers]))[:validation_symbol_limit]
     if benchmark not in shortlist:
+        if len(shortlist) >= validation_symbol_limit:
+            shortlist = shortlist[: validation_symbol_limit - 1]
         shortlist.append(benchmark)
-    return rows, shortlist
+    return rows, consensus, shortlist
 
 
 def verify_candidate_snapshot(path: Path) -> bool:

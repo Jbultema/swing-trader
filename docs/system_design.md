@@ -17,9 +17,9 @@ The core is intentionally small. Research code creates immutable artifacts; the 
 public current roster + stale-reference diagnostic
        -> immutable prospective-only universe snapshot
        -> completed-session adjusted OHLCV + 99% coverage gate
-       -> three close-known momentum screens
-       -> free-quota independent checks for candidates/holdings only
-       -> next-open paper targets + explicit exits
+       -> three close-known momentum screens -> one frozen consensus
+       -> free-quota independent checks for primary candidates/holdings only
+       -> next-open primary targets + diagnostic market-guard comparator + explicit exits
        -> immutable prospective outcomes; human remains the only executor
 ```
 
@@ -27,6 +27,11 @@ Every artifact is labeled `data_cost_policy=no_paid_sources`. Current membership
 backward. A historical interval is eligible for performance reporting only if its point-in-time
 member-date price and corporate-action coverage passes the same fail-closed audit. Otherwise it is
 either a visibly biased diagnostic or omitted.
+
+The primary arm holds at most ten names. Its held-name union with ten new consensus candidates and
+SPY requires at most 21 Alpha Vantage daily calls. The market-guard arm cannot expand that quota:
+it is labeled as a diagnostic comparator and is never counted as primary prospective performance.
+Both arms start from cash and must advance through immediately consecutive recorded sessions.
 
 The scheduled workflow downloads data, reconciles completed-month returns against Alpha Vantage when its repository secret is configured, runs validation, locks a content-hashed shadow record, and uploads a read-only artifact. It has `contents: read` permission and no broker credentials. A missing or failed secondary feed leaves hypothetical research visible but invalidates every action. Human execution is a hard system boundary.
 

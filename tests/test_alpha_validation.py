@@ -10,8 +10,10 @@ import pytest
 
 from swing_trader.alpha_validation import (
     AlphaValidationError,
+    latest_alpha_validation_for_candidate,
     parse_alpha_daily_csv,
     validate_candidate_snapshot_with_alpha,
+    verify_alpha_candidate_validation,
 )
 
 
@@ -54,6 +56,8 @@ def test_alpha_candidate_validation_uses_finite_free_quota_and_matches_closes(
     assert result["validation"]["symbols_matched"] == 2
     assert ledger["reserved_calls"] == 2
     assert "secret" not in output.read_text()
+    assert verify_alpha_candidate_validation(output)
+    assert latest_alpha_validation_for_candidate(output.parent, candidate) == output
 
 
 def test_alpha_candidate_validation_retains_failed_reconciliation(tmp_path: Path) -> None:

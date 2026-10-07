@@ -186,6 +186,8 @@ def validate_candidate_snapshot_with_alpha(
         "validation": validation.to_dict(),
         "symbol_checks": rows,
     }
+    canonical = json.dumps(output, sort_keys=True, separators=(",", ":")).encode()
+    output["record_sha256"] = hashlib.sha256(canonical).hexdigest()
     with path.open("x", encoding="utf-8") as handle:
         json.dump(output, handle, indent=2)
         handle.write("\n")
@@ -194,6 +196,31 @@ def validate_candidate_snapshot_with_alpha(
             f"Alpha candidate validation failed; evidence retained at {path}."
         )
     return path
+
+
+def verify_alpha_candidate_validation(path: Path) -> bool:
+    payload = _read_json(path)
+    expected = payload.pop("record_sha256", None)
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return isinstance(expected, str) and hashlib.sha256(canonical).hexdigest() == expected
+
+
+def latest_alpha_validation_for_candidate(
+    output_dir: Path,
+    candidate_path: Path,
+) -> Path | None:
+    """Return the newest intact validation bound to the exact candidate record."""
+    if not verify_candidate_snapshot(candidate_path):
+        raise AlphaValidationError("Candidate snapshot failed its content-hash check.")
+    candidate = _read_json(candidate_path)
+    expected = candidate.get("record_sha256")
+    for path in sorted(output_dir.glob("alpha-candidates-*.json"), reverse=True):
+        if not verify_alpha_candidate_validation(path):
+            continue
+        payload = _read_json(path)
+        if payload.get("candidate_record_sha256") == expected:
+            return path
+    return None
 
 
 def parse_alpha_daily_csv(payload: bytes, symbol: str) -> pd.DataFrame:

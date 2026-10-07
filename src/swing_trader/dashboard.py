@@ -116,8 +116,8 @@ with stock:
     if not stock_manifest_path.exists():
         st.info(
             "No survivor-free stock research bundle exists yet. The Yahoo prototype failed the "
-            "coverage gate; run the preregistered pipeline only after importing licensed "
-            "point-in-time data."
+            "historical coverage gate. Retrospective results stay hidden until a no-paid "
+            "point-in-time panel passes it; use the prospective stock shadow in the meantime."
         )
     else:
         stock_audit = audit_stock_research_bundle(STOCK_REPORTS)

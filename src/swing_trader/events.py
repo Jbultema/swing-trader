@@ -75,6 +75,12 @@ def download_alpha_earnings_calendar(
     return output
 
 
+def latest_earnings_snapshot(output_dir: Path) -> Path | None:
+    """Return the newest immutable earnings parquet, if one has been captured."""
+    paths = sorted(output_dir.glob("*.parquet"))
+    return paths[-1] if paths else None
+
+
 def parse_alpha_earnings_calendar(payload: str) -> pd.DataFrame:
     reader = csv.DictReader(io.StringIO(payload))
     if tuple(reader.fieldnames or ()) != EXPECTED_EARNINGS_FIELDS:

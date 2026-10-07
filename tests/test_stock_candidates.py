@@ -32,16 +32,18 @@ def test_candidate_screen_prioritizes_cross_family_agreement_for_free_validation
         index=index,
     )
 
-    rows, validation = screen_latest_candidates(
+    rows, consensus, validation = screen_latest_candidates(
         features,
         date,
         families=("short_volume", "smooth_momentum", "volume_breakout"),
         top_n=2,
-        validation_symbol_limit=2,
+        validation_symbol_limit=3,
     )
 
     assert len(rows) == 6
     assert validation == ["A", "B", "SPY"]
+    assert [row["ticker"] for row in consensus] == ["A", "B"]
+    assert consensus[0]["agreement_count"] == 3
     assert all(row["why"] for row in rows)
 
 

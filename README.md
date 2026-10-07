@@ -53,7 +53,9 @@ cp .env.example .env
 poetry run swing-trader daily
 ```
 
-`TRADING_ECONOMICS_API_KEY` is reserved for a future macro-risk connector and is not currently read by the trading model.
+The operating path has no Trading Economics, Bloomberg, Sharadar, or other paid-data connector.
+Alpha Vantage is used only within its documented free allowance; the system still records a
+research-only state when that allowance is unavailable, but excludes it from primary performance.
 
 The no-paid individual-stock path locks every input before it can observe the next session:
 
@@ -62,15 +64,25 @@ poetry run swing-trader data snapshot-stock-universe
 poetry run swing-trader data snapshot-stock-prices
 poetry run swing-trader shadow screen-stocks
 poetry run swing-trader shadow validate-stock-candidates
+poetry run swing-trader data snapshot-earnings --horizon 3month
+poetry run swing-trader shadow record-stocks
 ```
 
 The universe combines the currently observed public S&P 500 table with strict schema checks and a
 non-authoritative `pitindex` comparison. The adjusted price panel comes from Yahoo through
 `yfinance`, excludes a still-open market session, and requires at least 99% current-close coverage.
-The candidate screen then spends Alpha Vantage's free quota only on the finite set of names that
-could be held or bought, plus SPY. A local quota ledger reserves at most 24 of the documented 25
-daily calls so one call remains available for the bulk earnings calendar. Missing, stale, divergent,
-or quota-limited validation leaves the screen research-only.
+The candidate screen forms one top-ten consensus from the three frozen signal families. Alpha
+Vantage's free quota checks only the primary consensus portfolio's existing holdings, its new
+candidates, and SPY: at most 21 daily-price requests. The market-guard arm is retained as a
+diagnostic comparator rather than consuming enough calls to make the primary workflow unreliable.
+A local ledger permits at most 24 of the documented 25 daily calls, leaving room for the one-call
+bulk earnings calendar. Missing, stale, divergent, or quota-limited validation still produces an
+immutable diagnostic state but makes it ineligible for primary prospective performance.
+
+`record-stocks` starts from cash, records decisions made after the completed close, and applies them
+no earlier than the next regular-session open. It refuses to fill a missing paper session with the
+current roster. Hard-loss, ATR-trailing, trend, short-momentum, rank-decay, and 21-session time exits
+are retained as explicit reasons. No command places an order.
 
 These current-universe snapshots may never be projected backward as historical membership. Before
 any retrospective individual-stock experiment, normalized prices and point-in-time membership must
