@@ -36,8 +36,9 @@ jobs:
       - run: poetry install --only main --sync
       - run: poetry run swing-trader daily
       - name: Audit locked decision artifacts
-        run: poetry run swing-trader audit
+        run: poetry run swing-trader audit --require-data-gate
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: swing-trader-${{ github.run_id }}
           path: |

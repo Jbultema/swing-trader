@@ -94,6 +94,9 @@ def audit(
     prices_manifest_path: Annotated[Path, typer.Option("--prices-manifest")] = Path(
         "data/raw/prices.manifest.json"
     ),
+    require_data_gate: Annotated[
+        bool, typer.Option("--require-data-gate/--allow-failed-data-gate")
+    ] = False,
 ) -> None:
     """Verify the latest decision bundle and every immutable shadow record."""
     result = audit_operational_artifacts(
@@ -113,6 +116,8 @@ def audit(
         )
     if not result.integrity_passed:
         raise typer.Exit(code=1)
+    if require_data_gate and not result.data_gate_passed:
+        raise typer.Exit(code=2)
 
 
 @shadow_app.command("record")

@@ -4,7 +4,10 @@ import hashlib
 import json
 from pathlib import Path
 
+from typer.testing import CliRunner
+
 from swing_trader.audit import audit_operational_artifacts
+from swing_trader.cli import app
 from swing_trader.shadow import record_shadow_snapshot
 
 
@@ -46,6 +49,29 @@ def test_operational_audit_rejects_tampering_and_cross_file_disagreement(
     assert not result.integrity_passed
     assert any("disagree" in error for error in result.errors)
     assert any("hash verification" in error for error in result.errors)
+
+
+def test_cli_strict_gate_alerts_but_default_audit_remains_diagnostic(tmp_path: Path) -> None:
+    reports, shadows, prices, prices_manifest = _bundle(tmp_path)
+    common = [
+        "audit",
+        "--reports",
+        str(reports),
+        "--shadows",
+        str(shadows),
+        "--prices",
+        str(prices),
+        "--prices-manifest",
+        str(prices_manifest),
+    ]
+    runner = CliRunner()
+
+    diagnostic = runner.invoke(app, common)
+    strict = runner.invoke(app, [*common, "--require-data-gate"])
+
+    assert diagnostic.exit_code == 0
+    assert strict.exit_code == 2
+    assert "FAIL CLOSED" in strict.stdout
 
 
 def _bundle(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
