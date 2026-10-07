@@ -125,7 +125,9 @@ def _paired_block_bootstrap(
     block_days: int = 21,
     samples: int = 2000,
 ) -> dict[str, float | int]:
-    paired = pd.concat([champion.rename("champion"), benchmark.rename("benchmark")], axis=1).dropna()
+    paired = pd.concat(
+        [champion.rename("champion"), benchmark.rename("benchmark")], axis=1
+    ).dropna()
     spread = paired["champion"] - paired["benchmark"]
     rng = np.random.default_rng(20261006)
     starts = np.arange(0, max(len(spread) - block_days + 1, 1))

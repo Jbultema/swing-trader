@@ -54,7 +54,15 @@ with overview:
     )
     st.dataframe(
         metrics[
-            ["strategy", "split", "cagr", "annualized_volatility", "sharpe_zero_rf", "max_drawdown", "calmar"]
+            [
+                "strategy",
+                "split",
+                "cagr",
+                "annualized_volatility",
+                "sharpe_zero_rf",
+                "max_drawdown",
+                "calmar",
+            ]
         ],
         hide_index=True,
         width="stretch",
@@ -91,15 +99,15 @@ with risk:
     st.subheader("Known hostile regimes")
     st.dataframe(regimes, hide_index=True, width="stretch")
     st.json(decisions["market"])
-    st.warning("Stops reduce modeled exposure after observed damage; they cannot prevent overnight gaps or guarantee an execution price.")
+    st.warning(
+        "Stops reduce modeled exposure after observed damage; they cannot prevent overnight gaps or guarantee an execution price."
+    )
 
 with methods:
     st.subheader("Decision data gate")
     st.json(data_quality)
     st.subheader("Validation warning")
-    pbo = validation["approximate_pbo"][
-        "probability_selected_variant_below_oos_median"
-    ]
+    pbo = validation["approximate_pbo"]["probability_selected_variant_below_oos_median"]
     bootstrap = validation["paired_block_bootstrap"]
     st.warning(
         f"Approximate PBO is {pbo:.1%}. The paired block bootstrap estimates only a "

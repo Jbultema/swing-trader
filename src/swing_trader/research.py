@@ -113,7 +113,9 @@ def _write_artifacts(
     }
     for name, result in results.items():
         for split, (start, end) in split_ranges.items():
-            effective_start = max(pd.Timestamp(start), evaluation_start) if start else evaluation_start
+            effective_start = (
+                max(pd.Timestamp(start), evaluation_start) if start else evaluation_start
+            )
             returns = result.returns.loc[effective_start:end]
             if len(returns.dropna()) < 2:
                 continue
@@ -243,13 +245,10 @@ def latest_champion_decisions(
     benchmark = close[config.data.benchmark]
     benchmark_returns = benchmark.pct_change(fill_method=None)
     benchmark_volatility = float(
-        benchmark_returns.rolling(config.strategy.volatility_days).std().iloc[-1]
-        * (252**0.5)
+        benchmark_returns.rolling(config.strategy.volatility_days).std().iloc[-1] * (252**0.5)
     )
     benchmark_drawdown = float(
-        benchmark.iloc[-1]
-        / benchmark.rolling(config.strategy.trend_days).max().iloc[-1]
-        - 1.0
+        benchmark.iloc[-1] / benchmark.rolling(config.strategy.trend_days).max().iloc[-1] - 1.0
     )
     panic_triggered = float(panic_target.sum()) < float(target.sum()) - 1e-12
     gate_passed = bool(data_quality.get("decision_data_gate_passed", False))

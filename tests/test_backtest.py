@@ -48,7 +48,7 @@ def test_panic_guard_exits_to_cash_after_market_crash() -> None:
     dates = pd.bdate_range("2024-01-02", periods=320)
     steady = pd.Series([100.0 + 0.1 * value for value in range(len(dates))], index=dates)
     prices = pd.DataFrame({"SPY": steady, "A": steady * 1.01}, index=dates)
-    prices.loc[dates[-20]:, "SPY"] *= pd.Series(
+    prices.loc[dates[-20] :, "SPY"] *= pd.Series(
         [1.0 - 0.02 * value for value in range(20)], index=dates[-20:]
     )
     weights = panic_guarded_dual_momentum_weights(

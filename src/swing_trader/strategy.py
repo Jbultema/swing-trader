@@ -34,10 +34,9 @@ def build_strategy(ohlcv: pd.DataFrame, config: StrategyConfig, benchmark: str) 
     trend_slow = close > close.rolling(config.trend_days).mean()
     trend_fast = close > close.rolling(config.fast_trend_days).mean()
     absolute_positive = momentum_slow > 0.0
-    trailing_stop = (
-        high.rolling(config.trailing_high_days).max().shift(1)
-        - config.atr_multiple * _atr(high, low, close, config.atr_days)
-    )
+    trailing_stop = high.rolling(config.trailing_high_days).max().shift(
+        1
+    ) - config.atr_multiple * _atr(high, low, close, config.atr_days)
     stop_ok = close > trailing_stop
     eligible = trend_slow & trend_fast & absolute_positive & stop_ok & volatility.gt(0)
 
@@ -60,9 +59,7 @@ def build_strategy(ohlcv: pd.DataFrame, config: StrategyConfig, benchmark: str) 
         top_n=config.top_n,
         rank_buffer=config.rank_buffer,
     )
-    inverse_vol = (1.0 / volatility.where(selected)).replace(
-        [np.inf, -np.inf], np.nan
-    )
+    inverse_vol = (1.0 / volatility.where(selected)).replace([np.inf, -np.inf], np.nan)
     raw_weights = inverse_vol.div(inverse_vol.sum(axis=1), axis=0).fillna(0.0)
     capped = _cap_and_redistribute(raw_weights, config.max_asset_weight)
     estimated_vol = np.sqrt(((capped * volatility) ** 2).sum(axis=1))
@@ -112,9 +109,7 @@ def _skip_return(prices: pd.DataFrame, lookback: int, skip: int) -> pd.DataFrame
     return prices.shift(skip).div(prices.shift(lookback + skip)).sub(1.0)
 
 
-def _atr(
-    high: pd.DataFrame, low: pd.DataFrame, close: pd.DataFrame, days: int
-) -> pd.DataFrame:
+def _atr(high: pd.DataFrame, low: pd.DataFrame, close: pd.DataFrame, days: int) -> pd.DataFrame:
     prior_close = close.shift(1)
     true_range = pd.DataFrame(
         np.maximum.reduce(

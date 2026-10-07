@@ -9,6 +9,7 @@ from typing import Annotated
 import pandas as pd
 import typer
 
+from swing_trader.audit import audit_operational_artifacts
 from swing_trader.config import AppConfig, load_config
 from swing_trader.data import (
     MarketDataError,
@@ -74,17 +75,44 @@ def daily(
         root / "reports/latest",
         data_quality=quality,
     )
-    shadow_path = record_shadow_snapshot(
-        root / "reports/latest", root / "reports/shadow"
+    shadow_path = record_shadow_snapshot(root / "reports/latest", root / "reports/shadow")
+    typer.echo(
+        f"Daily research snapshot complete; locked {shadow_path.name}; no orders were placed."
     )
-    typer.echo(f"Daily research snapshot complete; locked {shadow_path.name}; no orders were placed.")
 
 
 @app.command("dashboard")
 def dashboard() -> None:
-    subprocess.run(
-        ["streamlit", "run", str(_root() / "src/swing_trader/dashboard.py")], check=True
+    subprocess.run(["streamlit", "run", str(_root() / "src/swing_trader/dashboard.py")], check=True)
+
+
+@app.command("audit")
+def audit(
+    report_dir: Annotated[Path, typer.Option("--reports")] = Path("reports/latest"),
+    shadow_dir: Annotated[Path, typer.Option("--shadows")] = Path("reports/shadow"),
+    prices_path: Annotated[Path, typer.Option("--prices")] = Path("data/raw/prices.parquet"),
+    prices_manifest_path: Annotated[Path, typer.Option("--prices-manifest")] = Path(
+        "data/raw/prices.manifest.json"
+    ),
+) -> None:
+    """Verify the latest decision bundle and every immutable shadow record."""
+    result = audit_operational_artifacts(
+        report_dir,
+        shadow_dir,
+        prices_path=prices_path,
+        prices_manifest_path=prices_manifest_path,
     )
+    typer.echo(result.markdown(), nl=False)
+    summary_path = os.getenv("GITHUB_STEP_SUMMARY", "").strip()
+    if summary_path:
+        with Path(summary_path).open("a", encoding="utf-8") as handle:
+            handle.write(result.markdown())
+    if os.getenv("GITHUB_ACTIONS") == "true" and not result.data_gate_passed:
+        typer.echo(
+            f"::warning title=Decision data gate failed::{result.data_quality_status}; no action is authorized."
+        )
+    if not result.integrity_passed:
+        raise typer.Exit(code=1)
 
 
 @shadow_app.command("record")
@@ -123,6 +151,9 @@ def _refresh_data_bundle(
         max_primary_age_calendar_days=config.data.max_primary_age_calendar_days,
         secondary_error=error,
     )
+    primary_manifest = json.loads(prices_path.with_suffix(".manifest.json").read_text())
+    quality["primary_snapshot_sha256"] = primary_manifest["sha256"]
+    quality["primary_snapshot_downloaded_at_utc"] = primary_manifest["downloaded_at_utc"]
     (prices_path.parent / "data_quality.json").write_text(
         json.dumps(quality, indent=2) + "\n", encoding="utf-8"
     )

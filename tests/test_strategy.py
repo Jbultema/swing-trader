@@ -59,12 +59,14 @@ def test_future_price_change_does_not_change_prior_signals() -> None:
     changed = prices.copy()
     changed.loc[cutoff:, ("Close", "A")] *= 4.0
     revised = build_strategy(changed, _config(), "SPY").target_weights
-    pd.testing.assert_frame_equal(original.loc[original.index < cutoff], revised.loc[revised.index < cutoff])
+    pd.testing.assert_frame_equal(
+        original.loc[original.index < cutoff], revised.loc[revised.index < cutoff]
+    )
 
 
 def test_market_kill_switch_moves_to_cash() -> None:
     prices = _prices()
-    prices.loc[prices.index[-30]:, ("Close", "SPY")] *= np.linspace(1.0, 0.5, 30)
+    prices.loc[prices.index[-30] :, ("Close", "SPY")] *= np.linspace(1.0, 0.5, 30)
     run = build_strategy(prices, _config(), "SPY")
     assert not bool(run.market_state.iloc[-1]["risk_on"])
     assert run.target_weights.iloc[-1].sum() == 0.0

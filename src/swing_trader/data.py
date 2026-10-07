@@ -117,9 +117,7 @@ def reconcile_monthly_adjusted(
     primary_latest_date = pd.Timestamp(primary_close.index.max())
     effective_as_of = as_of or datetime.now(UTC).date()
     age_days = (effective_as_of - primary_latest_date.date()).days
-    last_valid_dates = {
-        ticker: primary_close[ticker].last_valid_index() for ticker in tickers
-    }
+    last_valid_dates = {ticker: primary_close[ticker].last_valid_index() for ticker in tickers}
     all_tickers_current = all(
         pd.Timestamp(last_valid) == primary_latest_date
         for last_valid in last_valid_dates.values()
