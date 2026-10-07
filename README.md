@@ -135,6 +135,17 @@ still pass `poetry run swing-trader data audit-stocks`. If open sources cannot r
 99% member-date and corporate-action coverage for a period, that period receives no performance
 claim. The workaround is locked prospective evidence, not a survivor-only backtest.
 
+Official published portfolios provide a separate gross sanity check that does not bypass that gate:
+
+```bash
+poetry run swing-trader research published-momentum
+```
+
+This locks and scores the Fama-French daily broad and size-by-prior-return portfolios plus the
+market/risk-free series. The report is explicitly a published CRSP-decile comparator: daily
+reconstitution, constituent turnover, execution costs, and swing-trader exits cannot be inferred
+from the aggregate returns, so it never authorizes a trade or substitutes for the prospective bot.
+
 The stock report also writes the complete variant registry, expanding walk-forward path,
 stationary-bootstrap uncertainty, family-wide and false-discovery-adjusted tests, approximate PBO,
 hostile-regime results, and split-specific ticker P&L concentration. Statistical significance is

@@ -198,6 +198,35 @@ requires dated point-in-time classifications, not today's company narrative.
 
 ## Implemented research scaffold
 
+### Published open benchmark readout
+
+The command `swing-trader research published-momentum` locks the official Fama-French daily
+value-weighted prior-return deciles, size-by-prior-return portfolios, and daily market/risk-free
+series. These portfolios are constructed daily from the CRSP universe and currently run through
+2026-08-31. They are an open, published gross comparator rather than a reconstruction from the
+project's incomplete historical stock panel.
+
+The 2026-10-07 snapshot produced the following gross CAGRs:
+
+| Window | Market | Broad 12-2 winners | Large 12-2 winners | Large prior-month winners | Large prior-month losers |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Since 2010 | 14.34% | 17.43% | 14.96% | 13.65% | 15.03% |
+| Since 2020 | 15.46% | 19.27% | 15.45% | 17.32% | 16.13% |
+| Since 2022 | 11.98% | 21.67% | 13.53% | 14.98% | 15.45% |
+
+The liquid large-cap control is the key result. The spectacular recent broad 12-2 winner return did
+not survive at anything close to the same magnitude among large stocks. Large prior-month winners
+show a modest recent gross advantage, but they lag the market over the longer post-2010 window. From
+2022 their 19.14% volatility and -28.66% drawdown were also worse than the market's 17.95% and
+-25.45%. Daily reconstitution turnover is unavailable, so no cost-adjusted advantage can be
+claimed. This supports a separately measured, high-participation short-horizon prospective arm; it
+does not support replacing the consensus arm or promising unusually high returns.
+
+Official construction details and downloads:
+
+- https://mba.tuck.dartmouth.edu/pages/faculty/ken.French/Data_Library/det_10_port_form_pr_12_2_daily.html
+- https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html
+
 - `stock_universe.py` snapshots the current S&P 500 roster from public sources, binds raw-source
   hashes, records an unavailable SEC cross-check explicitly, and prohibits historical backfill.
 - `stock_live_data.py` excludes incomplete sessions, locks adjusted current-roster OHLCV, requires

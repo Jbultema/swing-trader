@@ -10,6 +10,7 @@ data/stock/
 data/events/
 data/pitindex-cache/
 data/stock-shadow/
+data/published/
 imports/
 reports/latest/
 reports/runs/
@@ -17,6 +18,7 @@ reports/shadow/
 reports/private/
 reports/stock/
 reports/stock-shadow/
+reports/published/
 config/portfolio.toml
 .streamlit/secrets.toml
 .env

@@ -33,6 +33,7 @@ from swing_trader.finra_activity import (
     latest_finra_activity_manifest,
 )
 from swing_trader.prospective import write_prospective_evaluation
+from swing_trader.published_momentum import write_published_momentum_report
 from swing_trader.research import run_research
 from swing_trader.sec_filing_events import (
     DEFAULT_SEC_USER_AGENT,
@@ -450,6 +451,19 @@ def research_stocks(
     typer.echo(
         f"Stock research selected {result.selected_variant} on the selection period; "
         f"wrote retrospective evidence to {output}. No order was placed."
+    )
+
+
+@research_app.command("published-momentum")
+def research_published_momentum(
+    source_dir: Annotated[Path, typer.Option("--source-dir")] = Path("data/published"),
+    output: Annotated[Path, typer.Option("--output")] = Path("reports/published"),
+) -> None:
+    """Download and score official gross Fama-French momentum comparators."""
+    result = write_published_momentum_report(source_dir, output)
+    typer.echo(
+        f"Published momentum comparator through {result.latest_session}: "
+        f"{result.source_status}; report={result.report_dir}"
     )
 
 
