@@ -5,6 +5,7 @@ import json
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
+from time import sleep
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -78,12 +79,16 @@ def download_alpha_vantage_monthly(
     output_path: Path,
     *,
     opener: Callable[..., object] = urlopen,
+    request_interval_seconds: float = 1.1,
+    sleeper: Callable[[float], None] = sleep,
 ) -> pd.DataFrame:
-    """Fetch adjusted monthly closes from the documented Alpha Vantage API."""
+    """Fetch adjusted monthly closes while respecting the free-tier burst limit."""
     if not api_key.strip():
         raise MarketDataError("Alpha Vantage API key is empty.")
     series: dict[str, pd.Series] = {}
-    for ticker in tickers:
+    for position, ticker in enumerate(tickers):
+        if position and request_interval_seconds > 0:
+            sleeper(request_interval_seconds)
         query = urlencode(
             {
                 "function": "TIME_SERIES_MONTHLY_ADJUSTED",
@@ -98,6 +103,28 @@ def download_alpha_vantage_monthly(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_parquet(output_path)
     return frame
+
+
+def load_cached_alpha_vantage_monthly(
+    path: Path,
+    tickers: tuple[str, ...],
+    *,
+    max_age_hours: float = 24.0,
+    now: datetime | None = None,
+) -> pd.DataFrame | None:
+    """Reuse a complete, recent snapshot so retries do not consume daily API quota."""
+    if not path.exists():
+        return None
+    checked_at = now or datetime.now(UTC)
+    modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
+    age_hours = (checked_at - modified_at).total_seconds() / 3600
+    if not 0 <= age_hours <= max_age_hours:
+        return None
+    frame = pd.read_parquet(path)
+    if list(frame.columns) != list(tickers):
+        return None
+    frame.index = pd.DatetimeIndex(pd.to_datetime(frame.index)).tz_localize(None)
+    return frame.sort_index()
 
 
 def reconcile_monthly_adjusted(

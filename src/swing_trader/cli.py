@@ -8,6 +8,7 @@ from typing import Annotated
 
 import pandas as pd
 import typer
+from dotenv import load_dotenv
 
 from swing_trader.audit import audit_operational_artifacts
 from swing_trader.config import AppConfig, load_config
@@ -15,6 +16,7 @@ from swing_trader.data import (
     MarketDataError,
     download_alpha_vantage_monthly,
     download_prices,
+    load_cached_alpha_vantage_monthly,
     load_prices,
     reconcile_monthly_adjusted,
 )
@@ -36,6 +38,11 @@ app.add_typer(ticket_app, name="ticket")
 
 def _root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def _load_local_environment(root: Path | None = None) -> None:
+    """Load ignored local credentials without overriding explicit process secrets."""
+    load_dotenv((root or _root()) / ".env", override=False)
 
 
 @data_app.command("update")
@@ -168,17 +175,21 @@ def ticket_preview(
 def _refresh_data_bundle(
     config: AppConfig, prices_path: Path
 ) -> tuple[pd.DataFrame, dict[str, object]]:
+    _load_local_environment()
     primary = download_prices(config.data.tickers, config.data.start, prices_path)
     key = os.getenv("ALPHA_VANTAGE_API_KEY", "").strip()
     secondary = None
     error = None
     if key:
+        secondary_path = prices_path.parent / "alpha_vantage_monthly.parquet"
         try:
-            secondary = download_alpha_vantage_monthly(
-                config.data.tickers,
-                key,
-                prices_path.parent / "alpha_vantage_monthly.parquet",
-            )
+            secondary = load_cached_alpha_vantage_monthly(secondary_path, config.data.tickers)
+            if secondary is None:
+                secondary = download_alpha_vantage_monthly(
+                    config.data.tickers,
+                    key,
+                    secondary_path,
+                )
         except MarketDataError as exc:
             error = str(exc)
     else:

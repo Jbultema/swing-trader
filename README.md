@@ -41,14 +41,19 @@ Each run also binds the exact downloaded price-file SHA-256 into the quality rep
 
 The primary market-data connector uses the open-source `yfinance` client and an unofficial public endpoint. Every download is cached with a timestamp and SHA-256 hash. The action layer independently reconciles the latest 12 completed monthly total returns against Alpha Vantage's documented adjusted-monthly API and fails closed when the key is absent, the endpoint errors, history is stale, or any ticker differs by more than 50 basis points.
 
-Set a personal API key locally or as the repository's `ALPHA_VANTAGE_API_KEY` Actions secret:
+Set a personal API key in the ignored local `.env` file or as the repository's `ALPHA_VANTAGE_API_KEY` Actions secret. Explicit process environment variables take precedence over `.env`:
 
 ```bash
-export ALPHA_VANTAGE_API_KEY="..."
+cp .env.example .env
+# edit .env, then:
 poetry run swing-trader daily
 ```
 
+`TRADING_ECONOMICS_API_KEY` is reserved for a future macro-risk connector and is not currently read by the trading model.
+
 Alpha Vantage documentation: <https://www.alphavantage.co/documentation/>. Reconciliation materially improves error detection, but neither provider is a broker-grade execution quote. Broker-side price checks and prospective shadow evidence remain required before live use.
+
+The connector spaces Alpha Vantage requests and reuses a complete secondary snapshot for up to 24 hours, keeping the 17-symbol validation within the standard 25-request daily allowance.
 
 The first v1 run opened the 2024-present labeled holdout and exposed a daily-resizing defect that violated the weekly-rebalance specification. V2 fixes that defect, so the interval is now diagnostic rather than sealed evidence. No retrospective test can substitute for locked prospective shadow decisions.
 
