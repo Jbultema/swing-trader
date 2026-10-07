@@ -13,7 +13,10 @@ This is research software, not investment advice. It never connects to a broker 
 - No-technology, no-sector, broad-asset, and 17 leave-one-asset-out diagnostics expose dependence on overlapping funds and current winners without retrospectively replacing the frozen champion.
 - A close-derived signal is modeled at the next adjusted open; performance accrues open-to-open. One-way turnover costs 10 basis points.
 - Cash is an intentional position. The system does not short, use options, use derivatives, or borrow.
+- Unallocated capital accrues the adjusted return of the configured Treasury-bill ETF; holdings drift between actual rebalance events instead of receiving free daily rebalancing.
 - The dashboard shows the recommendation, the evidence behind it, risk-off reasons, historical comparisons, and methodology status.
+- Individual-stock research is now a separate preregistered track with causal momentum features,
+  explicit exit reasons, and a point-in-time coverage gate; it is not yet an actionable model.
 
 ## Quick start
 
@@ -51,12 +54,16 @@ poetry run swing-trader daily
 
 `TRADING_ECONOMICS_API_KEY` is reserved for a future macro-risk connector and is not currently read by the trading model.
 
+Before any individual-stock experiment, normalized wide close and point-in-time membership panels
+must pass `poetry run swing-trader data audit-stocks`. A failed coverage gate exits nonzero and no
+stock performance report is produced.
+
 Alpha Vantage documentation: <https://www.alphavantage.co/documentation/>. Reconciliation materially improves error detection, but neither provider is a broker-grade execution quote. Broker-side price checks and prospective shadow evidence remain required before live use.
 
 The connector spaces Alpha Vantage requests and reuses a complete secondary snapshot for up to 24 hours, keeping the 17-symbol validation within the standard 25-request daily allowance.
 
 The first v1 run opened the 2024-present labeled holdout and exposed a daily-resizing defect that violated the weekly-rebalance specification. V2 fixes that defect, so the interval is now diagnostic rather than sealed evidence. No retrospective test can substitute for locked prospective shadow decisions.
 
-See [Research basis](docs/research_basis.md), [validation protocol](docs/validation_protocol.md), and [system design](docs/system_design.md).
+See [Research basis](docs/research_basis.md), [stock-momentum research](docs/stock_momentum_research.md), [validation protocol](docs/validation_protocol.md), and [system design](docs/system_design.md).
 
 For a local account-specific but still non-executable share estimate, copy `config/portfolio.example.toml` to the ignored `config/portfolio.toml`, restrict its menu to the actual plan, and run `poetry run swing-trader ticket preview`. See [retirement-account readiness](docs/account_readiness.md).

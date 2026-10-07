@@ -23,6 +23,7 @@ from swing_trader.data import (
 from swing_trader.prospective import write_prospective_evaluation
 from swing_trader.research import run_research
 from swing_trader.shadow import record_shadow_snapshot
+from swing_trader.stock_data import write_stock_coverage_audit
 from swing_trader.ticket import write_trade_preview
 
 app = typer.Typer(no_args_is_help=True)
@@ -54,6 +55,33 @@ def data_update(
     frame, quality = _refresh_data_bundle(config, output)
     typer.echo(f"Saved {len(frame):,} rows through {frame.index.max().date()} to {output}")
     typer.echo(f"Decision data gate: {quality['status']}")
+
+
+@data_app.command("audit-stocks")
+def data_audit_stocks(
+    close_path: Annotated[Path, typer.Option("--close")] = Path("data/stock/close.parquet"),
+    membership_path: Annotated[Path, typer.Option("--membership")] = Path(
+        "data/stock/membership.parquet"
+    ),
+    output: Annotated[Path, typer.Option("--output")] = Path("reports/stock/coverage_audit.json"),
+    minimum_history_sessions: Annotated[int, typer.Option("--minimum-history-sessions")] = 252,
+) -> None:
+    """Audit a normalized stock panel before any strategy is backtested."""
+    close = pd.read_parquet(close_path)
+    membership = pd.read_parquet(membership_path)
+    result = write_stock_coverage_audit(
+        close,
+        membership,
+        output,
+        minimum_history_sessions=minimum_history_sessions,
+    )
+    typer.echo(
+        f"Stock coverage gate: {result.status}; "
+        f"{result.member_observation_coverage:.2%} member-date coverage; "
+        f"{len(result.missing_tickers)} missing tickers."
+    )
+    if result.status != "passed":
+        raise typer.Exit(code=2)
 
 
 @research_app.command("run")
@@ -176,7 +204,8 @@ def _refresh_data_bundle(
     config: AppConfig, prices_path: Path
 ) -> tuple[pd.DataFrame, dict[str, object]]:
     _load_local_environment()
-    primary = download_prices(config.data.tickers, config.data.start, prices_path)
+    download_tickers = tuple(dict.fromkeys((*config.data.tickers, config.data.cash_proxy)))
+    primary = download_prices(download_tickers, config.data.start, prices_path)
     key = os.getenv("ALPHA_VANTAGE_API_KEY", "").strip()
     secondary = None
     error = None

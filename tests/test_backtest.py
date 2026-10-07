@@ -40,6 +40,41 @@ def test_costs_apply_to_buys_and_sells() -> None:
     assert result.transaction_costs.sum() == 0.002
 
 
+def test_holdings_drift_without_free_daily_rebalancing() -> None:
+    dates = pd.bdate_range("2025-01-01", periods=4)
+    opens = pd.DataFrame(
+        {"A": [100.0, 100.0, 200.0, 200.0], "B": [100.0, 100.0, 100.0, 100.0]},
+        index=dates,
+    )
+    target = pd.DataFrame({"A": 0.5, "B": 0.5}, index=dates)
+    result = run_backtest(
+        "test",
+        opens,
+        target,
+        ExecutionConfig(initial_capital=100.0, transaction_cost_bps=0.0, minimum_trade_weight=0.0),
+    )
+
+    assert result.weights.loc[dates[2], "A"] == pytest.approx(2.0 / 3.0)
+    assert result.weights.loc[dates[2], "B"] == pytest.approx(1.0 / 3.0)
+    assert result.turnover.sum() == pytest.approx(1.0)
+
+
+def test_unallocated_capital_earns_cash_return() -> None:
+    dates = pd.bdate_range("2025-01-01", periods=3)
+    opens = pd.DataFrame({"A": 100.0}, index=dates)
+    target = pd.DataFrame({"A": 0.0}, index=dates)
+    cash_returns = pd.Series([0.001, 0.002, 0.0], index=dates)
+    result = run_backtest(
+        "test",
+        opens,
+        target,
+        ExecutionConfig(initial_capital=100.0, transaction_cost_bps=0.0, minimum_trade_weight=0.0),
+        cash_returns=cash_returns,
+    )
+
+    assert result.returns.tolist() == pytest.approx([0.001, 0.002])
+
+
 def test_partial_final_month_is_not_treated_as_month_end() -> None:
     dates = pd.DatetimeIndex(["2026-08-31", "2026-09-30", "2026-10-01", "2026-10-06"])
     assert month_end_mask(dates).tolist() == [True, True, False, False]

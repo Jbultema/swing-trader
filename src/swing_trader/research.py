@@ -35,6 +35,8 @@ def run_research(
 ) -> dict[str, BacktestResult]:
     close = prices["Close"]
     adjusted_open = prices["Open"]
+    cash_open = adjusted_open[config.data.cash_proxy]
+    cash_returns = cash_open.shift(-1).div(cash_open).sub(1.0)
     candidate = build_strategy(prices, config.strategy, config.data.benchmark)
     champion_weights = classic_dual_momentum_weights(
         close, config.data.tickers, config.strategy.top_n
@@ -81,7 +83,13 @@ def run_research(
         ),
     }
     results = {
-        name: run_backtest(name, adjusted_open, weights, config.execution)
+        name: run_backtest(
+            name,
+            adjusted_open,
+            weights,
+            config.execution,
+            cash_returns=cash_returns,
+        )
         for name, weights in comparisons.items()
     }
     _write_artifacts(

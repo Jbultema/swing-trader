@@ -24,6 +24,8 @@ def run_backtest(
     adjusted_open: pd.DataFrame,
     target_weights: pd.DataFrame,
     execution: ExecutionConfig,
+    *,
+    cash_returns: pd.Series | None = None,
 ) -> BacktestResult:
     """Execute close-derived targets at the next session's adjusted open.
 
@@ -32,15 +34,53 @@ def run_backtest(
     """
     prices = adjusted_open.sort_index().astype(float)
     target = target_weights.reindex(index=prices.index, columns=prices.columns).fillna(0.0)
-    target = _apply_no_trade_band(target, execution.minimum_trade_weight)
-    weights = target.shift(1).fillna(0.0)
-    weights = weights.clip(lower=0.0)
-    total = weights.sum(axis=1)
-    weights.loc[total > 1.0] = weights.loc[total > 1.0].div(total.loc[total > 1.0], axis=0)
+    desired = target.shift(1).fillna(0.0).clip(lower=0.0)
+    desired_total = desired.sum(axis=1)
+    desired.loc[desired_total > 1.0] = desired.loc[desired_total > 1.0].div(
+        desired_total.loc[desired_total > 1.0], axis=0
+    )
     interval_returns = prices.shift(-1).div(prices).sub(1.0)
-    gross = (weights * interval_returns).sum(axis=1).iloc[:-1]
-    weights = weights.iloc[:-1]
-    turnover = weights.diff().abs().sum(axis=1).fillna(weights.abs().sum(axis=1))
+    cash = (
+        pd.Series(0.0, index=prices.index)
+        if cash_returns is None
+        else cash_returns.reindex(prices.index).fillna(0.0).astype(float)
+    )
+
+    dates = prices.index[:-1]
+    held = pd.Series(0.0, index=prices.columns)
+    prior_desired = pd.Series(0.0, index=prices.columns)
+    weight_rows: list[pd.Series] = []
+    gross_rows: list[float] = []
+    turnover_rows: list[float] = []
+    for date in dates:
+        proposed = desired.loc[date].copy()
+        signal_changed = not proposed.equals(prior_desired)
+        traded = 0.0
+        if signal_changed:
+            small = proposed.sub(held).abs() < execution.minimum_trade_weight
+            proposed.loc[small] = held.loc[small]
+            proposed_total = float(proposed.sum())
+            if proposed_total > 1.0:
+                proposed /= proposed_total
+            traded = float(proposed.sub(held).abs().sum())
+            held = proposed
+        weight_rows.append(held.copy())
+        asset_returns = interval_returns.loc[date].fillna(0.0)
+        cash_weight = max(0.0, 1.0 - float(held.sum()))
+        gross_return = float((held * asset_returns).sum() + cash_weight * cash.loc[date])
+        gross_rows.append(gross_return)
+        turnover_rows.append(traded)
+
+        gross_growth = 1.0 + gross_return
+        if gross_growth <= 0.0:
+            held[:] = 0.0
+        else:
+            held = held.mul(1.0 + asset_returns).div(gross_growth)
+        prior_desired = desired.loc[date]
+
+    weights = pd.DataFrame(weight_rows, index=dates, columns=prices.columns)
+    gross = pd.Series(gross_rows, index=dates, name=name)
+    turnover = pd.Series(turnover_rows, index=dates, name=name)
     costs = turnover * execution.transaction_cost_bps / 10_000.0
     net = gross - costs
     equity = execution.initial_capital * (1.0 + net).cumprod()
@@ -154,23 +194,6 @@ def panic_guarded_dual_momentum_weights(
         if bool(panic.loc[date]):
             active[:] = 0.0
         result.loc[date] = active
-    return result
-
-
-def _apply_no_trade_band(target: pd.DataFrame, threshold: float) -> pd.DataFrame:
-    if threshold <= 0.0 or target.empty:
-        return target
-    result = pd.DataFrame(0.0, index=target.index, columns=target.columns)
-    prior = pd.Series(0.0, index=target.columns)
-    for date in target.index:
-        proposed = target.loc[date].copy()
-        small = proposed.sub(prior).abs() < threshold
-        proposed.loc[small] = prior.loc[small]
-        total = float(proposed.sum())
-        if total > 1.0:
-            proposed /= total
-        result.loc[date] = proposed
-        prior = proposed
     return result
 
 

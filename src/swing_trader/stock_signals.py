@@ -1,0 +1,197 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+import pandas as pd
+
+
+@dataclass(frozen=True)
+class StockFeatureConfig:
+    short_days: int = 21
+    medium_days: int = 63
+    formation_days: int = 252
+    skip_days: int = 21
+    high_days: int = 252
+    fast_volume_days: int = 20
+    slow_volume_days: int = 126
+    volatility_days: int = 20
+    atr_days: int = 14
+    minimum_price: float = 10.0
+    minimum_median_dollar_volume: float = 20_000_000.0
+
+
+@dataclass(frozen=True)
+class ExitPolicy:
+    hard_stop_fraction: float = 0.08
+    atr_multiple: float = 3.0
+    maximum_holding_sessions: int = 63
+    rank_exit_multiple: float = 2.0
+
+
+SCORE_COLUMNS = {
+    "short_volume": "score_short_volume",
+    "smooth_momentum": "score_smooth_momentum",
+    "volume_breakout": "score_volume_breakout",
+}
+
+
+def build_stock_features(
+    ohlcv: pd.DataFrame,
+    membership: pd.DataFrame,
+    config: StockFeatureConfig | None = None,
+) -> pd.DataFrame:
+    """Build close-known stock features for next-session execution.
+
+    ``membership`` must be a point-in-time boolean matrix. Present-day constituent
+    lists are intentionally not accepted as a one-dimensional ticker collection.
+    """
+    cfg = config or StockFeatureConfig()
+    _validate_inputs(ohlcv, membership)
+    close = ohlcv["Close"].astype(float)
+    high = ohlcv["High"].astype(float)
+    low = ohlcv["Low"].astype(float)
+    volume = ohlcv["Volume"].astype(float)
+    membership = membership.reindex(index=close.index, columns=close.columns).fillna(False)
+
+    daily_returns = close.pct_change(fill_method=None)
+    return_short = close.div(close.shift(cfg.short_days)).sub(1.0)
+    return_medium = close.div(close.shift(cfg.medium_days)).sub(1.0)
+    return_12_1 = close.shift(cfg.skip_days).div(close.shift(cfg.formation_days)).sub(1.0)
+    proximity_52w_high = close.div(high.rolling(cfg.high_days).max())
+    dollar_volume = close.mul(volume)
+    median_dollar_volume = dollar_volume.rolling(cfg.fast_volume_days).median()
+    volume_ratio = (
+        volume.rolling(cfg.fast_volume_days).mean().div(volume.rolling(cfg.slow_volume_days).mean())
+    )
+    realized_volatility = daily_returns.rolling(cfg.volatility_days).std() * np.sqrt(252)
+    atr_fraction = _average_true_range(high, low, close, cfg.atr_days).div(close)
+
+    formation_observations = cfg.formation_days - cfg.skip_days
+    lagged_signs = daily_returns.shift(cfg.skip_days)
+    positive_fraction = lagged_signs.gt(0.0).rolling(formation_observations).mean()
+    negative_fraction = lagged_signs.lt(0.0).rolling(formation_observations).mean()
+    information_discreteness = np.sign(return_12_1).mul(negative_fraction - positive_fraction)
+
+    trend_positive = (close > close.rolling(50).mean()) & (
+        close.rolling(50).mean() > close.rolling(200).mean()
+    )
+    eligible = (
+        membership.astype(bool)
+        & close.ge(cfg.minimum_price)
+        & median_dollar_volume.ge(cfg.minimum_median_dollar_volume)
+        & return_12_1.notna()
+        & proximity_52w_high.notna()
+    )
+
+    short_rank = _cross_sectional_rank(return_short, eligible)
+    medium_rank = _cross_sectional_rank(return_medium, eligible)
+    formation_rank = _cross_sectional_rank(return_12_1, eligible)
+    high_rank = _cross_sectional_rank(proximity_52w_high, eligible)
+    volume_rank = _cross_sectional_rank(volume_ratio, eligible)
+    smooth_rank = _cross_sectional_rank(-information_discreteness, eligible)
+
+    fields = {
+        "close": close,
+        "return_21d": return_short,
+        "return_63d": return_medium,
+        "return_12_1": return_12_1,
+        "proximity_52w_high": proximity_52w_high,
+        "volume_ratio_20_126": volume_ratio,
+        "median_dollar_volume_20d": median_dollar_volume,
+        "realized_volatility_20d": realized_volatility,
+        "atr_fraction_14d": atr_fraction,
+        "information_discreteness": information_discreteness,
+        "trend_positive": trend_positive,
+        "eligible": eligible,
+        "score_short_volume": 0.50 * short_rank + 0.30 * high_rank + 0.20 * volume_rank,
+        "score_smooth_momentum": (0.50 * formation_rank + 0.25 * medium_rank + 0.25 * smooth_rank),
+        "score_volume_breakout": 0.45 * high_rank + 0.35 * medium_rank + 0.20 * volume_rank,
+    }
+    long_fields = {
+        name: values.stack(future_stack=True).rename(name) for name, values in fields.items()
+    }
+    result = pd.concat(long_fields.values(), axis=1)
+    result.index.names = ["date", "ticker"]
+    return result.sort_index()
+
+
+def rank_stock_candidates(
+    features: pd.DataFrame,
+    family: str,
+    as_of: pd.Timestamp | str,
+    *,
+    top_n: int = 10,
+) -> pd.DataFrame:
+    """Return the strongest eligible, positive-trend candidates for one close."""
+    if family not in SCORE_COLUMNS:
+        raise ValueError(f"Unknown stock signal family: {family}")
+    date = pd.Timestamp(as_of)
+    day = features.xs(date, level="date").copy()
+    score_column = SCORE_COLUMNS[family]
+    selected = day.loc[day["eligible"].astype(bool) & day["trend_positive"].astype(bool)]
+    selected = selected.sort_values(score_column, ascending=False).head(top_n)
+    selected.insert(0, "candidate_rank", range(1, len(selected) + 1))
+    selected.insert(1, "signal_family", family)
+    return selected
+
+
+def exit_reasons(
+    feature_row: pd.Series,
+    *,
+    entry_price: float,
+    high_watermark: float,
+    holding_sessions: int,
+    cross_section_rank: float,
+    entry_top_n: int,
+    policy: ExitPolicy | None = None,
+) -> list[str]:
+    """Explain which close-known conditions require a next-session exit."""
+    cfg = policy or ExitPolicy()
+    close = float(feature_row["close"])
+    atr_fraction = float(feature_row["atr_fraction_14d"])
+    reasons: list[str] = []
+    if close <= entry_price * (1.0 - cfg.hard_stop_fraction):
+        reasons.append("hard_loss_limit")
+    if close <= high_watermark * (1.0 - cfg.atr_multiple * atr_fraction):
+        reasons.append("atr_trailing_exit")
+    if not bool(feature_row["trend_positive"]):
+        reasons.append("trend_broken")
+    if float(feature_row["return_21d"]) <= 0.0:
+        reasons.append("short_momentum_non_positive")
+    if cross_section_rank > entry_top_n * cfg.rank_exit_multiple:
+        reasons.append("rank_decay")
+    if holding_sessions >= cfg.maximum_holding_sessions:
+        reasons.append("maximum_holding_period")
+    return reasons
+
+
+def _cross_sectional_rank(values: pd.DataFrame, eligible: pd.DataFrame) -> pd.DataFrame:
+    return values.where(eligible).rank(axis=1, pct=True, method="average")
+
+
+def _average_true_range(
+    high: pd.DataFrame, low: pd.DataFrame, close: pd.DataFrame, days: int
+) -> pd.DataFrame:
+    previous_close = close.shift(1)
+    components = pd.concat(
+        {
+            "intraday": high - low,
+            "gap_up": (high - previous_close).abs(),
+            "gap_down": (low - previous_close).abs(),
+        },
+        axis=1,
+    )
+    true_range = components.T.groupby(level=1).max().T
+    return true_range.rolling(days).mean()
+
+
+def _validate_inputs(ohlcv: pd.DataFrame, membership: pd.DataFrame) -> None:
+    if not isinstance(ohlcv.columns, pd.MultiIndex):
+        raise ValueError("OHLCV data must use field/ticker MultiIndex columns.")
+    required = {"Close", "High", "Low", "Volume"}
+    fields = set(ohlcv.columns.get_level_values(0))
+    if missing := required - fields:
+        raise ValueError(f"Missing stock feature fields: {sorted(missing)}")
+    if not isinstance(membership, pd.DataFrame) or membership.empty:
+        raise ValueError("Point-in-time membership must be a non-empty date/ticker matrix.")
