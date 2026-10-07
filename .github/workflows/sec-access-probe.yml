@@ -1,6 +1,12 @@
 name: SEC public-data access probe
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sec-access-probe.yml"
+      - "src/swing_trader/sec_filing_events.py"
+      - "src/swing_trader/cli.py"
   workflow_dispatch:
 
 permissions:
