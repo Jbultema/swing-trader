@@ -73,6 +73,7 @@ def record_current_stock_candidates(
     share_audit = audit_current_stock_share_snapshot(
         share_manifest_path,
         universe_manifest_path=universe_manifest_path,
+        require_passed_data_gate=False,
         now=recorded_at,
     )
     if not share_audit.passed:
@@ -90,21 +91,25 @@ def record_current_stock_candidates(
     features = build_stock_features(prices, membership)
     as_of = pd.Timestamp(prices.index.max())
     share_manifest = _read_json(share_manifest_path)
-    shares_path = share_manifest_path.parent / str(share_manifest["data_file"])
-    shares = pd.read_parquet(shares_path)
     turnover_config = ShareTurnoverSignalConfig()
-    turnover_features = build_share_turnover_features(
-        prices,
-        shares,
-        as_of,
-        config=turnover_config,
-    )
-    turnover_candidates = rank_share_turnover_candidates(
-        turnover_features,
-        top_n=top_n,
-    )
-    if turnover_candidates.empty:
-        raise CandidateSnapshotError("Share-turnover screen produced no candidates.")
+    share_gate_passed = share_manifest.get("shares_data_gate_passed") is True
+    turnover_features: pd.DataFrame | None = None
+    turnover_candidates = pd.DataFrame()
+    if share_gate_passed:
+        shares_path = share_manifest_path.parent / str(share_manifest["data_file"])
+        shares = pd.read_parquet(shares_path)
+        turnover_features = build_share_turnover_features(
+            prices,
+            shares,
+            as_of,
+            config=turnover_config,
+        )
+        turnover_candidates = rank_share_turnover_candidates(
+            turnover_features,
+            top_n=top_n,
+        )
+        if turnover_candidates.empty:
+            raise CandidateSnapshotError("Share-turnover screen produced no candidates.")
     family_rows, consensus_rows, validation_symbols = screen_latest_candidates(
         features,
         as_of,
@@ -117,7 +122,7 @@ def record_current_stock_candidates(
     market_state = _market_state(prices["Close"][benchmark].dropna(), as_of)
     primary_close = prices["Close"].loc[as_of]
     payload: dict[str, object] = {
-        "schema_version": 2,
+        "schema_version": 3,
         "record_type": "prospective_stock_candidate_screen",
         "data_cost_policy": "no_paid_sources",
         "research_status": "candidate_screen_not_portfolio_state",
@@ -135,6 +140,8 @@ def record_current_stock_candidates(
         "consensus_candidates": consensus_rows,
         "experimental_signals": {
             SHARE_TURNOVER_SIGNAL_FAMILY: {
+                "status": "available" if share_gate_passed else "data_gate_failed",
+                "data_gate_passed": share_gate_passed,
                 "method": SHARE_TURNOVER_METHOD,
                 "role": "prospective_yahoo_only_diagnostic_not_primary_evidence",
                 "long_only_adaptation": (
@@ -145,10 +152,13 @@ def record_current_stock_candidates(
                 "skip_recent_sessions": turnover_config.skip_recent_sessions,
                 "measurement_sessions": turnover_config.measurement_sessions,
                 "quantile_threshold": turnover_config.quantile_threshold,
-                "candidate_count_before_top_n": int(
-                    turnover_features["candidate_eligible"].sum()
+                "candidate_count_before_top_n": (
+                    int(turnover_features["candidate_eligible"].sum())
+                    if turnover_features is not None
+                    else 0
                 ),
                 "candidates": _share_turnover_candidate_rows(turnover_candidates),
+                "data_gate_validation": share_manifest.get("validation"),
             }
         },
         "validation_symbol_limit": validation_symbol_limit,
@@ -170,7 +180,11 @@ def record_current_stock_candidates(
             "share_manifest_sha256": file_sha256(share_manifest_path),
             "share_tabular_sha256": share_manifest.get("tabular_sha256"),
             "share_data_role": share_manifest.get("data_role"),
-            "share_turnover_feature_tabular_sha256": tabular_sha256(turnover_features),
+            "share_turnover_feature_tabular_sha256": (
+                tabular_sha256(turnover_features)
+                if turnover_features is not None
+                else None
+            ),
             "stock_policy_sha256": stock_policy_sha256(),
             "implementation_sha256": implementation_sha256(),
         },

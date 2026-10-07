@@ -183,6 +183,13 @@ with stock:
                 "Primary prospective data gate failed. Targets remain diagnostic and must not "
                 "be treated as validated performance or an order."
             )
+        share_gate = stock_state.get("share_turnover_data_validation", {})
+        if isinstance(share_gate, dict) and share_gate.get("passed") is False:
+            st.warning(
+                "The share-turnover feed failed its separate data gate. The primary consensus "
+                "continued, while exact share-turnover arms scheduled fail-safe exits and are "
+                "excluded from eligible diagnostic inference."
+            )
         if not current_policy:
             st.warning(
                 "This is the newest recorded lineage, but its decision-policy/config hash is not "
@@ -279,7 +286,8 @@ with stock:
                     f"Next-open target cash: {float(arm['target_cash_weight']):.1%}; "
                     f"role: {arm['prospective_role']}; signal: "
                     f"{_stock_signal_label(arm.get('signal_family'))}; independently validated: "
-                    f"{arm.get('independent_price_validation_applies', False)}."
+                    f"{arm.get('independent_price_validation_applies', False)}; signal data "
+                    f"available: {arm.get('signal_data_available_at_close', True)}."
                 )
                 st.dataframe(target, hide_index=True, width="stretch")
 
@@ -363,15 +371,29 @@ with stock:
                     "experimental_arms", {}
                 )
                 if diagnostic_metrics:
-                    st.subheader("Unvalidated short-volume holding experiments")
+                    st.subheader("Unvalidated short-horizon holding experiments")
                     st.caption(
                         "These arms use the same next-open accounting and costs, but Yahoo is "
-                        "their only price source. They are diagnostic and are excluded from the "
-                        "primary eligible-performance record."
+                        "their only market-data source. They are diagnostic and are excluded from "
+                        "the primary eligible-performance record. Exact share-turnover inference "
+                        "also excludes transitions whose prior signal-data gate failed."
                     )
+                    eligible_diagnostics = stock_evaluation.get(
+                        "diagnostic_data_gate_eligible", {}
+                    ).get("experimental_arms", {})
+                    diagnostic_rows = []
+                    for arm_name, values in diagnostic_metrics.items():
+                        diagnostic_rows.append(
+                            {
+                                "arm": arm_name,
+                                "eligible_sessions": eligible_diagnostics.get(
+                                    arm_name, {}
+                                ).get("sessions"),
+                                **values,
+                            }
+                        )
                     st.dataframe(
-                        pd.DataFrame.from_dict(diagnostic_metrics, orient="index")
-                        .reset_index(names="arm"),
+                        pd.DataFrame(diagnostic_rows),
                         hide_index=True,
                         width="stretch",
                     )

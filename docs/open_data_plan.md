@@ -156,6 +156,15 @@ the same exits and 50 bp round-trip cost assumption. Their evaluator compares ho
 within the exact-signal family; they remain Yahoo-only diagnostics with no action authority and no
 performance conclusion until forward transitions accrue.
 
+Share-turnover availability is deliberately not a primary-consensus dependency. If a freshly
+captured share artifact is intact and bound to the current universe but fails its coverage,
+observation-age, or provider-source gate, the consensus and relative-volume proxy arms still
+advance. Exact arms take no new entries and schedule every held name for a next-open fail-safe exit.
+The evaluator retains those returns in all-session operational metrics but excludes a transition
+from exact-signal inference when its prior-close share gate failed. Artifact corruption, a future
+capture, excessive capture age, or a mismatched universe remains fatal because the system cannot
+prove what information was available.
+
 The practical result is slower than buying a curated database, but it is honest: public and free
 data can support a strong prospective system and selected covered historical replications. It
 cannot justify a universal survivor-free historical claim when missing names are correlated with

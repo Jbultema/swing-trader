@@ -42,6 +42,7 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
         arm_name: [_account_equity(payload, arm_name) for _, payload in states]
         for arm_name in diagnostic_arm_names
     }
+    diagnostic_eligibility = {arm_name: [] for arm_name in diagnostic_arm_names}
     arm_equity = {
         "consensus": primary_equity,
         "consensus_market_guard": guarded_equity,
@@ -63,6 +64,12 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
             arm_name: _return(values[position - 1], values[position])
             for arm_name, values in diagnostic_equity.items()
         }
+        diagnostic_transition_eligibility = {
+            arm_name: _diagnostic_transition_eligible(prior, current, arm_name)
+            for arm_name in diagnostic_arm_names
+        }
+        for arm_name, is_eligible in diagnostic_transition_eligibility.items():
+            diagnostic_eligibility[arm_name].append(is_eligible)
         spy_return = _return(spy_equity[position - 1], spy_equity[position])
         return_attribution = {
             "arms": {
@@ -110,6 +117,7 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
                 "primary_net_return": primary_return,
                 "market_guard_net_return": guarded_return,
                 "diagnostic_arm_net_returns": diagnostic_returns,
+                "diagnostic_arm_data_gate_eligible": diagnostic_transition_eligibility,
                 "spy_buy_hold_return": spy_return,
                 "return_attribution": return_attribution,
                 "primary_net_excess_vs_spy": (
@@ -152,6 +160,12 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
         )
         for arm_name, values in diagnostic_equity.items()
     }
+    eligible_diagnostics = {
+        arm_name: values.where(
+            pd.Series(diagnostic_eligibility[arm_name], index=all_index, dtype=bool)
+        )
+        for arm_name, values in all_diagnostics.items()
+    }
     eligible_primary_series = pd.Series(
         eligible_primary,
         index=pd.DatetimeIndex(eligible_sessions),
@@ -180,7 +194,7 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
         )
     horizon_outcomes = _horizon_outcomes(states, sessions, primary_equity)
     diagnostic_comparisons = _diagnostic_arm_comparisons(
-        all_diagnostics,
+        eligible_diagnostics,
         all_primary,
         all_spy,
     )
@@ -189,7 +203,7 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
         tuple(arm_equity),
     )
     return {
-        "schema_version": 5,
+        "schema_version": 6,
         "record_type": "prospective_stock_shadow_evaluation",
         "research_status": "prospective_paper_only_not_trading_authority",
         "data_cost_policy": "no_paid_sources",
@@ -222,6 +236,16 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
                 arm_name: _metrics(values) for arm_name, values in all_diagnostics.items()
             },
             "spy_buy_hold": _metrics(all_spy),
+        },
+        "diagnostic_data_gate_eligible": {
+            "experimental_arms": {
+                arm_name: _metrics(values)
+                for arm_name, values in eligible_diagnostics.items()
+            },
+            "method": (
+                "a transition is eligible only when the prior close had that arm's signal "
+                "data and the current close valuation is complete"
+            ),
         },
         "diagnostic_arm_comparisons": diagnostic_comparisons,
         "session_return_attribution": session_return_attribution,
@@ -383,6 +407,23 @@ def _paired_diagnostic(
         "edge or authorize trading."
     )
     return result
+
+
+def _diagnostic_transition_eligible(
+    prior: dict[str, object],
+    current: dict[str, object],
+    arm_name: str,
+) -> bool:
+    prior_arm = _arm(prior, arm_name)
+    signal_gate = prior_arm.get("eligible_for_diagnostic_prospective_performance")
+    if signal_gate is None:
+        signal_gate = True
+    current_account = _arm(current, arm_name).get("paper_account_at_close")
+    valuation_complete = (
+        isinstance(current_account, dict)
+        and current_account.get("valuation_complete") is True
+    )
+    return signal_gate is True and valuation_complete
 
 
 def _arm_return_attribution(

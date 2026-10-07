@@ -275,7 +275,9 @@ family-wide discovery can enter the Alpha-validated primary record or authorize 
 - `stock_shadow_state.py` advances one immediately consecutive close-to-next-open paper state,
   recomputes adjustment-safe entry bases and high-water marks, records every exit reason, and
   rejects session gaps. The consensus arm is primary; the guarded arm and preregistered 5/10/21
-  short-volume proxy and exact share-turnover holding arms are diagnostic comparators.
+  short-volume proxy and exact share-turnover holding arms are diagnostic comparators. An intact
+  but failed share-data gate cannot interrupt the primary sequence: exact arms prohibit entries,
+  schedule held names for next-open exit, and become ineligible for signal inference.
 - `stock_daily.py` restores a hash-linked decision-policy/config lineage, refreshes the public roster
   and adjusted OHLCV, avoids free-provider calls on holidays, records optional-provider failures,
   and advances the state even when validation is unavailable so failed gates remain observable.
@@ -283,7 +285,9 @@ family-wide discovery can enter the Alpha-validated primary record or authorize 
   with no survivor resizing, assigns eligibility from the decision made one close earlier, builds a
   same-session costed SPY comparator, evaluates the frozen 5/21/63-session policy windows only when
   every intervening gate passed, decomposes overnight/cost/intraday returns, and starts paired and
-  family-corrected uncertainty only after their frozen observation thresholds.
+  family-corrected uncertainty only after their frozen observation thresholds. It reports
+  operational returns across every transition separately from data-gate-eligible diagnostic
+  returns, preventing a share-feed outage from masquerading as signal evidence.
 - `stock_signals.py` calculates the three causal feature families from dated OHLCV and mandatory
   point-in-time membership.
 - `stock_strategy.py` maintains next-open entry prices, close-based high-water marks, holding age,

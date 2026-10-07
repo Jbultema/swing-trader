@@ -74,7 +74,7 @@ def test_prospective_evaluator_uses_prior_decision_gate_and_self_financing_equit
     assert result["diagnostic_all_sessions"]["experimental_arms"][
         "short_volume_hold5"
     ]["sessions"] == 2
-    assert result["schema_version"] == 5
+    assert result["schema_version"] == 6
     assert result["transitions"][0]["diagnostic_arm_net_returns"][
         "short_volume_hold5"
     ] == pytest.approx(0.02)
@@ -203,6 +203,65 @@ def test_diagnostic_comparisons_use_a_hold21_reference_per_signal_family(
     ]["reference"] == "share_turnover_hold21"
 
 
+def test_diagnostic_inference_excludes_prior_signal_data_gate_failures(
+    tmp_path: Path,
+) -> None:
+    states = tmp_path / "states"
+    states.mkdir()
+    equities = {
+        "short_volume_hold21": 1.0,
+        "share_turnover_hold21": 1.0,
+    }
+    first = _state(
+        states / "state-a.json",
+        session="2026-10-05",
+        initialization=True,
+        previous=None,
+        previous_hash=None,
+        eligible=True,
+        primary_equity=1.0,
+        guarded_equity=1.0,
+        spy_open=100.0,
+        spy_close=100.0,
+        diagnostic_equities=equities,
+        diagnostic_eligibility={
+            "short_volume_hold21": True,
+            "share_turnover_hold21": False,
+        },
+    )
+    first_payload = json.loads(first.read_text())
+    _state(
+        states / "state-b.json",
+        session="2026-10-06",
+        initialization=False,
+        previous=first.name,
+        previous_hash=first_payload["record_sha256"],
+        eligible=True,
+        primary_equity=1.01,
+        guarded_equity=1.01,
+        spy_open=100.0,
+        spy_close=101.0,
+        diagnostic_equities={
+            "short_volume_hold21": 1.02,
+            "share_turnover_hold21": 1.03,
+        },
+    )
+
+    result = evaluate_stock_shadow_lineage(states)
+
+    assert result["transitions"][0]["diagnostic_arm_data_gate_eligible"] == {
+        "share_turnover_hold21": False,
+        "short_volume_hold21": True,
+    }
+    eligible = result["diagnostic_data_gate_eligible"]["experimental_arms"]
+    assert eligible["short_volume_hold21"]["sessions"] == 1
+    assert eligible["share_turnover_hold21"]["sessions"] == 0
+    comparison = result["diagnostic_arm_comparisons"]["per_arm"][
+        "share_turnover_hold21"
+    ]["versus_primary_consensus"]
+    assert comparison["sessions"] == 0
+
+
 def test_prospective_evaluator_rejects_broken_state_chain(tmp_path: Path) -> None:
     states = tmp_path / "states"
     states.mkdir()
@@ -241,6 +300,7 @@ def _state(
     spy_close: float,
     diagnostic_equity: float | None = None,
     diagnostic_equities: dict[str, float] | None = None,
+    diagnostic_eligibility: dict[str, bool] | None = None,
     executions: list[dict[str, str]] | None = None,
 ) -> Path:
     execution_rows = executions or []
@@ -249,9 +309,17 @@ def _state(
         "consensus_market_guard": _arm(guarded_equity, []),
     }
     if diagnostic_equity is not None:
-        arms["short_volume_hold5"] = _arm(diagnostic_equity, [])
+        arms["short_volume_hold5"] = _arm(
+            diagnostic_equity,
+            [],
+            eligible=(diagnostic_eligibility or {}).get("short_volume_hold5", True),
+        )
     for arm_name, equity in (diagnostic_equities or {}).items():
-        arms[arm_name] = _arm(equity, [])
+        arms[arm_name] = _arm(
+            equity,
+            [],
+            eligible=(diagnostic_eligibility or {}).get(arm_name, True),
+        )
     payload: dict[str, object] = {
         "schema_version": 1,
         "record_type": "prospective_stock_shadow_state",
@@ -277,8 +345,14 @@ def _state(
     return path
 
 
-def _arm(equity: float, executions: list[dict[str, str]]) -> dict[str, object]:
+def _arm(
+    equity: float,
+    executions: list[dict[str, str]],
+    *,
+    eligible: bool = True,
+) -> dict[str, object]:
     return {
+        "eligible_for_diagnostic_prospective_performance": eligible,
         "executions_at_open": executions,
         "paper_account_at_close": {
             "total_equity": equity,

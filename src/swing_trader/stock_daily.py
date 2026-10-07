@@ -162,11 +162,11 @@ def run_stock_shadow_daily(
         root / "data/stock-shadow/shares-outstanding",
         now=recorded_at if fixed_now else None,
     )
-    if not shares.validation.passed:
-        raise StockDailyError(
-            "Current shares-outstanding snapshot failed its gate: "
-            + json.dumps(shares.validation.to_dict(), sort_keys=True)
-        )
+    share_status = (
+        "passed_experimental_signal"
+        if shares.validation.passed
+        else "failed_nonblocking_experimental_signal"
+    )
     if not fixed_now:
         share_manifest = _read_json(shares.manifest_path)
         recorded_at = max(
@@ -203,6 +203,13 @@ def run_stock_shadow_daily(
     diagnostics: list[dict[str, str]] = [
         value for value in (finra_diagnostic, sec_diagnostic) if value is not None
     ]
+    if not shares.validation.passed:
+        diagnostics.append(
+            {
+                "step": "share_turnover_data_gate",
+                "error": json.dumps(shares.validation.to_dict(), sort_keys=True),
+            }
+        )
     if api_key.strip():
         try:
             earnings_path = download_alpha_earnings_calendar(
@@ -264,6 +271,7 @@ def run_stock_shadow_daily(
             "candidate_record_sha256": candidate.record_sha256,
             "share_manifest": shares.manifest_path.name,
             "share_manifest_file_sha256": file_sha256(shares.manifest_path),
+            "share_status": share_status,
             "alpha_status": alpha_status,
             "earnings_status": earnings_status,
             "finra_status": finra_status,

@@ -144,6 +144,54 @@ def test_market_guard_blocks_entries_and_explains_the_skip() -> None:
     assert result["decisions"][0]["reasons"] == ["market_regime_risk_off"]
 
 
+def test_unavailable_signal_schedules_a_fail_safe_exit_without_new_entries() -> None:
+    sessions = pd.bdate_range("2026-10-05", periods=2)
+    prices = _small_prices(sessions)
+    config = _config()
+    initial = _advance_arm(
+        "share_turnover_hold5",
+        None,
+        sessions[0],
+        prices,
+        _day(100.0),
+        pd.Series({"A": 1.0}),
+        ["A"],
+        {"A"},
+        set(),
+        guarded=False,
+        market_risk_on=True,
+        config=config,
+        policy=ExitPolicy(maximum_holding_sessions=5),
+    )
+
+    failed = _advance_arm(
+        "share_turnover_hold5",
+        initial,
+        sessions[1],
+        prices,
+        _day(100.0),
+        pd.Series(dtype=float),
+        [],
+        {"A"},
+        set(),
+        guarded=False,
+        market_risk_on=True,
+        config=config,
+        policy=ExitPolicy(maximum_holding_sessions=5),
+        signal_available=False,
+        signal_unavailable_reason="share_turnover_data_gate_failed_fail_safe_exit",
+    )
+
+    assert failed["executions_at_open"][0]["action"] == "BUY"
+    assert failed["target_for_next_open"] == {}
+    assert failed["signal_data_available_at_close"] is False
+    decision = next(row for row in failed["decisions"] if row["ticker"] == "A")
+    assert decision["action"] == "SELL"
+    assert decision["reasons"] == [
+        "share_turnover_data_gate_failed_fail_safe_exit"
+    ]
+
+
 def test_state_transition_refuses_to_invent_a_missed_session() -> None:
     sessions = pd.bdate_range("2026-10-05", periods=3)
     previous = {
@@ -283,6 +331,65 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
         now=now,
     )
     assert verify_stock_shadow_evaluation(evaluation)
+
+    failed_share_frame = share_frame.copy()
+    failed_rows = failed_share_frame.index[:10]
+    failed_share_frame.loc[failed_rows, "shares_outstanding"] = pd.NA
+    failed_share_frame.loc[failed_rows, "provider_observation_date"] = pd.NaT
+    failed_share_frame.loc[failed_rows, "source_status"] = "fetch_error"
+    failed_share_frame.loc[failed_rows, "source_observation_count"] = 0
+    failed_share_frame.loc[failed_rows, "discarded_historical_observations"] = 0
+    failed_share_snapshot = write_current_stock_share_snapshot(
+        failed_share_frame,
+        symbols,
+        tmp_path / "failed-shares",
+        universe_manifest_path=universe.manifest_path,
+        universe_manifest=universe_manifest,
+        captured_at=now,
+        request_start=date(2025, 9, 2),
+        request_end_exclusive=date(2026, 10, 8),
+        minimum_coverage_fraction=1.0,
+    )
+    failed_candidate = record_current_stock_candidates(
+        universe.manifest_path,
+        price_snapshot.manifest_path,
+        tmp_path / "failed-candidates",
+        share_manifest_path=failed_share_snapshot.manifest_path,
+        now=now,
+    )
+    failed_candidate_payload = json.loads(failed_candidate.path.read_text())
+    failed_signal = failed_candidate_payload["experimental_signals"][
+        "share_turnover_skip3"
+    ]
+    assert failed_signal["status"] == "data_gate_failed"
+    assert failed_signal["candidates"] == []
+    assert len(failed_candidate_payload["consensus_candidates"]) == 10
+
+    failed_state = record_stock_shadow_state(
+        failed_candidate.path,
+        universe.manifest_path,
+        price_snapshot.manifest_path,
+        failed_share_snapshot.manifest_path,
+        Path(__file__).parents[1] / "config/stock_shadow.toml",
+        tmp_path / "failed-states",
+        now=now,
+    )
+    failed_payload = json.loads(failed_state.path.read_text())
+    assert failed_payload["share_turnover_data_validation"]["passed"] is False
+    assert failed_payload["share_turnover_data_validation"][
+        "primary_consensus_gate_affected"
+    ] is False
+    assert len(failed_payload["arms"]["consensus"]["target_for_next_open"]) == 10
+    for arm_name in (
+        "share_turnover_hold5",
+        "share_turnover_hold10",
+        "share_turnover_hold21",
+    ):
+        arm = failed_payload["arms"][arm_name]
+        assert arm["target_for_next_open"] == {}
+        assert arm["signal_data_available_at_close"] is False
+        assert arm["eligible_for_diagnostic_prospective_performance"] is False
+    assert verify_stock_shadow_state(failed_state.path)
 
     payload["action_authorized"] = True
     result.path.write_text(json.dumps(payload), encoding="utf-8")

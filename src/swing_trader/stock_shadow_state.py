@@ -148,6 +148,7 @@ def record_stock_shadow_state(
     share_audit = audit_current_stock_share_snapshot(
         share_manifest_path,
         universe_manifest_path=universe_manifest_path,
+        require_passed_data_gate=False,
         now=recorded_at,
     )
     if not share_audit.passed:
@@ -165,9 +166,19 @@ def record_stock_shadow_state(
     if pd.Timestamp(prices.index.max()) != current_session:
         raise StockShadowStateError("Candidate and price snapshots do not share the latest session.")
     share_manifest = _read_json(share_manifest_path)
-    shares = pd.read_parquet(
-        share_manifest_path.parent / str(share_manifest["data_file"])
+    share_gate_passed = share_manifest.get("shares_data_gate_passed") is True
+    experimental_signals = candidate.get("experimental_signals")
+    share_signal = (
+        experimental_signals.get(SHARE_TURNOVER_SIGNAL_FAMILY)
+        if isinstance(experimental_signals, dict)
+        else None
     )
+    if not isinstance(share_signal, dict):
+        raise StockShadowStateError("Candidate snapshot is missing its share-turnover experiment.")
+    if share_signal.get("data_gate_passed") is not share_gate_passed:
+        raise StockShadowStateError(
+            "Candidate and share manifest disagree on the share-turnover data gate."
+        )
 
     config, raw_config = load_stock_shadow_config(config_path)
     specification = {
@@ -207,19 +218,24 @@ def record_stock_shadow_state(
     membership.loc[:, membership.columns.intersection(sorted(current_tickers))] = True
     features = build_stock_features(prices, membership)
     day = features.xs(current_session, level="date")
-    turnover_features = build_share_turnover_features(
-        prices,
-        shares,
-        current_session,
-        config=ShareTurnoverSignalConfig(),
-    )
-    day = day.join(
-        turnover_features.drop(
-            columns=["close", "median_dollar_volume_20d"],
-            errors="ignore",
-        ),
-        how="left",
-    )
+    turnover_features: pd.DataFrame | None = None
+    if share_gate_passed:
+        shares = pd.read_parquet(
+            share_manifest_path.parent / str(share_manifest["data_file"])
+        )
+        turnover_features = build_share_turnover_features(
+            prices,
+            shares,
+            current_session,
+            config=ShareTurnoverSignalConfig(),
+        )
+        day = day.join(
+            turnover_features.drop(
+                columns=["close", "median_dollar_volume_20d"],
+                errors="ignore",
+            ),
+            how="left",
+        )
     consensus_rank = _consensus_rank(day)
     candidates = _consensus_tickers(candidate, config.maximum_positions)
     short_volume_rank = _family_rank(day, "short_volume")
@@ -228,7 +244,11 @@ def record_stock_shadow_state(
         "short_volume",
         config.maximum_positions,
     )
-    share_turnover_rank = turnover_features["selection_rank"]
+    share_turnover_rank = (
+        turnover_features["selection_rank"]
+        if turnover_features is not None
+        else pd.Series(dtype=float)
+    )
     share_turnover_candidates = _experimental_tickers(
         candidate,
         SHARE_TURNOVER_SIGNAL_FAMILY,
@@ -291,6 +311,7 @@ def record_stock_shadow_state(
             )
             independently_validated = arm_name == "consensus"
             signal_family = "consensus"
+            signal_available = True
         elif arm_name.startswith("short_volume_hold"):
             holding = _short_volume_holding_from_arm(arm_name, config)
             arm_rank = short_volume_rank
@@ -305,6 +326,7 @@ def record_stock_shadow_state(
             prospective_role = f"diagnostic_short_volume_max_hold_{holding}_sessions"
             independently_validated = False
             signal_family = "short_volume"
+            signal_available = True
         else:
             holding = _share_turnover_holding_from_arm(arm_name, config)
             arm_rank = share_turnover_rank
@@ -322,6 +344,7 @@ def record_stock_shadow_state(
             )
             independently_validated = False
             signal_family = SHARE_TURNOVER_SIGNAL_FAMILY
+            signal_available = share_gate_passed
         prior_arm = None
         if previous is not None:
             previous_arms = previous.get("arms")
@@ -345,6 +368,12 @@ def record_stock_shadow_state(
             config=config,
             policy=arm_policy,
             entry_reason=entry_reason,
+            signal_available=signal_available,
+            signal_unavailable_reason=(
+                None
+                if signal_available
+                else "share_turnover_data_gate_failed_fail_safe_exit"
+            ),
         )
         primary_arm = arm_name == "consensus"
         account = arm.get("paper_account_at_close")
@@ -355,6 +384,15 @@ def record_stock_shadow_state(
         arm["signal_family"] = signal_family
         arm["maximum_holding_sessions"] = arm_policy.maximum_holding_sessions
         arm["independent_price_validation_applies"] = independently_validated
+        arm["signal_data_available_at_close"] = signal_available
+        arm["signal_data_unavailable_reason"] = (
+            None
+            if signal_available
+            else "share_turnover_data_gate_failed_fail_safe_exit"
+        )
+        arm["eligible_for_diagnostic_prospective_performance"] = bool(
+            not primary_arm and valuation_complete and signal_available
+        )
         arm["eligible_for_primary_prospective_performance"] = bool(
             primary_arm
             and alpha_gate["passed"]
@@ -369,7 +407,7 @@ def record_stock_shadow_state(
     assert isinstance(primary_arm, dict)
     primary_eligible = bool(primary_arm["eligible_for_primary_prospective_performance"])
     payload: dict[str, object] = {
-        "schema_version": 4,
+        "schema_version": 5,
         "record_type": "prospective_stock_shadow_state",
         "research_status": "paper_only_human_execution_required",
         "data_cost_policy": "no_paid_sources",
@@ -388,8 +426,8 @@ def record_stock_shadow_state(
         "independent_price_validation": alpha_gate,
         "earnings_risk_validation": earnings_gate,
         "share_turnover_data_validation": {
-            "status": "passed",
-            "passed": True,
+            "status": "passed" if share_gate_passed else "failed",
+            "passed": share_gate_passed,
             "artifact": share_manifest_path.name,
             "manifest_sha256": file_sha256(share_manifest_path),
             "coverage_fraction": share_manifest.get("validation", {}).get(
@@ -398,7 +436,18 @@ def record_stock_shadow_state(
             "stale_tickers": share_manifest.get("validation", {}).get("stale_tickers", [])
             if isinstance(share_manifest.get("validation"), dict)
             else [],
+            "fetch_error_tickers": share_manifest.get("validation", {}).get(
+                "fetch_error_tickers", []
+            )
+            if isinstance(share_manifest.get("validation"), dict)
+            else [],
+            "missing_tickers": share_manifest.get("validation", {}).get(
+                "missing_tickers", []
+            )
+            if isinstance(share_manifest.get("validation"), dict)
+            else [],
             "historical_backfill_authorized": False,
+            "primary_consensus_gate_affected": False,
         },
         "eligible_for_primary_prospective_performance": primary_eligible,
         "operational_action_gate_passed": primary_eligible,
@@ -516,7 +565,11 @@ def _advance_arm(
     config: StockShadowConfig,
     policy: ExitPolicy,
     entry_reason: str = "top_consensus_entry",
+    signal_available: bool = True,
+    signal_unavailable_reason: str | None = None,
 ) -> dict[str, object]:
+    if not signal_available and not signal_unavailable_reason:
+        raise StockShadowStateError("An unavailable signal must have an explicit fail-safe reason.")
     prior_positions_raw = {} if prior_arm is None else prior_arm.get("positions_at_close", {})
     prior_target_raw = {} if prior_arm is None else prior_arm.get("target_for_next_open", {})
     if not isinstance(prior_positions_raw, dict) or not isinstance(prior_target_raw, dict):
@@ -607,6 +660,11 @@ def _advance_arm(
             exits[ticker] = ["missing_close"]
             high_watermark = float(path.max()) if not path.empty else entry_price
             holding_sessions = len(path)
+        elif not signal_available:
+            high_watermark = float(path.max())
+            holding_sessions = len(path)
+            assert signal_unavailable_reason is not None
+            exits[ticker] = [signal_unavailable_reason]
         else:
             high_watermark = float(path.max())
             holding_sessions = len(path)
@@ -725,6 +783,8 @@ def _advance_arm(
     )
     return {
         "arm": arm_name,
+        "signal_data_available_at_close": signal_available,
+        "signal_data_unavailable_reason": signal_unavailable_reason,
         "market_guard_enabled": guarded,
         "executions_at_open": executions,
         "positions_at_close": enriched,
@@ -835,6 +895,15 @@ def _experimental_tickers(
     signal = signals.get(family)
     if not isinstance(signal, dict):
         raise StockShadowStateError(f"Candidate snapshot is missing experiment {family}.")
+    data_gate_passed = signal.get("data_gate_passed")
+    if data_gate_passed is False:
+        if signal.get("status") != "data_gate_failed" or signal.get("candidates") != []:
+            raise StockShadowStateError(
+                f"Unavailable experimental candidates are malformed for {family}."
+            )
+        return []
+    if data_gate_passed is not True or signal.get("status") != "available":
+        raise StockShadowStateError(f"Experimental data-gate status is invalid for {family}.")
     rows = signal.get("candidates")
     if not isinstance(rows, list):
         raise StockShadowStateError(f"Experimental candidates are missing for {family}.")

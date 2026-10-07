@@ -102,6 +102,12 @@ paired uncertainty after 21 sessions, and applies family-wide error control afte
 of those diagnostic results can qualify the primary record. The exact arms have no realized
 prospective transition yet, so they currently provide candidates and explanations—not a
 performance claim.
+A failed shares-outstanding coverage or freshness gate cannot interrupt the primary consensus
+lineage. The failed artifact remains hash-auditable, exact share-turnover arms accept no new names,
+and any exact-arm holdings receive an explicit fail-safe exit for the next open. Their operational
+P&L remains visible, but a transition whose prior signal gate failed is excluded from exact-signal
+inference. Corrupt, future-dated, stale-capture, or universe-mismatched artifacts still fail the
+whole run because their provenance cannot be trusted.
 A local ledger permits at most 24 of the documented 25 daily calls, leaving room for the one-call
 bulk earnings calendar. Missing, stale, divergent, or quota-limited validation still produces an
 immutable diagnostic state but makes it ineligible for primary prospective performance.
@@ -152,8 +158,9 @@ while a genuinely missed trading session fails closed for manual reconciliation.
 
 The dashboard's stock tab shows the latest state gate, decision-policy lineage status, market regime,
 next-open targets, cash/equity/cost accounting, captured shares, share turnover, independent return
-and turnover percentiles, and every BUY/HOLD/SELL/SKIP reason. It hides no failed gate and labels
-the market-guard, short-volume, and exact share-turnover arms as diagnostic comparators.
+and turnover percentiles, per-arm signal availability, and every BUY/HOLD/SELL/SKIP reason. It
+hides no failed gate and labels the market-guard, short-volume, and exact share-turnover arms as
+diagnostic comparators.
 
 These current-universe snapshots may never be projected backward as historical membership. Before
 any retrospective individual-stock experiment, normalized prices and point-in-time membership must

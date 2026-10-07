@@ -31,7 +31,7 @@ Removing every sector ETF produced 11.08% CAGR, 0.78 Sharpe, 23.65% maximum draw
 ## Exact share-turnover forward test — initialized, no performance yet
 
 After the 2026-10-07 close, policy lineage
-`policy-e9d9cbfb21f1-config-304c8f60d6cb` initialized from cash. The open Yahoo
+`policy-afeefb47543e-config-304c8f60d6cb` initialized from cash. The open Yahoo
 shares-outstanding gate passed for 500 of 503 current constituents (99.40%); ERIE, WAT, and WBD
 were excluded as stale. Independent top quintiles of t-20-to-t-3 return and share turnover
 intersected in 31 names. The locked top ten were MRNA, ILMN, P, ON, LITE, SWKS, COHR, GNRC, SMCI,
@@ -43,3 +43,8 @@ quota had already been consumed; the primary consensus state therefore failed it
 The exact Yahoo-only diagnostics initialized correctly, FINRA context passed, all candidate/state
 hashes verified, and no order was placed. The next completed session is the first possible return
 observation; 21 sessions are required before paired intervals and 63 before family-wide inference.
+An earlier same-close initialization was superseded before any realized transition after review
+found that its experimental shares gate could halt the primary lineage. The hardened policy keeps
+the primary sequence running, forces exact arms toward cash after a failed shares gate, and excludes
+the affected transition from exact-signal inference. Because neither lineage had observed a return,
+this correction did not discard or select on performance.

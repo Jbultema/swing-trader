@@ -38,6 +38,10 @@ it is labeled as a diagnostic comparator and is never counted as primary prospec
 The 5/10/21-session short-volume proxy and exact share-turnover arms are Yahoo-only diagnostics;
 they cannot expand the free quota or qualify the primary record. All arms start from cash and must
 advance through immediately consecutive recorded sessions.
+A failed but intact share-data gate cannot stop that sequence: the primary and proxy arms advance,
+the exact arms prohibit entries and schedule next-open fail-safe exits, and the evaluator excludes
+the affected exact-signal transition from inference. An unauditable or mismatched share artifact
+still fails closed for every arm.
 A decision-policy/config hash names each durable lineage. It covers universe and price handling,
 independent gates, candidate construction, signals, exits, and paper accounting. The full package
 hash is retained on every state and the evaluator has its own code hash, so UI or neutral sidecar

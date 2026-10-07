@@ -138,6 +138,28 @@ def test_failed_coverage_snapshot_is_preserved_but_not_usable(tmp_path: Path) ->
     assert snapshot.validation.fetch_error_tickers == ("B",)
     assert manifest["shares_data_gate_passed"] is False
 
+    strict = audit_current_stock_share_snapshot(
+        snapshot.manifest_path,
+        now=captured + timedelta(hours=1),
+    )
+    diagnostic = audit_current_stock_share_snapshot(
+        snapshot.manifest_path,
+        now=captured + timedelta(hours=1),
+        require_passed_data_gate=False,
+    )
+    assert not strict.integrity_passed
+    assert diagnostic.passed
+
+    manifest.pop("shares_data_gate_passed")
+    snapshot.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    malformed = audit_current_stock_share_snapshot(
+        snapshot.manifest_path,
+        now=captured + timedelta(hours=1),
+        require_passed_data_gate=False,
+    )
+    assert not malformed.integrity_passed
+    assert "missing or invalid" in " ".join(malformed.errors)
+
 
 def test_share_validation_rejects_inconsistent_source_accounting() -> None:
     captured = datetime(2026, 10, 7, 22, tzinfo=UTC)

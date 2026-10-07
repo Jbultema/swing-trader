@@ -377,6 +377,7 @@ def audit_current_stock_share_snapshot(
     *,
     universe_manifest_path: Path | None = None,
     max_age_hours: float = 48.0,
+    require_passed_data_gate: bool = True,
     now: datetime | None = None,
 ) -> StockShareSnapshotAudit:
     errors: list[str] = []
@@ -416,7 +417,10 @@ def audit_current_stock_share_snapshot(
         errors.append("Historical backfill must be explicitly prohibited.")
     if manifest.get("action_authorized") is not False:
         errors.append("Stock-share snapshot must not authorize trading.")
-    if manifest.get("shares_data_gate_passed") is not True:
+    data_gate = manifest.get("shares_data_gate_passed")
+    if not isinstance(data_gate, bool):
+        errors.append("Original stock-share data-gate result is missing or invalid.")
+    elif require_passed_data_gate and not data_gate:
         errors.append("Original stock-share data gate did not pass.")
     if universe_manifest_path is not None:
         if not universe_manifest_path.exists():
