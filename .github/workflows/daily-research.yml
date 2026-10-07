@@ -1,9 +1,21 @@
 name: Daily research snapshot
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/daily-research.yml"
+      - "config/**"
+      - "src/**"
+      - "poetry.lock"
+      - "pyproject.toml"
   schedule:
     - cron: "30 23 * * 1-5"
   workflow_dispatch:
+
+concurrency:
+  group: daily-research-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
