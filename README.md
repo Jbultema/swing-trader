@@ -77,6 +77,10 @@ The candidate screen forms one top-ten consensus from the three frozen signal fa
 Vantage's free quota checks only the primary consensus portfolio's existing holdings, its new
 candidates, and SPY: at most 21 daily-price requests. The market-guard arm is retained as a
 diagnostic comparator rather than consuming enough calls to make the primary workflow unreliable.
+A preregistered set of short-volume diagnostic arms holds the same top-ten large-cap screen for at
+most 5, 10, or 21 sessions with identical exit rules and 50 bp round-trip costs. Those arms use
+Yahoo only, remain explicitly ineligible for primary performance, and exist to test whether faster
+turnover adds value before the project promotes any shorter holding rule.
 A local ledger permits at most 24 of the documented 25 daily calls, leaving room for the one-call
 bulk earnings calendar. Missing, stale, divergent, or quota-limited validation still produces an
 immutable diagnostic state but makes it ineligible for primary prospective performance.

@@ -32,6 +32,11 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
     guarded_equity = [
         _account_equity(payload, "consensus_market_guard") for _, payload in states
     ]
+    diagnostic_arm_names = _diagnostic_arm_names(states)
+    diagnostic_equity = {
+        arm_name: [_account_equity(payload, arm_name) for _, payload in states]
+        for arm_name in diagnostic_arm_names
+    }
     spy_equity = _spy_equity(states)
     transitions: list[dict[str, object]] = []
     eligible_primary: list[float] = []
@@ -44,6 +49,10 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
         current = states[position][1]
         primary_return = _return(primary_equity[position - 1], primary_equity[position])
         guarded_return = _return(guarded_equity[position - 1], guarded_equity[position])
+        diagnostic_returns = {
+            arm_name: _return(values[position - 1], values[position])
+            for arm_name, values in diagnostic_equity.items()
+        }
         spy_return = _return(spy_equity[position - 1], spy_equity[position])
         current_primary = _arm(current, "consensus")
         current_account = current_primary.get("paper_account_at_close")
@@ -74,6 +83,7 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
                 "eligible": eligible,
                 "primary_net_return": primary_return,
                 "market_guard_net_return": guarded_return,
+                "diagnostic_arm_net_returns": diagnostic_returns,
                 "spy_buy_hold_return": spy_return,
                 "primary_net_excess_vs_spy": (
                     primary_return - spy_return
@@ -107,6 +117,14 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
         index=all_index,
         dtype=float,
     )
+    all_diagnostics = {
+        arm_name: pd.Series(
+            [_return(values[i - 1], values[i]) for i in range(1, len(states))],
+            index=all_index,
+            dtype=float,
+        )
+        for arm_name, values in diagnostic_equity.items()
+    }
     eligible_primary_series = pd.Series(
         eligible_primary,
         index=pd.DatetimeIndex(eligible_sessions),
@@ -135,7 +153,7 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
         )
     horizon_outcomes = _horizon_outcomes(states, sessions, primary_equity)
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "record_type": "prospective_stock_shadow_evaluation",
         "research_status": "prospective_paper_only_not_trading_authority",
         "data_cost_policy": "no_paid_sources",
@@ -164,6 +182,9 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
         "diagnostic_all_sessions": {
             "primary_consensus": _metrics(all_primary),
             "market_guard_comparator": _metrics(all_guarded),
+            "experimental_arms": {
+                arm_name: _metrics(values) for arm_name, values in all_diagnostics.items()
+            },
             "spy_buy_hold": _metrics(all_spy),
         },
         "eligible_original_gate_only": {
@@ -352,6 +373,29 @@ def _state_policy_hash(payload: dict[str, object]) -> str:
     if isinstance(legacy, str):
         return legacy
     raise StockProspectiveEvaluationError("State has no decision-policy provenance.")
+
+
+def _diagnostic_arm_names(
+    states: list[tuple[Path, dict[str, object]]],
+) -> tuple[str, ...]:
+    base = {"consensus", "consensus_market_guard"}
+    first_arms = states[0][1].get("arms")
+    if not isinstance(first_arms, dict):
+        raise StockProspectiveEvaluationError("State is missing its arm registry.")
+    diagnostic = tuple(
+        sorted(
+            set(first_arms) - base,
+            key=lambda name: int(name.removeprefix("short_volume_hold")),
+        )
+    )
+    if any(not name.startswith("short_volume_hold") for name in diagnostic):
+        raise StockProspectiveEvaluationError("State contains an unknown diagnostic arm.")
+    expected = base | set(diagnostic)
+    for _, payload in states:
+        arms = payload.get("arms")
+        if not isinstance(arms, dict) or set(arms) != expected:
+            raise StockProspectiveEvaluationError("State arm registry changed within the lineage.")
+    return diagnostic
 
 
 def _spy_equity(states: list[tuple[Path, dict[str, object]]]) -> list[float]:

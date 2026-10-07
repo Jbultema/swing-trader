@@ -38,6 +38,7 @@ class StockShadowConfig:
     volatility_sessions: int
     maximum_annualized_volatility: float
     arms: tuple[str, ...]
+    short_volume_holding_sessions: tuple[int, ...]
     earnings_lead_sessions: int
     earnings_cooling_sessions: int
     round_trip_cost_bps: float
@@ -70,6 +71,9 @@ def load_stock_shadow_config(path: Path) -> tuple[StockShadowConfig, dict[str, o
             raw["market_guard"]["maximum_annualized_volatility"]
         ),
         arms=tuple(str(value) for value in raw["market_guard"]["arms"]),
+        short_volume_holding_sessions=tuple(
+            int(value) for value in raw["experiments"]["short_volume_holding_sessions"]
+        ),
         earnings_lead_sessions=int(raw["events"]["earnings_lead_sessions"]),
         earnings_cooling_sessions=int(raw["events"]["earnings_cooling_sessions"]),
         round_trip_cost_bps=float(raw["evaluation"]["round_trip_cost_bps"]),
@@ -170,6 +174,12 @@ def record_stock_shadow_state(
     day = features.xs(current_session, level="date")
     consensus_rank = _consensus_rank(day)
     candidates = _consensus_tickers(candidate, config.maximum_positions)
+    short_volume_rank = _family_rank(day, "short_volume")
+    short_volume_candidates = _family_tickers(
+        candidate,
+        "short_volume",
+        config.maximum_positions,
+    )
     market_state = _market_state(
         prices["Close"][config.benchmark].dropna(),
         current_session,
@@ -215,8 +225,30 @@ def record_stock_shadow_state(
     target_counts: dict[str, int] = {}
     for arm_name in config.arms:
         guarded = arm_name == "consensus_market_guard"
-        if arm_name not in {"consensus", "consensus_market_guard"}:
-            raise StockShadowStateError(f"Unsupported stock shadow arm: {arm_name}")
+        if arm_name in {"consensus", "consensus_market_guard"}:
+            arm_rank = consensus_rank
+            arm_candidates = candidates
+            arm_policy = policy
+            entry_reason = "top_consensus_entry"
+            prospective_role = (
+                "primary_consensus"
+                if arm_name == "consensus"
+                else "diagnostic_market_guard_comparator"
+            )
+            independently_validated = arm_name == "consensus"
+        else:
+            holding = _short_volume_holding_from_arm(arm_name, config)
+            arm_rank = short_volume_rank
+            arm_candidates = short_volume_candidates
+            arm_policy = ExitPolicy(
+                hard_stop_fraction=config.hard_stop_fraction,
+                atr_multiple=config.atr_multiple,
+                maximum_holding_sessions=holding,
+                rank_exit_multiple=config.rank_exit_multiple,
+            )
+            entry_reason = "top_short_volume_entry"
+            prospective_role = f"diagnostic_short_volume_max_hold_{holding}_sessions"
+            independently_validated = False
         prior_arm = None
         if previous is not None:
             previous_arms = previous.get("arms")
@@ -231,25 +263,25 @@ def record_stock_shadow_state(
             current_session,
             prices,
             day,
-            consensus_rank,
-            candidates,
+            arm_rank,
+            arm_candidates,
             current_tickers,
             blackout,
             guarded=guarded,
             market_risk_on=bool(market_state["risk_on"]),
             config=config,
-            policy=policy,
+            policy=arm_policy,
+            entry_reason=entry_reason,
         )
         primary_arm = arm_name == "consensus"
         account = arm.get("paper_account_at_close")
         valuation_complete = isinstance(account, dict) and account.get(
             "valuation_complete"
         ) is True
-        arm["prospective_role"] = (
-            "primary_consensus"
-            if primary_arm
-            else "diagnostic_market_guard_comparator"
-        )
+        arm["prospective_role"] = prospective_role
+        arm["signal_family"] = "consensus" if primary_arm or guarded else "short_volume"
+        arm["maximum_holding_sessions"] = arm_policy.maximum_holding_sessions
+        arm["independent_price_validation_applies"] = independently_validated
         arm["eligible_for_primary_prospective_performance"] = bool(
             primary_arm
             and alpha_gate["passed"]
@@ -264,7 +296,7 @@ def record_stock_shadow_state(
     assert isinstance(primary_arm, dict)
     primary_eligible = bool(primary_arm["eligible_for_primary_prospective_performance"])
     payload: dict[str, object] = {
-        "schema_version": 2,
+        "schema_version": 3,
         "record_type": "prospective_stock_shadow_state",
         "research_status": "paper_only_human_execution_required",
         "data_cost_policy": "no_paid_sources",
@@ -393,6 +425,7 @@ def _advance_arm(
     market_risk_on: bool,
     config: StockShadowConfig,
     policy: ExitPolicy,
+    entry_reason: str = "top_consensus_entry",
 ) -> dict[str, object]:
     prior_positions_raw = {} if prior_arm is None else prior_arm.get("positions_at_close", {})
     prior_target_raw = {} if prior_arm is None else prior_arm.get("target_for_next_open", {})
@@ -566,7 +599,7 @@ def _advance_arm(
                 _decision(
                     ticker,
                     "BUY",
-                    ["top_consensus_entry"],
+                    [entry_reason],
                     current_session,
                     day,
                     consensus_rank,
@@ -622,13 +655,15 @@ def _decision(
     position: dict[str, object] | None,
 ) -> dict[str, object]:
     row = day.loc[ticker] if ticker in day.index else pd.Series(dtype=object)
+    rank = _finite_float(consensus_rank.get(ticker))
     return {
         "as_of_session": session.date().isoformat(),
         "effective_at": "next_regular_session_open",
         "ticker": ticker,
         "action": action,
         "reasons": reasons,
-        "consensus_rank": _finite_float(consensus_rank.get(ticker)),
+        "selection_rank": rank,
+        "consensus_rank": rank,
         "close": _finite_float(row.get("close")),
         "return_21d": _finite_float(row.get("return_21d")),
         "return_63d": _finite_float(row.get("return_63d")),
@@ -657,6 +692,53 @@ def _consensus_tickers(candidate: dict[str, object], maximum_positions: int) -> 
     if not tickers or len(tickers) > maximum_positions:
         raise StockShadowStateError("Candidate consensus size is invalid.")
     return tickers
+
+
+def _family_rank(day: pd.DataFrame, family: str) -> pd.Series:
+    score_column = SCORE_COLUMNS[family]
+    eligible = (
+        day["eligible"].fillna(False).astype(bool)
+        & day["trend_positive"].fillna(False).astype(bool)
+    )
+    return day[score_column].where(eligible).rank(ascending=False, method="average")
+
+
+def _family_tickers(
+    candidate: dict[str, object],
+    family: str,
+    maximum_positions: int,
+) -> list[str]:
+    rows = candidate.get("family_candidates")
+    if not isinstance(rows, list):
+        raise StockShadowStateError("Candidate snapshot is missing family candidates.")
+    selected = sorted(
+        (
+            row
+            for row in rows
+            if isinstance(row, dict) and row.get("signal_family") == family
+        ),
+        key=lambda row: int(row["rank"]),
+    )
+    tickers = [str(row["ticker"]) for row in selected[:maximum_positions]]
+    if not tickers or len(tickers) > maximum_positions or len(tickers) != len(set(tickers)):
+        raise StockShadowStateError(f"Candidate family size is invalid: {family}")
+    return tickers
+
+
+def _short_volume_holding_from_arm(
+    arm_name: str,
+    config: StockShadowConfig,
+) -> int:
+    prefix = "short_volume_hold"
+    if not arm_name.startswith(prefix):
+        raise StockShadowStateError(f"Unsupported stock shadow arm: {arm_name}")
+    try:
+        holding = int(arm_name.removeprefix(prefix))
+    except ValueError as exc:
+        raise StockShadowStateError(f"Invalid stock shadow arm: {arm_name}") from exc
+    if holding not in config.short_volume_holding_sessions:
+        raise StockShadowStateError(f"Unregistered stock shadow arm: {arm_name}")
+    return holding
 
 
 def _market_state(
@@ -923,8 +1005,21 @@ def _validate_config(config: StockShadowConfig) -> None:
         raise ValueError("maximum_position_weight must be in (0, 1].")
     if config.maximum_positions * config.maximum_position_weight > 1.0:
         raise ValueError("Stock shadow maximum weights exceed 100% gross exposure.")
-    if set(config.arms) != {"consensus", "consensus_market_guard"}:
-        raise ValueError("Stock shadow must contain the frozen consensus and guarded arms.")
+    if not config.short_volume_holding_sessions:
+        raise ValueError("Stock shadow must register short-volume holding experiments.")
+    if any(value < 1 for value in config.short_volume_holding_sessions):
+        raise ValueError("Short-volume holding sessions must be positive.")
+    if len(set(config.short_volume_holding_sessions)) != len(
+        config.short_volume_holding_sessions
+    ):
+        raise ValueError("Short-volume holding sessions must be unique.")
+    expected_arms = {
+        "consensus",
+        "consensus_market_guard",
+        *(f"short_volume_hold{value}" for value in config.short_volume_holding_sessions),
+    }
+    if set(config.arms) != expected_arms or len(config.arms) != len(expected_arms):
+        raise ValueError("Stock shadow arms do not match the frozen experiment registry.")
     if config.maximum_holding_sessions < 1:
         raise ValueError("maximum_holding_sessions must be positive.")
     if config.round_trip_cost_bps < 0.0:

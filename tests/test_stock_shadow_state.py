@@ -215,7 +215,13 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
     payload = json.loads(result.path.read_text())
 
     assert result.initialization
-    assert result.targets == {"consensus": 10, "consensus_market_guard": 10}
+    assert result.targets == {
+        "consensus": 10,
+        "consensus_market_guard": 10,
+        "short_volume_hold5": 10,
+        "short_volume_hold10": 10,
+        "short_volume_hold21": 10,
+    }
     assert payload["eligible_for_primary_prospective_performance"] is False
     assert payload["operational_action_gate_passed"] is False
     assert payload["independent_price_validation"]["status"] == "missing"
@@ -226,6 +232,11 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
     assert payload["arms"]["consensus_market_guard"]["prospective_role"] == (
         "diagnostic_market_guard_comparator"
     )
+    assert payload["arms"]["short_volume_hold5"]["prospective_role"] == (
+        "diagnostic_short_volume_max_hold_5_sessions"
+    )
+    assert payload["arms"]["short_volume_hold5"]["independent_price_validation_applies"] is False
+    assert payload["arms"]["short_volume_hold5"]["maximum_holding_sessions"] == 5
     assert verify_stock_shadow_state(result.path)
     evaluation = write_stock_shadow_evaluation(
         result.path.parent,
@@ -290,7 +301,14 @@ def _config() -> StockShadowConfig:
         moving_average_sessions=200,
         volatility_sessions=20,
         maximum_annualized_volatility=0.35,
-        arms=("consensus", "consensus_market_guard"),
+        arms=(
+            "consensus",
+            "consensus_market_guard",
+            "short_volume_hold5",
+            "short_volume_hold10",
+            "short_volume_hold21",
+        ),
+        short_volume_holding_sessions=(5, 10, 21),
         earnings_lead_sessions=2,
         earnings_cooling_sessions=1,
         round_trip_cost_bps=50.0,

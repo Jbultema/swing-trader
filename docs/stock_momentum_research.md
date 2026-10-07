@@ -220,7 +220,11 @@ show a modest recent gross advantage, but they lag the market over the longer po
 2022 their 19.14% volatility and -28.66% drawdown were also worse than the market's 17.95% and
 -25.45%. Daily reconstitution turnover is unavailable, so no cost-adjusted advantage can be
 claimed. This supports a separately measured, high-participation short-horizon prospective arm; it
-does not support replacing the consensus arm or promising unusually high returns.
+does not support replacing the consensus arm or promising unusually high returns. The prospective
+state now records three such diagnostics from the same `short_volume` ranking with maximum holding
+periods of 5, 10, and 21 sessions. Every arm uses the same next-open execution, exits, and 50 bp
+round-trip cost. They are deliberately excluded from primary eligible performance because the free
+Alpha quota validates only the consensus portfolio.
 
 Official construction details and downloads:
 
@@ -239,7 +243,8 @@ Official construction details and downloads:
   an artifact.
 - `stock_shadow_state.py` advances one immediately consecutive close-to-next-open paper state,
   recomputes adjustment-safe entry bases and high-water marks, records every exit reason, and
-  rejects session gaps. The consensus arm is primary; the guarded arm is a diagnostic comparator.
+  rejects session gaps. The consensus arm is primary; the guarded arm and preregistered 5/10/21
+  short-volume holding arms are diagnostic comparators.
 - `stock_daily.py` restores a hash-linked decision-policy/config lineage, refreshes the public roster
   and adjusted OHLCV, avoids free-provider calls on holidays, records optional-provider failures,
   and advances the state even when validation is unavailable so failed gates remain observable.

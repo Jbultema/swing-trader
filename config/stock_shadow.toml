@@ -13,7 +13,10 @@ benchmark = "SPY"
 moving_average_sessions = 200
 volatility_sessions = 20
 maximum_annualized_volatility = 0.35
-arms = ["consensus", "consensus_market_guard"]
+arms = ["consensus", "consensus_market_guard", "short_volume_hold5", "short_volume_hold10", "short_volume_hold21"]
+
+[experiments]
+short_volume_holding_sessions = [5, 10, 21]
 
 [events]
 earnings_lead_sessions = 2

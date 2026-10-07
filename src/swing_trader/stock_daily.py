@@ -82,7 +82,7 @@ def run_stock_shadow_daily(
             archive_root / "lineages" / lineage_id / "states",
             state_dir,
         )
-    held = held_tickers_from_latest_state(state_dir, arm_names=("consensus",))
+    held = held_tickers_from_latest_state(state_dir)
 
     universe = download_current_sp500_snapshot(
         root / "data/stock-shadow/universe",

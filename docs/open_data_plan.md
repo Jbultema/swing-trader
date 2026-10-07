@@ -112,6 +112,12 @@ mature before 126 eligible sessions, 30 completed exits, and 10 eligible risk-of
 stationary-bootstrap uncertainty begins only after 21 eligible sessions, uses the same gated dates
 for the primary arm and SPY, and remains a diagnostic rather than trading authority.
 
+The primary consensus remains the only Alpha-validated arm. Separate short-volume arms with 5, 10,
+and 21-session maximum holds use identical next-open accounting, exit rules, and 50 bp round-trip
+costs, but only the locked Yahoo snapshot. Their all-session metrics are visible as unvalidated
+diagnostics and cannot contribute to the primary evidence threshold. This preserves the free quota
+while testing the shorter-holding hypothesis prospectively instead of selecting a recent winner.
+
 The practical result is slower than buying a curated database, but it is honest: public and free
 data can support a strong prospective system and selected covered historical replications. It
 cannot justify a universal survivor-free historical claim when missing names are correlated with

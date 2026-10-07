@@ -182,14 +182,33 @@ with stock:
             "signals observed at the close and effective no earlier than the next regular open."
         )
         st.subheader("Why each prospective action occurred")
-        for arm_name, arm_label in (
+        arm_labels = [
             ("consensus", "Primary consensus"),
             ("consensus_market_guard", "Diagnostic market guard"),
-        ):
+        ]
+        arm_labels.extend(
+            (
+                arm_name,
+                "Diagnostic short-volume · "
+                f"maximum hold {stock_state['arms'][arm_name]['maximum_holding_sessions']} sessions",
+            )
+            for arm_name in sorted(
+                stock_state["arms"],
+                key=lambda name: int(name.removeprefix("short_volume_hold"))
+                if name.startswith("short_volume_hold")
+                else -1,
+            )
+            if arm_name.startswith("short_volume_hold")
+        )
+        for arm_name, arm_label in arm_labels:
             arm = stock_state["arms"][arm_name]
             with st.expander(arm_label, expanded=arm_name == "consensus"):
                 decisions_frame = pd.DataFrame(arm["decisions"])
                 if not decisions_frame.empty:
+                    if "selection_rank" not in decisions_frame:
+                        decisions_frame["selection_rank"] = decisions_frame.get(
+                            "consensus_rank"
+                        )
                     decisions_frame["reasons"] = decisions_frame["reasons"].map(
                         lambda values: ", ".join(str(value) for value in values)
                     )
@@ -199,7 +218,7 @@ with stock:
                                 "ticker",
                                 "action",
                                 "reasons",
-                                "consensus_rank",
+                                "selection_rank",
                                 "close",
                                 "return_21d",
                                 "return_63d",
@@ -218,7 +237,9 @@ with stock:
                 )
                 st.caption(
                     f"Next-open target cash: {float(arm['target_cash_weight']):.1%}; "
-                    f"role: {arm['prospective_role']}."
+                    f"role: {arm['prospective_role']}; signal: "
+                    f"{arm.get('signal_family', 'legacy')}; independently validated: "
+                    f"{arm.get('independent_price_validation_applies', False)}."
                 )
                 st.dataframe(target, hide_index=True, width="stretch")
 
@@ -298,6 +319,22 @@ with stock:
                         "evidence and not trading authority."
                     )
                 st.json(eligible_stock)
+                diagnostic_metrics = stock_evaluation.get("diagnostic_all_sessions", {}).get(
+                    "experimental_arms", {}
+                )
+                if diagnostic_metrics:
+                    st.subheader("Unvalidated short-volume holding experiments")
+                    st.caption(
+                        "These arms use the same next-open accounting and costs, but Yahoo is "
+                        "their only price source. They are diagnostic and are excluded from the "
+                        "primary eligible-performance record."
+                    )
+                    st.dataframe(
+                        pd.DataFrame.from_dict(diagnostic_metrics, orient="index")
+                        .reset_index(names="arm"),
+                        hide_index=True,
+                        width="stretch",
+                    )
                 rolling = stock_evaluation.get("rolling_policy_horizons")
                 if not isinstance(rolling, dict) or not isinstance(
                     rolling.get("by_horizon"), dict

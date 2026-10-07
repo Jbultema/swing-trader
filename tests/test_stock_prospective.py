@@ -5,6 +5,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
 from swing_trader.stock_prospective import (
     StockProspectiveEvaluationError,
     evaluate_stock_shadow_lineage,
@@ -27,6 +29,7 @@ def test_prospective_evaluator_uses_prior_decision_gate_and_self_financing_equit
         eligible=True,
         primary_equity=1.0,
         guarded_equity=1.0,
+        diagnostic_equity=1.0,
         spy_open=100.0,
         spy_close=100.0,
     )
@@ -40,6 +43,7 @@ def test_prospective_evaluator_uses_prior_decision_gate_and_self_financing_equit
         eligible=False,
         primary_equity=1.10,
         guarded_equity=1.05,
+        diagnostic_equity=1.02,
         spy_open=100.0,
         spy_close=105.0,
         executions=[{"action": "BUY"}],
@@ -54,6 +58,7 @@ def test_prospective_evaluator_uses_prior_decision_gate_and_self_financing_equit
         eligible=True,
         primary_equity=1.0,
         guarded_equity=1.06,
+        diagnostic_equity=1.04,
         spy_open=106.0,
         spy_close=110.0,
         executions=[{"action": "SELL"}],
@@ -66,6 +71,12 @@ def test_prospective_evaluator_uses_prior_decision_gate_and_self_financing_equit
     assert result["state_package_implementation_sha256"] == ["package-test"]
     assert len(result["evaluation_implementation_sha256"]) == 64
     assert result["diagnostic_all_sessions"]["primary_consensus"]["sessions"] == 2
+    assert result["diagnostic_all_sessions"]["experimental_arms"][
+        "short_volume_hold5"
+    ]["sessions"] == 2
+    assert result["transitions"][0]["diagnostic_arm_net_returns"][
+        "short_volume_hold5"
+    ] == pytest.approx(0.02)
     assert result["eligible_original_gate_only"]["sessions"] == 1
     assert result["eligible_original_gate_only"]["completed_exits"] == 0
     assert result["transitions"][0]["eligible"] is True
@@ -121,9 +132,16 @@ def _state(
     guarded_equity: float,
     spy_open: float,
     spy_close: float,
+    diagnostic_equity: float | None = None,
     executions: list[dict[str, str]] | None = None,
 ) -> Path:
     execution_rows = executions or []
+    arms = {
+        "consensus": _arm(primary_equity, execution_rows),
+        "consensus_market_guard": _arm(guarded_equity, []),
+    }
+    if diagnostic_equity is not None:
+        arms["short_volume_hold5"] = _arm(diagnostic_equity, [])
     payload: dict[str, object] = {
         "schema_version": 1,
         "record_type": "prospective_stock_shadow_state",
@@ -141,10 +159,7 @@ def _state(
             "close": spy_close,
             "risk_on": True,
         },
-        "arms": {
-            "consensus": _arm(primary_equity, execution_rows),
-            "consensus_market_guard": _arm(guarded_equity, []),
-        },
+        "arms": arms,
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     payload["record_sha256"] = hashlib.sha256(canonical).hexdigest()
