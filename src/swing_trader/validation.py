@@ -70,6 +70,14 @@ def build_validation_artifacts(
         cost_rows.append({"transaction_cost_bps": bps, **metrics})
     pd.DataFrame(cost_rows).to_csv(output_dir / "cost_sensitivity.csv", index=False)
 
+    universe_rows, universe_summary = _universe_sensitivity(
+        close,
+        opens,
+        config,
+        evaluation_start,
+    )
+    pd.DataFrame(universe_rows).to_csv(output_dir / "universe_sensitivity.csv", index=False)
+
     development_returns = pd.concat(
         {name: result.returns for name, result in variants.items()}, axis=1
     ).loc[evaluation_start : config.validation.development_end]
@@ -82,6 +90,7 @@ def build_validation_artifacts(
         "selection_period": f"{evaluation_start.date()} through {config.validation.development_end}",
         "approximate_pbo": pbo,
         "paired_block_bootstrap": bootstrap,
+        "universe_sensitivity": universe_summary,
         "interpretation": (
             "PBO is diagnostic because the variant family is small and correlated. "
             "Bootstrap intervals quantify historical sampling uncertainty, not future guarantees."
@@ -90,6 +99,94 @@ def build_validation_artifacts(
     (output_dir / "validation_summary.json").write_text(
         json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
+
+
+def _universe_sensitivity(
+    close: pd.DataFrame,
+    opens: pd.DataFrame,
+    config: AppConfig,
+    evaluation_start: pd.Timestamp,
+) -> tuple[list[dict[str, object]], dict[str, object]]:
+    all_tickers = config.data.tickers
+    sector_tickers = {ticker for ticker in all_tickers if ticker.startswith("XL")}
+    named: dict[str, tuple[str, ...]] = {
+        "all_assets": all_tickers,
+        "no_qqq_or_xlk": tuple(t for t in all_tickers if t not in {"QQQ", "XLK"}),
+        "no_sector_etfs": tuple(t for t in all_tickers if t not in sector_tickers),
+        "broad_asset_classes": tuple(
+            t for t in ("SPY", "IWM", "MDY", "EFA", "EEM", "GLD", "IEF") if t in all_tickers
+        ),
+    }
+    named.update(
+        {
+            f"leave_out_{ticker.lower()}": tuple(t for t in all_tickers if t != ticker)
+            for ticker in all_tickers
+        }
+    )
+    rows: list[dict[str, object]] = []
+    full_metrics: dict[str, dict[str, float | str]] = {}
+    all_weights: pd.DataFrame | None = None
+    for name, tickers in named.items():
+        weights = classic_dual_momentum_weights(
+            close,
+            tickers,
+            top_n=min(config.strategy.top_n, len(tickers)),
+        )
+        if name == "all_assets":
+            all_weights = weights
+        result = run_backtest(name, opens, weights, config.execution)
+        for split, start, end in (
+            ("full", evaluation_start, None),
+            ("validation", config.validation.validation_start, config.validation.validation_end),
+            ("recent_diagnostic", config.validation.recent_diagnostic_start, None),
+        ):
+            effective_start = max(pd.Timestamp(start), evaluation_start)
+            metrics = performance_metrics(
+                result.returns.loc[effective_start:end],
+                result.equity.loc[effective_start:end],
+                result.turnover.loc[effective_start:end],
+                result.transaction_costs.loc[effective_start:end],
+            )
+            rows.append(
+                {
+                    "universe_variant": name,
+                    "excluded_ticker": (
+                        name.removeprefix("leave_out_").upper()
+                        if name.startswith("leave_out_")
+                        else None
+                    ),
+                    "ticker_count": len(tickers),
+                    "split": split,
+                    **metrics,
+                }
+            )
+            if split == "full":
+                full_metrics[name] = metrics
+
+    assert all_weights is not None
+    tech_proxies = [ticker for ticker in ("QQQ", "XLK") if ticker in all_weights]
+    tech_exposure = all_weights.loc[evaluation_start:, tech_proxies].sum(axis=1)
+    baseline_cagr = float(full_metrics["all_assets"]["cagr"])
+    leave_one_out_cagrs = [
+        float(metrics["cagr"])
+        for name, metrics in full_metrics.items()
+        if name.startswith("leave_out_")
+    ]
+    return rows, {
+        "purpose": (
+            "diagnose dependence on overlapping technology proxies and today's surviving ETF universe; "
+            "these post-selection diagnostics do not create a new holdout"
+        ),
+        "champion_mean_qqq_xlk_weight": float(tech_exposure.mean()),
+        "champion_max_qqq_xlk_weight": float(tech_exposure.max()),
+        "no_qqq_or_xlk_cagr": float(full_metrics["no_qqq_or_xlk"]["cagr"]),
+        "no_qqq_or_xlk_cagr_delta": float(full_metrics["no_qqq_or_xlk"]["cagr"] - baseline_cagr),
+        "no_sector_etfs_cagr": float(full_metrics["no_sector_etfs"]["cagr"]),
+        "broad_asset_classes_cagr": float(full_metrics["broad_asset_classes"]["cagr"]),
+        "leave_one_out_cagr_min": min(leave_one_out_cagrs),
+        "leave_one_out_cagr_max": max(leave_one_out_cagrs),
+        "leave_one_out_variants": len(leave_one_out_cagrs),
+    }
 
 
 def _approximate_pbo(returns: pd.DataFrame, blocks: int = 8) -> dict[str, float | int]:

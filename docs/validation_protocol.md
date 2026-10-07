@@ -25,6 +25,7 @@ shadow interval is the next valid holdout.
 - Global financial crisis, COVID crash/rebound, 2022 inflation/rate shock, and 2023-present concentration cycle.
 - Signal causality and next-session execution tests.
 - Parameter-neighborhood stability, cost sensitivity, missing-data tests, and data-revision hashes.
+- Broad-asset-only, no-sector, no-QQQ/XLK, and leave-one-asset-out universe sensitivity so current technology winners and surviving funds cannot silently carry the result.
 - Block-bootstrap confidence intervals and a multiple-testing/PBO audit before selecting among variants.
 - Twelve completed months of adjusted-return agreement across independent providers for every traded ticker; missing, stale, or divergent secondary data fails the action gate.
 

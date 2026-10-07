@@ -10,6 +10,7 @@ This is research software, not investment advice. It never connects to a broker 
 - The champion ranks trailing 12-month returns, requires positive absolute momentum, holds the top three equal-weight, and rebalances monthly.
 - A capital-preservation comparator adds daily panic exits; it is reported separately rather than silently mixed into the champion.
 - Faster weekly multi-horizon, volatility-sized, trailing-exit candidates remain visible as rejected experiments.
+- No-technology, no-sector, broad-asset, and 17 leave-one-asset-out diagnostics expose dependence on overlapping funds and current winners without retrospectively replacing the frozen champion.
 - A close-derived signal is modeled at the next adjusted open; performance accrues open-to-open. One-way turnover costs 10 basis points.
 - Cash is an intentional position. The system does not short, use options, use derivatives, or borrow.
 - The dashboard shows the recommendation, the evidence behind it, risk-off reasons, historical comparisons, and methodology status.

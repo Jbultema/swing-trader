@@ -117,6 +117,8 @@ with methods:
         "historical mean return exceeded SPY; the 95% interval crosses zero."
     )
     st.json(validation)
+    st.subheader("Universe and technology-concentration sensitivity")
+    st.json(validation["universe_sensitivity"])
     st.subheader("Prospective shadow evaluation")
     if prospective is None:
         st.info("No prospective outcome evaluation has been generated yet.")
