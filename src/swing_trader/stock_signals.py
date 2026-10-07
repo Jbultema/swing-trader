@@ -27,6 +27,12 @@ class ExitPolicy:
     atr_multiple: float = 3.0
     maximum_holding_sessions: int = 63
     rank_exit_multiple: float = 2.0
+    use_hard_stop: bool = True
+    use_atr_trail: bool = True
+    use_trend_break: bool = True
+    use_short_momentum: bool = True
+    use_rank_decay: bool = True
+    use_maximum_holding: bool = True
 
 
 SCORE_COLUMNS = {
@@ -149,21 +155,65 @@ def exit_reasons(
     """Explain which close-known conditions require a next-session exit."""
     cfg = policy or ExitPolicy()
     close = float(feature_row["close"])
-    atr_fraction = float(feature_row["atr_fraction_14d"])
     reasons: list[str] = []
-    if close <= entry_price * (1.0 - cfg.hard_stop_fraction):
+    if cfg.use_hard_stop and close <= entry_price * (1.0 - cfg.hard_stop_fraction):
         reasons.append("hard_loss_limit")
-    if close <= high_watermark * (1.0 - cfg.atr_multiple * atr_fraction):
-        reasons.append("atr_trailing_exit")
-    if not bool(feature_row["trend_positive"]):
+    if cfg.use_atr_trail:
+        atr_fraction = float(feature_row["atr_fraction_14d"])
+        if close <= high_watermark * (1.0 - cfg.atr_multiple * atr_fraction):
+            reasons.append("atr_trailing_exit")
+    if cfg.use_trend_break and not bool(feature_row["trend_positive"]):
         reasons.append("trend_broken")
-    if float(feature_row["return_21d"]) <= 0.0:
+    if cfg.use_short_momentum and float(feature_row["return_21d"]) <= 0.0:
         reasons.append("short_momentum_non_positive")
-    if cross_section_rank > entry_top_n * cfg.rank_exit_multiple:
+    if cfg.use_rank_decay and cross_section_rank > entry_top_n * cfg.rank_exit_multiple:
         reasons.append("rank_decay")
-    if holding_sessions >= cfg.maximum_holding_sessions:
+    if cfg.use_maximum_holding and holding_sessions >= cfg.maximum_holding_sessions:
         reasons.append("maximum_holding_period")
     return reasons
+
+
+def exit_policy_for_family(
+    family: str,
+    *,
+    hard_stop_fraction: float = 0.08,
+    atr_multiple: float = 3.0,
+    maximum_holding_sessions: int = 63,
+    rank_exit_multiple: float = 2.0,
+) -> ExitPolicy:
+    """Create preregistered exit ablations with a common emergency loss limit."""
+    enabled = {
+        "time_stop": {"use_maximum_holding"},
+        "rank_decay": {"use_rank_decay", "use_maximum_holding"},
+        "trend_break": {
+            "use_trend_break",
+            "use_short_momentum",
+            "use_maximum_holding",
+        },
+        "atr_trailing": {"use_atr_trail", "use_maximum_holding"},
+        "combined": {
+            "use_atr_trail",
+            "use_trend_break",
+            "use_short_momentum",
+            "use_rank_decay",
+            "use_maximum_holding",
+        },
+    }
+    if family not in enabled:
+        raise ValueError(f"Unknown exit family: {family}")
+    active = enabled[family]
+    return ExitPolicy(
+        hard_stop_fraction=hard_stop_fraction,
+        atr_multiple=atr_multiple,
+        maximum_holding_sessions=maximum_holding_sessions,
+        rank_exit_multiple=rank_exit_multiple,
+        use_hard_stop=True,
+        use_atr_trail="use_atr_trail" in active,
+        use_trend_break="use_trend_break" in active,
+        use_short_momentum="use_short_momentum" in active,
+        use_rank_decay="use_rank_decay" in active,
+        use_maximum_holding="use_maximum_holding" in active,
+    )
 
 
 def _cross_sectional_rank(values: pd.DataFrame, eligible: pd.DataFrame) -> pd.DataFrame:

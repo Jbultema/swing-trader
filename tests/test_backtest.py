@@ -57,6 +57,8 @@ def test_holdings_drift_without_free_daily_rebalancing() -> None:
     assert result.weights.loc[dates[2], "A"] == pytest.approx(2.0 / 3.0)
     assert result.weights.loc[dates[2], "B"] == pytest.approx(1.0 / 3.0)
     assert result.turnover.sum() == pytest.approx(1.0)
+    assert result.trades.loc[dates[1], "A"] == pytest.approx(0.5)
+    assert result.trades.loc[dates[2]].abs().sum() == 0.0
 
 
 def test_unallocated_capital_earns_cash_return() -> None:
@@ -73,6 +75,69 @@ def test_unallocated_capital_earns_cash_return() -> None:
     )
 
     assert result.returns.tolist() == pytest.approx([0.001, 0.002])
+
+
+def test_missing_held_return_fails_closed_instead_of_assuming_zero() -> None:
+    dates = pd.bdate_range("2025-01-01", periods=4)
+    opens = pd.DataFrame({"A": [100.0, 100.0, float("nan"), float("nan")]}, index=dates)
+    target = pd.DataFrame({"A": [1.0, 0.0, 0.0, 0.0]}, index=dates)
+
+    with pytest.raises(ValueError, match="explicit delisting or liquidation treatment"):
+        run_backtest(
+            "test",
+            opens,
+            target,
+            ExecutionConfig(
+                initial_capital=100.0,
+                transaction_cost_bps=0.0,
+                minimum_trade_weight=0.0,
+            ),
+        )
+
+
+def test_explicit_terminal_return_can_model_liquidation() -> None:
+    dates = pd.bdate_range("2025-01-01", periods=4)
+    opens = pd.DataFrame({"A": [100.0, 100.0, float("nan"), float("nan")]}, index=dates)
+    target = pd.DataFrame({"A": [1.0, 0.0, 0.0, 0.0]}, index=dates)
+    terminal = pd.DataFrame({"A": [float("nan"), -1.0, float("nan"), float("nan")]}, index=dates)
+
+    result = run_backtest(
+        "test",
+        opens,
+        target,
+        ExecutionConfig(
+            initial_capital=100.0,
+            transaction_cost_bps=0.0,
+            minimum_trade_weight=0.0,
+        ),
+        terminal_return_overrides=terminal,
+    )
+
+    assert result.returns.loc[dates[1]] == -1.0
+    assert result.equity.iloc[-1] == 0.0
+
+
+def test_cash_acquisition_terminal_return_moves_position_to_cash() -> None:
+    dates = pd.bdate_range("2025-01-01", periods=4)
+    opens = pd.DataFrame({"A": [100.0, 100.0, float("nan"), float("nan")]}, index=dates)
+    target = pd.DataFrame({"A": [1.0, 0.0, 0.0, 0.0]}, index=dates)
+    terminal = pd.DataFrame({"A": [float("nan"), 0.10, float("nan"), float("nan")]}, index=dates)
+
+    result = run_backtest(
+        "test",
+        opens,
+        target,
+        ExecutionConfig(
+            initial_capital=100.0,
+            transaction_cost_bps=0.0,
+            minimum_trade_weight=0.0,
+        ),
+        terminal_return_overrides=terminal,
+    )
+
+    assert result.returns.loc[dates[1]] == pytest.approx(0.10)
+    assert result.weights.loc[dates[2], "A"] == 0.0
+    assert result.equity.iloc[-1] == pytest.approx(110.0)
 
 
 def test_partial_final_month_is_not_treated_as_month_end() -> None:

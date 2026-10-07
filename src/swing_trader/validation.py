@@ -21,6 +21,8 @@ def build_validation_artifacts(
 ) -> None:
     close = prices["Close"]
     opens = prices["Open"]
+    cash_open = opens[config.data.cash_proxy]
+    cash_returns = cash_open.shift(-1).div(cash_open).sub(1.0)
     evaluation_start = prices.index[config.validation.minimum_history_days]
     variants: dict[str, BacktestResult] = {}
     rows: list[dict[str, object]] = []
@@ -29,7 +31,13 @@ def build_validation_artifacts(
         weights = classic_dual_momentum_weights(
             close, config.data.tickers, top_n=top_n, lookback_days=lookback
         )
-        result = run_backtest(name, opens, weights, config.execution)
+        result = run_backtest(
+            name,
+            opens,
+            weights,
+            config.execution,
+            cash_returns=cash_returns,
+        )
         variants[name] = result
         for split, start, end in (
             ("development", evaluation_start, config.validation.development_end),
@@ -60,7 +68,13 @@ def build_validation_artifacts(
     )
     for bps in (0.0, 5.0, 10.0, 25.0, 50.0):
         execution = replace(config.execution, transaction_cost_bps=bps)
-        result = run_backtest(f"cost_{bps:g}bps", opens, champion_weights, execution)
+        result = run_backtest(
+            f"cost_{bps:g}bps",
+            opens,
+            champion_weights,
+            execution,
+            cash_returns=cash_returns,
+        )
         metrics = performance_metrics(
             result.returns.loc[evaluation_start:],
             result.equity.loc[evaluation_start:],
@@ -75,6 +89,7 @@ def build_validation_artifacts(
         opens,
         config,
         evaluation_start,
+        cash_returns,
     )
     pd.DataFrame(universe_rows).to_csv(output_dir / "universe_sensitivity.csv", index=False)
 
@@ -106,6 +121,7 @@ def _universe_sensitivity(
     opens: pd.DataFrame,
     config: AppConfig,
     evaluation_start: pd.Timestamp,
+    cash_returns: pd.Series,
 ) -> tuple[list[dict[str, object]], dict[str, object]]:
     all_tickers = config.data.tickers
     sector_tickers = {ticker for ticker in all_tickers if ticker.startswith("XL")}
@@ -134,7 +150,13 @@ def _universe_sensitivity(
         )
         if name == "all_assets":
             all_weights = weights
-        result = run_backtest(name, opens, weights, config.execution)
+        result = run_backtest(
+            name,
+            opens,
+            weights,
+            config.execution,
+            cash_returns=cash_returns,
+        )
         for split, start, end in (
             ("full", evaluation_start, None),
             ("validation", config.validation.validation_start, config.validation.validation_end),

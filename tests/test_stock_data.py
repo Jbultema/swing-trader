@@ -52,3 +52,19 @@ def test_stock_coverage_audit_writes_machine_readable_evidence(tmp_path) -> None
 
     assert result.status == "passed"
     assert '"status": "passed"' in output.read_text()
+
+
+def test_stock_coverage_warmup_counts_pre_membership_price_history() -> None:
+    dates = pd.bdate_range("2024-01-02", periods=5)
+    membership = pd.DataFrame({"A": [True, True]}, index=dates[-2:])
+    close = pd.DataFrame({"A": range(100, 105)}, index=dates)
+
+    audit = audit_stock_coverage(
+        close,
+        membership,
+        minimum_history_sessions=3,
+        minimum_warmup_coverage=1.0,
+    )
+
+    assert audit.status == "passed"
+    assert audit.warmup_coverage == 1.0

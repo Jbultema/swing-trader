@@ -11,6 +11,9 @@ execute_at = "next_regular_session_open"
 round_trip_cost_bps = [20, 50, 100]
 maximum_positions = 10
 maximum_position_weight = 0.10
+maximum_adv_participation = 0.01
+adv_sessions = 20
+initial_capital = 100000.0
 
 [signals]
 families = ["short_volume", "smooth_momentum", "volume_breakout"]
@@ -32,3 +35,7 @@ validation_end = "2021-12-31"
 sealed_test_start = "2022-01-03"
 primary_metric = "median_walk_forward_net_excess_return"
 required_comparators = ["spy", "equal_weight_universe", "classic_12_1_momentum"]
+
+[benchmarks]
+market = "SPY"
+cash_series = "FRED_DGS3MO"

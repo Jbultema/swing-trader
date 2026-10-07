@@ -92,10 +92,13 @@ def build_stock_strategy_plan(
                 exits[ticker] = ["left_point_in_time_universe"]
                 continue
             rank = float(ranks.get(ticker, np.inf))
-            atr = pd.to_numeric(pd.Series([row.get("atr_fraction_14d")]), errors="coerce").iloc[0]
-            if pd.isna(atr):
-                exits[ticker] = ["missing_risk_feature"]
-                continue
+            if cfg.use_atr_trail:
+                atr = pd.to_numeric(pd.Series([row.get("atr_fraction_14d")]), errors="coerce").iloc[
+                    0
+                ]
+                if pd.isna(atr):
+                    exits[ticker] = ["missing_risk_feature"]
+                    continue
             reasons = exit_reasons(
                 row,
                 entry_price=position.entry_price,

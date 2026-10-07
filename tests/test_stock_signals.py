@@ -6,6 +6,7 @@ from swing_trader.stock_signals import (
     ExitPolicy,
     StockFeatureConfig,
     build_stock_features,
+    exit_policy_for_family,
     exit_reasons,
     rank_stock_candidates,
 )
@@ -64,6 +65,29 @@ def test_exit_hierarchy_reports_multiple_independent_reasons() -> None:
         "rank_decay",
         "maximum_holding_period",
     ]
+
+
+def test_exit_family_ablation_keeps_emergency_stop_but_disables_other_rules() -> None:
+    row = pd.Series(
+        {
+            "close": 90.0,
+            "atr_fraction_14d": 0.02,
+            "trend_positive": False,
+            "return_21d": -0.01,
+        }
+    )
+
+    reasons = exit_reasons(
+        row,
+        entry_price=100.0,
+        high_watermark=110.0,
+        holding_sessions=10,
+        cross_section_rank=100,
+        entry_top_n=10,
+        policy=exit_policy_for_family("time_stop", maximum_holding_sessions=21),
+    )
+
+    assert reasons == ["hard_loss_limit"]
 
 
 def _panel() -> tuple[pd.DataFrame, pd.DataFrame]:

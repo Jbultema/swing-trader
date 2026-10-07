@@ -6,10 +6,13 @@ __pycache__/
 .DS_Store
 data/raw/
 data/processed/
+data/stock/
+imports/
 reports/latest/
 reports/runs/
 reports/shadow/
 reports/private/
+reports/stock/
 config/portfolio.toml
 .streamlit/secrets.toml
 .env

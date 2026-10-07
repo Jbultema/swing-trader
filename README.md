@@ -58,6 +58,20 @@ Before any individual-stock experiment, normalized wide close and point-in-time 
 must pass `poetry run swing-trader data audit-stocks`. A failed coverage gate exits nonzero and no
 stock performance report is produced.
 
+The paid-data path is prepared but does not download or purchase anything automatically:
+
+```bash
+# after placing licensed Sharadar bulk exports under ignored imports/
+poetry run swing-trader data import-sharadar
+poetry run swing-trader data update-cash
+poetry run swing-trader research stocks
+```
+
+The importer requires `stocks.csv.zip`, `sp500.csv.zip`, and `actions.csv.zip`, writes hashed
+normalized artifacts under ignored `data/stock/`, and records unsupported terminal events rather
+than inventing a delisting return. The research command fails closed on incomplete point-in-time
+coverage, an unpriced held security, or excessive volume participation.
+
 Alpha Vantage documentation: <https://www.alphavantage.co/documentation/>. Reconciliation materially improves error detection, but neither provider is a broker-grade execution quote. Broker-side price checks and prospective shadow evidence remain required before live use.
 
 The connector spaces Alpha Vantage requests and reuses a complete secondary snapshot for up to 24 hours, keeping the 17-symbol validation within the standard 25-request daily allowance.

@@ -11,6 +11,7 @@ import typer
 from dotenv import load_dotenv
 
 from swing_trader.audit import audit_operational_artifacts
+from swing_trader.cash import download_fred_cash_returns, load_cash_returns
 from swing_trader.config import AppConfig, load_config
 from swing_trader.data import (
     MarketDataError,
@@ -23,7 +24,10 @@ from swing_trader.data import (
 from swing_trader.prospective import write_prospective_evaluation
 from swing_trader.research import run_research
 from swing_trader.shadow import record_shadow_snapshot
+from swing_trader.sharadar import write_sharadar_panel
+from swing_trader.stock_config import load_stock_experiment_config
 from swing_trader.stock_data import write_stock_coverage_audit
+from swing_trader.stock_research import run_stock_research
 from swing_trader.ticket import write_trade_preview
 
 app = typer.Typer(no_args_is_help=True)
@@ -59,7 +63,7 @@ def data_update(
 
 @data_app.command("audit-stocks")
 def data_audit_stocks(
-    close_path: Annotated[Path, typer.Option("--close")] = Path("data/stock/close.parquet"),
+    prices_path: Annotated[Path, typer.Option("--prices")] = Path("data/stock/ohlcv.parquet"),
     membership_path: Annotated[Path, typer.Option("--membership")] = Path(
         "data/stock/membership.parquet"
     ),
@@ -67,7 +71,8 @@ def data_audit_stocks(
     minimum_history_sessions: Annotated[int, typer.Option("--minimum-history-sessions")] = 252,
 ) -> None:
     """Audit a normalized stock panel before any strategy is backtested."""
-    close = pd.read_parquet(close_path)
+    prices = pd.read_parquet(prices_path)
+    close = prices["Close"] if isinstance(prices.columns, pd.MultiIndex) else prices
     membership = pd.read_parquet(membership_path)
     result = write_stock_coverage_audit(
         close,
@@ -84,6 +89,44 @@ def data_audit_stocks(
         raise typer.Exit(code=2)
 
 
+@data_app.command("import-sharadar")
+def data_import_sharadar(
+    stocks_path: Annotated[Path, typer.Option("--stocks")] = Path("imports/stocks.csv.zip"),
+    sp500_path: Annotated[Path, typer.Option("--sp500")] = Path("imports/sp500.csv.zip"),
+    actions_path: Annotated[Path, typer.Option("--actions")] = Path("imports/actions.csv.zip"),
+    output: Annotated[Path, typer.Option("--output")] = Path("data/stock"),
+) -> None:
+    """Normalize locally downloaded Sharadar bulk tables with a hashed manifest."""
+    panel = write_sharadar_panel(
+        stocks_path,
+        sp500_path,
+        output,
+        actions_path=actions_path,
+    )
+    unsupported = (
+        0 if panel.unsupported_terminal_events is None else len(panel.unsupported_terminal_events)
+    )
+    typer.echo(
+        f"Imported {len(panel.ohlcv):,} sessions and "
+        f"{len(panel.membership.columns):,} historical membership identifiers to {output}; "
+        f"{unsupported:,} terminal-event rows require explicit treatment."
+    )
+
+
+@data_app.command("update-cash")
+def data_update_cash(
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "data/stock/fred_3m_cash_returns.parquet"
+    ),
+) -> None:
+    """Cache causal three-month Treasury returns from the official FRED series."""
+    returns = download_fred_cash_returns(output)
+    typer.echo(
+        f"Saved {len(returns):,} cash-return observations through "
+        f"{returns.index.max().date()} to {output}."
+    )
+
+
 @research_app.command("run")
 def research_run(
     config_path: Annotated[Path, typer.Option("--config")] = Path("config/default.toml"),
@@ -98,6 +141,47 @@ def research_run(
     quality = _load_data_quality(data_quality_path)
     results = run_research(prices, config, output, data_quality=quality)
     typer.echo(f"Wrote {len(results)} strategy results to {output}")
+
+
+@research_app.command("stocks")
+def research_stocks(
+    config_path: Annotated[Path, typer.Option("--config")] = Path("config/stock_experiments.toml"),
+    stock_dir: Annotated[Path, typer.Option("--stock-data")] = Path("data/stock"),
+    benchmark_prices_path: Annotated[Path, typer.Option("--benchmark-prices")] = Path(
+        "data/raw/prices.parquet"
+    ),
+    cash_returns_path: Annotated[Path, typer.Option("--cash-returns")] = Path(
+        "data/stock/fred_3m_cash_returns.parquet"
+    ),
+    output: Annotated[Path, typer.Option("--output")] = Path("reports/stock/latest"),
+) -> None:
+    """Run the preregistered stock research after every data gate passes."""
+    config = load_stock_experiment_config(config_path)
+    ohlcv = pd.read_parquet(stock_dir / "ohlcv.parquet")
+    membership = pd.read_parquet(stock_dir / "membership.parquet")
+    benchmark_prices = load_prices(benchmark_prices_path)
+    market = config.benchmarks.market
+    benchmark = pd.DataFrame(
+        {
+            "Open": benchmark_prices["Open"][market],
+            "Close": benchmark_prices["Close"][market],
+        }
+    )
+    terminal_path = stock_dir / "terminal_returns.parquet"
+    terminal = pd.read_parquet(terminal_path) if terminal_path.exists() else None
+    result = run_stock_research(
+        ohlcv,
+        membership,
+        benchmark,
+        load_cash_returns(cash_returns_path),
+        config,
+        output,
+        terminal_return_overrides=terminal,
+    )
+    typer.echo(
+        f"Stock research selected {result.selected_variant} on the selection period; "
+        f"wrote retrospective evidence to {output}. No order was placed."
+    )
 
 
 @app.command("daily")

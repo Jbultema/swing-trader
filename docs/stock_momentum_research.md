@@ -104,6 +104,41 @@ at least 99% member-date price coverage, sufficient pre-membership history for t
 verified adjustment semantics, and explicit ticker/corporate-action mapping. Provider marketing is
 not treated as validation evidence.
 
+The implemented Sharadar adapter expects the `stocks`, `sp500`, and `actions` bulk tables. It
+reconstructs membership backward from the current anchor through additions/removals and reconciles
+the result against the provider's historical snapshots. It converts split-adjusted OHLC to a
+consistent total-return basis using `closeadj / close`, hashes every input/output, and retains
+Sharadar's unique suffix for recycled delisted tickers. Cash-only acquisitions and bankruptcies
+receive explicit terminal returns. Stock consideration, elections, and unexplained delistings stay
+unsupported and cause a held path to fail instead of silently receiving a zero return or fictional
+sale.
+
+### Forward-looking information
+
+Price and volume are continuation indicators, not literally forward-looking information. The
+research queue distinguishes information that was genuinely knowable before a decision:
+
+- SEC filing acceptance times are open, authoritative event timestamps. Filing text and XBRL facts
+  can support post-disclosure continuation but do not supply analyst expectations.
+  https://www.sec.gov/search-filings/edgar-application-programming-interfaces
+- Alpha Vantage supplies future earnings calendars, earnings history, estimates/revisions, and news
+  sentiment. Its free 25-call daily allowance is enough for a bulk calendar snapshot and spot
+  checks, not a daily point-in-time estimates history for roughly 500 stocks.
+  https://www.alphavantage.co/documentation/
+- Trading Economics documents historical earnings actuals, consensus, release session, and update
+  timestamps. The locally configured credential returned HTTP 401 on a minimal historical earnings
+  query on 2026-10-07, so this project currently classifies it as unavailable. Even with access,
+  historical consensus must be shown to be the value frozen at release rather than a later revised
+  snapshot.
+  https://docs.tradingeconomics.com/financials/earnings_revenues/
+- Sharadar as-reported fundamentals can support a point-in-time standardized-unexpected-earnings
+  family without analyst estimates. That is a second-stage experiment after the price-volume family
+  passes the basic replication and execution gates.
+  https://sharadar.com/docs/fundamentals
+
+Future earnings dates may be used prospectively to explain gap risk or block new entries, but they
+cannot be backfilled from today's calendar and presented as historical evidence.
+
 ## Open-source implementation findings
 
 - Microsoft Qlib offers point-in-time data abstractions, factor pipelines, walk-forward modeling,
@@ -143,10 +178,21 @@ No candidate becomes actionable merely because it has a higher retrospective CAG
   rank decay, and a multi-reason BUY/HOLD/SELL ledger suitable for the explainability dashboard.
 - `stock_data.py` and `swing-trader data audit-stocks` fail closed on missing historical members,
   member-date gaps, or inadequate 252-session warm-up.
+- `sharadar.py` normalizes and hashes licensed bulk prices, constituent events, and corporate
+  actions; unsupported terminal events remain explicit.
+- `execution.py` compares each asset-level trade with median dollar volume known before the open and
+  rejects paths above the preregistered 1% ADV limit.
+- `stock_research.py` runs the fixed signal/exit registry, required comparators, 20/50/100 bp
+  round-trip cost tiers, fixed selection/validation/sealed-test reports, and expanding annual
+  walk-forward selection.
+- `cash.py` uses the official FRED DGS3MO series with a one-observation lag and calendar-day accrual,
+  avoiding an implicit 0% cash return before BIL existed.
+  https://fred.stlouisfed.org/series/DGS3MO
 - The shared backtester now lets holdings drift between real trades and credits unallocated capital
   with the configured Treasury-bill proxy instead of silently assuming free daily rebalancing and
   zero-return cash.
 
-The remaining critical path is provider evaluation and ingestion, followed by the preregistered
-walk-forward experiment. No individual-stock performance number exists yet because the open Yahoo
-panel failed the coverage gate.
+The remaining critical path is obtaining a licensed provider export, reviewing every unsupported
+terminal event actually touched by a strategy, and executing the preregistered run. No
+individual-stock performance number exists yet because the open Yahoo panel failed the coverage
+gate; synthetic integration tests prove mechanics, not edge.

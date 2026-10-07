@@ -67,6 +67,7 @@ def audit_stock_coverage(
         raise ValueError("minimum_warmup_coverage must be between zero and one.")
 
     universe = membership.astype(bool).sort_index()
+    historical_counts = close.sort_index().reindex(columns=universe.columns).notna().cumsum()
     prices = close.sort_index().reindex(index=universe.index, columns=universe.columns)
     member_tickers = tuple(sorted(str(ticker) for ticker in universe.columns[universe.any()]))
     available_tickers = {str(ticker) for ticker in prices.columns if prices[ticker].notna().any()}
@@ -77,7 +78,7 @@ def audit_stock_coverage(
     covered = int(covered_mask.to_numpy().sum())
     member_coverage = covered / expected if expected else 0.0
 
-    history_count = prices.notna().cumsum()
+    history_count = historical_counts.reindex(index=universe.index, columns=universe.columns)
     warm_mask = covered_mask & history_count.ge(minimum_history_sessions)
     warm = int(warm_mask.to_numpy().sum())
     warmup_coverage = warm / expected if expected else 0.0
