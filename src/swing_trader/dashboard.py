@@ -335,6 +335,71 @@ with stock:
                         hide_index=True,
                         width="stretch",
                     )
+                    comparisons = stock_evaluation.get("diagnostic_arm_comparisons", {})
+                    comparison_rows = []
+                    for arm_name, arm_comparisons in comparisons.get("per_arm", {}).items():
+                        for benchmark, comparison in arm_comparisons.items():
+                            comparison_rows.append(
+                                {
+                                    "arm": arm_name,
+                                    "comparison": benchmark,
+                                    "status": comparison.get("status"),
+                                    "sessions": comparison.get("sessions"),
+                                    "annualized_mean_excess": comparison.get(
+                                        "observed_annualized_mean_excess_return"
+                                    ),
+                                    "ci_2_5": comparison.get("ci_2_5"),
+                                    "ci_97_5": comparison.get("ci_97_5"),
+                                    "positive_resample_probability": comparison.get(
+                                        "probability_resampled_mean_excess_is_positive"
+                                    ),
+                                }
+                            )
+                    if comparison_rows:
+                        st.caption(
+                            "Paired inference begins after 21 sessions; the family-wide test "
+                            "begins after 63 and corrects for testing all frozen arms."
+                        )
+                        st.dataframe(
+                            pd.DataFrame(comparison_rows),
+                            hide_index=True,
+                            width="stretch",
+                        )
+                    family = comparisons.get("family_vs_primary_consensus", {})
+                    if family.get("status") == "estimated":
+                        st.caption(
+                            "Family-wide comparison against the primary consensus; still "
+                            "Yahoo-only diagnostic evidence."
+                        )
+                        st.dataframe(
+                            pd.DataFrame(family["variants"]),
+                            hide_index=True,
+                            width="stretch",
+                        )
+                    elif family:
+                        st.info(
+                            "Family-wide inference is not mature: "
+                            f"{family.get('sessions', 0)} of "
+                            f"{family.get('minimum_sessions', 63)} sessions."
+                        )
+                return_attribution = stock_evaluation.get("session_return_attribution", {})
+                attribution_rows = []
+                for arm_name, values in return_attribution.get("arms", {}).items():
+                    attribution_rows.append({"arm": arm_name, **values})
+                spy_attribution = return_attribution.get("spy_buy_hold")
+                if isinstance(spy_attribution, dict):
+                    attribution_rows.append({"arm": "SPY buy-and-hold", **spy_attribution})
+                if attribution_rows and any(row.get("sessions", 0) for row in attribution_rows):
+                    st.subheader("Where returns occurred")
+                    st.caption(
+                        "Prior close-to-open, explicit open trading-cost drag, and post-cost "
+                        "open-to-close returns are linked multiplicatively, not added."
+                    )
+                    st.dataframe(
+                        pd.DataFrame(attribution_rows),
+                        hide_index=True,
+                        width="stretch",
+                    )
                 rolling = stock_evaluation.get("rolling_policy_horizons")
                 if not isinstance(rolling, dict) or not isinstance(
                     rolling.get("by_horizon"), dict

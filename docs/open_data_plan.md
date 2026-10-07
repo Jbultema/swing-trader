@@ -117,6 +117,9 @@ and 21-session maximum holds use identical next-open accounting, exit rules, and
 costs, but only the locked Yahoo snapshot. Their all-session metrics are visible as unvalidated
 diagnostics and cannot contribute to the primary evidence threshold. This preserves the free quota
 while testing the shorter-holding hypothesis prospectively instead of selecting a recent winner.
+The evaluator separates overnight, explicit execution-cost, and intraday performance for every arm,
+then starts paired inference after 21 sessions and family-wide multiple-testing control after 63.
+Those additions require no new provider and do not alter the frozen decision lineage.
 
 The practical result is slower than buying a curated database, but it is honest: public and free
 data can support a strong prospective system and selected covered historical replications. It

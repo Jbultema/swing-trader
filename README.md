@@ -81,6 +81,9 @@ A preregistered set of short-volume diagnostic arms holds the same top-ten large
 most 5, 10, or 21 sessions with identical exit rules and 50 bp round-trip costs. Those arms use
 Yahoo only, remain explicitly ineligible for primary performance, and exist to test whether faster
 turnover adds value before the project promotes any shorter holding rule.
+The evaluator reports where each arm's return occurred (overnight, explicit next-open cost, or
+intraday), starts paired uncertainty after 21 sessions, and applies family-wide error control after
+63 sessions; none of those diagnostic results can qualify the primary record.
 A local ledger permits at most 24 of the documented 25 daily calls, leaving room for the one-call
 bulk earnings calendar. Missing, stale, divergent, or quota-limited validation still produces an
 immutable diagnostic state but makes it ineligible for primary prospective performance.

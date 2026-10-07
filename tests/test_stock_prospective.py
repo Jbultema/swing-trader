@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -74,9 +74,21 @@ def test_prospective_evaluator_uses_prior_decision_gate_and_self_financing_equit
     assert result["diagnostic_all_sessions"]["experimental_arms"][
         "short_volume_hold5"
     ]["sessions"] == 2
+    assert result["schema_version"] == 4
     assert result["transitions"][0]["diagnostic_arm_net_returns"][
         "short_volume_hold5"
     ] == pytest.approx(0.02)
+    assert result["transitions"][0]["return_attribution"]["arms"]["consensus"][
+        "net_return"
+    ] == pytest.approx(0.10)
+    primary_attribution = result["session_return_attribution"]["arms"]["consensus"]
+    assert primary_attribution["sessions"] == 2
+    assert primary_attribution["linked_cumulative_net_return"] == pytest.approx(0.0)
+    comparisons = result["diagnostic_arm_comparisons"]
+    assert comparisons["per_arm"]["short_volume_hold5"]["versus_primary_consensus"][
+        "status"
+    ] == "insufficient_sessions"
+    assert comparisons["family_vs_primary_consensus"]["status"] == "insufficient_sessions"
     assert result["eligible_original_gate_only"]["sessions"] == 1
     assert result["eligible_original_gate_only"]["completed_exits"] == 0
     assert result["transitions"][0]["eligible"] is True
@@ -94,6 +106,44 @@ def test_prospective_evaluator_uses_prior_decision_gate_and_self_financing_equit
         now=datetime(2026, 10, 8, tzinfo=UTC),
     )
     assert verify_stock_shadow_evaluation(output)
+
+
+def test_diagnostic_arm_inference_waits_for_preregistered_sample_sizes(
+    tmp_path: Path,
+) -> None:
+    states = tmp_path / "states"
+    states.mkdir()
+    previous_name: str | None = None
+    previous_hash: str | None = None
+    for position in range(64):
+        path = states / f"state-{position:03d}.json"
+        written = _state(
+            path,
+            session=(date(2026, 1, 1) + timedelta(days=position)).isoformat(),
+            initialization=position == 0,
+            previous=previous_name,
+            previous_hash=previous_hash,
+            eligible=True,
+            primary_equity=1.001**position,
+            guarded_equity=1.001**position,
+            diagnostic_equity=1.0015**position,
+            spy_open=100.0,
+            spy_close=100.0,
+        )
+        payload = json.loads(written.read_text())
+        previous_name = written.name
+        previous_hash = payload["record_sha256"]
+
+    result = evaluate_stock_shadow_lineage(states)
+
+    comparisons = result["diagnostic_arm_comparisons"]
+    assert comparisons["per_arm"]["short_volume_hold5"]["versus_primary_consensus"][
+        "status"
+    ] == "estimated"
+    family = comparisons["family_vs_primary_consensus"]
+    assert family["status"] == "estimated"
+    assert family["summary"]["sessions"] == 63
+    assert family["variants"][0]["variant"] == "short_volume_hold5"
 
 
 def test_prospective_evaluator_rejects_broken_state_chain(tmp_path: Path) -> None:
@@ -175,5 +225,6 @@ def _arm(equity: float, executions: list[dict[str, str]]) -> dict[str, object]:
             "valuation_complete": True,
             "one_way_cost_fraction": 0.0025,
             "equity_at_open_before_costs": 1.0,
+            "trading_cost_this_open": 0.0,
         },
     }

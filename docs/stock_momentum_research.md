@@ -231,6 +231,25 @@ Official construction details and downloads:
 - https://mba.tuck.dartmouth.edu/pages/faculty/ken.French/Data_Library/det_10_port_form_pr_12_2_daily.html
 - https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html
 
+### Prospective session and experiment attribution
+
+Lou, Polk, and Skouras document that momentum-strategy returns can accrue differently overnight and
+intraday, including offsetting behavior between the two sessions. That finding motivates a
+measurement diagnostic, not a new trading rule. The prospective evaluator multiplicatively links
+each arm's prior-close-to-open gross return, explicit next-open trading-cost drag, and post-cost
+open-to-close return and fails if those components do not reconcile to the paper account. SPY uses
+the same decomposition and its modeled entry cost.
+
+The 5/10/21-session short-volume arms receive paired stationary-bootstrap comparisons against SPY,
+the primary consensus, and the same-signal 21-session reference after 21 complete sessions. A common
+stationary bootstrap across the frozen arm family begins only after 63 sessions and applies the
+Benjamini-Yekutieli correction for dependent multiple tests. These remain Yahoo-only diagnostics;
+neither a favorable interval nor a family-wide discovery can enter the Alpha-validated primary
+record or authorize a trade.
+
+- https://personal.lse.ac.uk/polk/research/TugOfWar.pdf
+- https://doi.org/10.1016/j.jfineco.2019.03.011
+
 - `stock_universe.py` snapshots the current S&P 500 roster from public sources, binds raw-source
   hashes, records an unavailable SEC cross-check explicitly, and prohibits historical backfill.
 - `stock_live_data.py` excludes incomplete sessions, locks adjusted current-roster OHLCV, requires
@@ -251,8 +270,8 @@ Official construction details and downloads:
 - `stock_prospective.py` reads only an intact prior-record chain, scores self-financing paper equity
   with no survivor resizing, assigns eligibility from the decision made one close earlier, builds a
   same-session costed SPY comparator, evaluates the frozen 5/21/63-session policy windows only when
-  every intervening gate passed, and starts paired stationary-bootstrap uncertainty only after 21
-  eligible sessions.
+  every intervening gate passed, decomposes overnight/cost/intraday returns, and starts paired and
+  family-corrected uncertainty only after their frozen observation thresholds.
 - `stock_signals.py` calculates the three causal feature families from dated OHLCV and mandatory
   point-in-time membership.
 - `stock_strategy.py` maintains next-open entry prices, close-based high-water marks, holding age,

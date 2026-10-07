@@ -10,11 +10,16 @@ import pandas as pd
 
 from swing_trader.provenance import implementation_sha256, stock_evaluation_sha256
 from swing_trader.stock_shadow_state import verify_stock_shadow_state
-from swing_trader.stock_validation import paired_stationary_bootstrap
+from swing_trader.stock_validation import (
+    paired_stationary_bootstrap,
+    stationary_bootstrap_family_validation,
+)
 
 MINIMUM_ELIGIBLE_SESSIONS = 126
 MINIMUM_COMPLETED_EXITS = 30
 MINIMUM_RISK_OFF_SESSIONS = 10
+MINIMUM_DIAGNOSTIC_PAIRED_SESSIONS = 21
+MINIMUM_DIAGNOSTIC_FAMILY_SESSIONS = 63
 
 
 class StockProspectiveEvaluationError(ValueError):
@@ -37,6 +42,11 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
         arm_name: [_account_equity(payload, arm_name) for _, payload in states]
         for arm_name in diagnostic_arm_names
     }
+    arm_equity = {
+        "consensus": primary_equity,
+        "consensus_market_guard": guarded_equity,
+        **diagnostic_equity,
+    }
     spy_equity = _spy_equity(states)
     transitions: list[dict[str, object]] = []
     eligible_primary: list[float] = []
@@ -54,6 +64,22 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
             for arm_name, values in diagnostic_equity.items()
         }
         spy_return = _return(spy_equity[position - 1], spy_equity[position])
+        return_attribution = {
+            "arms": {
+                arm_name: _arm_return_attribution(
+                    arm_equity[arm_name][position - 1],
+                    current,
+                    arm_name,
+                )
+                for arm_name in arm_equity
+            },
+            "spy_buy_hold": _spy_return_attribution(
+                states,
+                position,
+                spy_equity[position - 1],
+                spy_equity[position],
+            ),
+        }
         current_primary = _arm(current, "consensus")
         current_account = current_primary.get("paper_account_at_close")
         valuation_complete = isinstance(current_account, dict) and current_account.get(
@@ -85,6 +111,7 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
                 "market_guard_net_return": guarded_return,
                 "diagnostic_arm_net_returns": diagnostic_returns,
                 "spy_buy_hold_return": spy_return,
+                "return_attribution": return_attribution,
                 "primary_net_excess_vs_spy": (
                     primary_return - spy_return
                     if primary_return is not None and spy_return is not None
@@ -152,8 +179,17 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
             seed=20261007,
         )
     horizon_outcomes = _horizon_outcomes(states, sessions, primary_equity)
+    diagnostic_comparisons = _diagnostic_arm_comparisons(
+        all_diagnostics,
+        all_primary,
+        all_spy,
+    )
+    session_return_attribution = _aggregate_return_attribution(
+        transitions,
+        tuple(arm_equity),
+    )
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "record_type": "prospective_stock_shadow_evaluation",
         "research_status": "prospective_paper_only_not_trading_authority",
         "data_cost_policy": "no_paid_sources",
@@ -187,6 +223,8 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
             },
             "spy_buy_hold": _metrics(all_spy),
         },
+        "diagnostic_arm_comparisons": diagnostic_comparisons,
+        "session_return_attribution": session_return_attribution,
         "eligible_original_gate_only": {
             "sessions": len(eligible_primary_series),
             "completed_exits": eligible_exits,
@@ -207,6 +245,326 @@ def evaluate_stock_shadow_lineage(state_dir: Path) -> dict[str, object]:
             "minimum_risk_off_sessions": MINIMUM_RISK_OFF_SESSIONS,
             "reasons": readiness_reasons,
         },
+    }
+
+
+def _diagnostic_arm_comparisons(
+    diagnostic_returns: dict[str, pd.Series],
+    primary_returns: pd.Series,
+    spy_returns: pd.Series,
+) -> dict[str, object]:
+    arm_names = tuple(diagnostic_returns)
+    per_arm: dict[str, object] = {}
+    same_signal_reference = "short_volume_hold21"
+    reference = diagnostic_returns.get(same_signal_reference)
+    for position, arm_name in enumerate(arm_names):
+        values = diagnostic_returns[arm_name]
+        row: dict[str, object] = {
+            "versus_primary_consensus": _paired_diagnostic(
+                values,
+                primary_returns,
+                seed=20261007 + position,
+            ),
+            "versus_spy": _paired_diagnostic(
+                values,
+                spy_returns,
+                seed=20261107 + position,
+            ),
+        }
+        if arm_name == same_signal_reference:
+            row["versus_same_signal_hold21"] = {
+                "status": "reference_arm",
+                "reference": same_signal_reference,
+            }
+        elif reference is None:
+            row["versus_same_signal_hold21"] = {
+                "status": "reference_arm_missing",
+                "reference": same_signal_reference,
+            }
+        else:
+            row["versus_same_signal_hold21"] = _paired_diagnostic(
+                values,
+                reference,
+                seed=20261207 + position,
+            )
+        per_arm[arm_name] = row
+
+    complete = pd.concat(
+        [
+            pd.DataFrame(diagnostic_returns),
+            primary_returns.rename("__primary__"),
+        ],
+        axis=1,
+    ).dropna()
+    family: dict[str, object]
+    if not arm_names:
+        family = {
+            "status": "not_applicable",
+            "reason": "no_diagnostic_arms",
+        }
+    elif len(complete) < MINIMUM_DIAGNOSTIC_FAMILY_SESSIONS:
+        family = {
+            "status": "insufficient_sessions",
+            "sessions": len(complete),
+            "minimum_sessions": MINIMUM_DIAGNOSTIC_FAMILY_SESSIONS,
+            "benchmark": "primary_consensus",
+        }
+    else:
+        validation = stationary_bootstrap_family_validation(
+            complete[list(arm_names)],
+            complete["__primary__"],
+            mean_block_sessions=21,
+            samples=2_000,
+            seed=20261307,
+            fdr_level=0.05,
+        )
+        summary = dict(validation.summary)
+        summary["interpretation"] = (
+            "Prospective Yahoo-only diagnostic with family-wide error control; it remains "
+            "ineligible for primary evidence and is not trading authority."
+        )
+        family = {
+            "status": "estimated",
+            "benchmark": "primary_consensus",
+            "summary": summary,
+            "variants": json.loads(
+                validation.variants.reset_index().to_json(orient="records")
+            ),
+        }
+    return {
+        "status": "diagnostic_only_not_primary_evidence",
+        "minimum_paired_sessions": MINIMUM_DIAGNOSTIC_PAIRED_SESSIONS,
+        "minimum_family_sessions": MINIMUM_DIAGNOSTIC_FAMILY_SESSIONS,
+        "same_signal_reference_arm": same_signal_reference,
+        "method": (
+            "paired stationary bootstrap for each preregistered arm; common stationary "
+            "bootstrap and Benjamini-Yekutieli correction across the complete arm family"
+        ),
+        "per_arm": per_arm,
+        "family_vs_primary_consensus": family,
+    }
+
+
+def _paired_diagnostic(
+    candidate: pd.Series,
+    benchmark: pd.Series,
+    *,
+    seed: int,
+) -> dict[str, object]:
+    paired = pd.concat(
+        [candidate.rename("candidate"), benchmark.rename("benchmark")],
+        axis=1,
+    ).dropna()
+    if len(paired) < MINIMUM_DIAGNOSTIC_PAIRED_SESSIONS:
+        return {
+            "status": "insufficient_sessions",
+            "sessions": len(paired),
+            "minimum_sessions": MINIMUM_DIAGNOSTIC_PAIRED_SESSIONS,
+        }
+    result: dict[str, object] = {
+        "status": "estimated",
+        **paired_stationary_bootstrap(
+            paired["candidate"],
+            paired["benchmark"],
+            mean_block_sessions=21,
+            samples=2_000,
+            seed=seed,
+        ),
+    }
+    result["interpretation"] = (
+        "Prospective unvalidated diagnostic only; the interval does not establish a persistent "
+        "edge or authorize trading."
+    )
+    return result
+
+
+def _arm_return_attribution(
+    prior_equity: float | None,
+    current: dict[str, object],
+    arm_name: str,
+) -> dict[str, object]:
+    if prior_equity is None:
+        return {
+            "status": "unavailable_missing_prior_equity",
+            "overnight_gross_return": None,
+            "execution_cost_fraction_of_open_equity": None,
+            "intraday_return_after_open_cost": None,
+            "net_return": None,
+            "linked_net_return": None,
+            "reconciliation_error": None,
+        }
+    account = _arm(current, arm_name).get("paper_account_at_close")
+    if not isinstance(account, dict):
+        raise StockProspectiveEvaluationError(f"Arm {arm_name} is missing its paper account.")
+    open_before_costs = _positive_float(
+        account.get("equity_at_open_before_costs"),
+        f"{arm_name} equity at open before costs",
+    )
+    trading_cost = _nonnegative_float(
+        account.get("trading_cost_this_open"),
+        f"{arm_name} trading cost",
+    )
+    open_after_costs = open_before_costs - trading_cost
+    if open_after_costs <= 0.0:
+        raise StockProspectiveEvaluationError(
+            f"Arm {arm_name} has nonpositive equity after open costs."
+        )
+    close_equity = _positive_float(account.get("total_equity"), f"{arm_name} close equity")
+    overnight = open_before_costs / prior_equity - 1.0
+    cost_fraction = trading_cost / open_before_costs
+    intraday = close_equity / open_after_costs - 1.0
+    net = close_equity / prior_equity - 1.0
+    linked = (1.0 + overnight) * (1.0 - cost_fraction) * (1.0 + intraday) - 1.0
+    error = linked - net
+    if abs(error) > 1e-10:
+        raise StockProspectiveEvaluationError(
+            f"Arm {arm_name} return attribution does not reconcile."
+        )
+    return {
+        "status": "attributed",
+        "overnight_gross_return": overnight,
+        "execution_cost_fraction_of_open_equity": cost_fraction,
+        "intraday_return_after_open_cost": intraday,
+        "net_return": net,
+        "linked_net_return": linked,
+        "reconciliation_error": error,
+    }
+
+
+def _spy_return_attribution(
+    states: list[tuple[Path, dict[str, object]]],
+    position: int,
+    prior_equity: float,
+    current_equity: float,
+) -> dict[str, object]:
+    current = states[position][1]
+    market = current.get("market_state")
+    if not isinstance(market, dict):
+        raise StockProspectiveEvaluationError("State is missing benchmark marks.")
+    open_price = _positive_float(market.get("open"), "SPY attribution open")
+    close_price = _positive_float(market.get("close"), "SPY attribution close")
+    if position == 1:
+        primary_account = _arm(current, "consensus").get("paper_account_at_close")
+        if not isinstance(primary_account, dict):
+            raise StockProspectiveEvaluationError("State is missing its paper account.")
+        one_way_cost = _nonnegative_float(
+            primary_account.get("one_way_cost_fraction"),
+            "SPY synthetic entry cost rate",
+        )
+        overnight = 0.0
+        cost_fraction = one_way_cost / (1.0 + one_way_cost)
+    else:
+        prior_market = states[position - 1][1].get("market_state")
+        if not isinstance(prior_market, dict):
+            raise StockProspectiveEvaluationError("Prior state is missing benchmark marks.")
+        prior_close = _positive_float(prior_market.get("close"), "prior SPY close")
+        overnight = open_price / prior_close - 1.0
+        cost_fraction = 0.0
+    intraday = close_price / open_price - 1.0
+    net = current_equity / prior_equity - 1.0
+    linked = (1.0 + overnight) * (1.0 - cost_fraction) * (1.0 + intraday) - 1.0
+    error = linked - net
+    if abs(error) > 1e-10:
+        raise StockProspectiveEvaluationError("SPY return attribution does not reconcile.")
+    return {
+        "status": "attributed",
+        "overnight_gross_return": overnight,
+        "execution_cost_fraction_of_open_equity": cost_fraction,
+        "intraday_return_after_open_cost": intraday,
+        "net_return": net,
+        "linked_net_return": linked,
+        "reconciliation_error": error,
+    }
+
+
+def _aggregate_return_attribution(
+    transitions: list[dict[str, object]],
+    arm_names: tuple[str, ...],
+) -> dict[str, object]:
+    arms = {
+        arm_name: _aggregate_component_rows(
+            [
+                transition["return_attribution"]["arms"][arm_name]  # type: ignore[index]
+                for transition in transitions
+            ]
+        )
+        for arm_name in arm_names
+    }
+    spy_rows = [
+        transition["return_attribution"]["spy_buy_hold"]  # type: ignore[index]
+        for transition in transitions
+    ]
+    return {
+        "method": (
+            "multiplicatively linked prior-close-to-open gross return, explicit open trading-cost "
+            "drag, and post-cost open-to-close return; components are not additive"
+        ),
+        "arms": arms,
+        "spy_buy_hold": _aggregate_component_rows(spy_rows),
+    }
+
+
+def _aggregate_component_rows(rows: list[object]) -> dict[str, float | int | None]:
+    for row in rows:
+        if not isinstance(row, dict) or row.get("status") not in {
+            "attributed",
+            "unavailable_missing_prior_equity",
+        }:
+            raise StockProspectiveEvaluationError("Return attribution row is malformed.")
+    attributed = [
+        row for row in rows if isinstance(row, dict) and row.get("status") == "attributed"
+    ]
+    unavailable = len(rows) - len(attributed)
+    if not attributed:
+        return {
+            "sessions": 0,
+            "unavailable_sessions": unavailable,
+            "cumulative_overnight_gross_return": None,
+            "cumulative_execution_cost_drag": None,
+            "cumulative_intraday_after_open_cost_return": None,
+            "linked_cumulative_net_return": None,
+            "maximum_absolute_reconciliation_error": None,
+        }
+    typed: list[dict[str, float]] = []
+    numeric_fields = (
+        "overnight_gross_return",
+        "execution_cost_fraction_of_open_equity",
+        "intraday_return_after_open_cost",
+        "net_return",
+        "linked_net_return",
+        "reconciliation_error",
+    )
+    for row in attributed:
+        typed.append({key: float(row[key]) for key in numeric_fields})
+    overnight = np.asarray([row["overnight_gross_return"] for row in typed], dtype=float)
+    cost = np.asarray(
+        [row["execution_cost_fraction_of_open_equity"] for row in typed],
+        dtype=float,
+    )
+    intraday = np.asarray(
+        [row["intraday_return_after_open_cost"] for row in typed],
+        dtype=float,
+    )
+    net = np.asarray([row["net_return"] for row in typed], dtype=float)
+    linked = (1.0 + overnight) * (1.0 - cost) * (1.0 + intraday)
+    linked_cumulative = float(np.prod(linked) - 1.0)
+    net_cumulative = float(np.prod(1.0 + net) - 1.0)
+    if abs(linked_cumulative - net_cumulative) > 1e-10:
+        raise StockProspectiveEvaluationError(
+            "Cumulative return attribution does not reconcile."
+        )
+    return {
+        "sessions": len(typed),
+        "unavailable_sessions": unavailable,
+        "cumulative_overnight_gross_return": float(np.prod(1.0 + overnight) - 1.0),
+        "cumulative_execution_cost_drag": float(np.prod(1.0 - cost) - 1.0),
+        "cumulative_intraday_after_open_cost_return": float(
+            np.prod(1.0 + intraday) - 1.0
+        ),
+        "linked_cumulative_net_return": linked_cumulative,
+        "maximum_absolute_reconciliation_error": float(
+            max(abs(row["reconciliation_error"]) for row in typed)
+        ),
     }
 
 
