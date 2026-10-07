@@ -1,7 +1,9 @@
 # System design
 
 ```text
-public daily OHLCV -> validation + immutable snapshot -> features at close
+public daily OHLCV -> validation + immutable snapshot
+       -> independent adjusted-monthly reconciliation -> fail-closed data gate
+       -> features at close
        -> monthly selection + explicit risk variants -> next-open target weights
        -> costed backtest + regime tests -> signed research artifacts
        -> explainable dashboard + human-executed ticket
@@ -9,7 +11,7 @@ public daily OHLCV -> validation + immutable snapshot -> features at close
 
 The core is intentionally small. Research code creates immutable artifacts; the dashboard only reads them. This prevents a UI refresh from silently changing historical results or a research score from becoming an order.
 
-The scheduled workflow downloads data, runs validation, and uploads a read-only artifact. It has `contents: read` permission and no broker credentials. Human execution is a hard system boundary.
+The scheduled workflow downloads data, reconciles completed-month returns against Alpha Vantage when its repository secret is configured, runs validation, and uploads a read-only artifact. It has `contents: read` permission and no broker credentials. A missing or failed secondary feed leaves hypothetical research visible but invalidates every action. Human execution is a hard system boundary.
 
 ## Champion exit hierarchy
 

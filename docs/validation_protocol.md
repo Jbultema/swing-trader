@@ -26,6 +26,7 @@ shadow interval is the next valid holdout.
 - Signal causality and next-session execution tests.
 - Parameter-neighborhood stability, cost sensitivity, missing-data tests, and data-revision hashes.
 - Block-bootstrap confidence intervals and a multiple-testing/PBO audit before selecting among variants.
+- Twelve completed months of adjusted-return agreement across independent providers for every traded ticker; missing, stale, or divergent secondary data fails the action gate.
 
 ## Promotion ladder
 

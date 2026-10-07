@@ -93,7 +93,8 @@ def build_validation_artifacts(
 
 
 def _approximate_pbo(returns: pd.DataFrame, blocks: int = 8) -> dict[str, float | int]:
-    partitions = [chunk for chunk in np.array_split(returns, blocks) if not chunk.empty]
+    index_partitions = np.array_split(np.arange(len(returns)), blocks)
+    partitions = [returns.iloc[positions] for positions in index_partitions if len(positions)]
     below_median = 0
     selections = 0
     for train_ids in itertools.combinations(range(len(partitions)), len(partitions) // 2):

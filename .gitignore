@@ -9,3 +9,4 @@ data/processed/
 reports/latest/
 reports/runs/
 .streamlit/secrets.toml
+.env

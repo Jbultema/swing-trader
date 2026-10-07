@@ -12,6 +12,8 @@ jobs:
   snapshot:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -26,6 +28,7 @@ jobs:
           name: swing-trader-${{ github.run_id }}
           path: |
             data/raw/prices.manifest.json
+            data/raw/data_quality.json
             reports/latest/
           if-no-files-found: error
           retention-days: 30

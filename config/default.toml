@@ -2,6 +2,9 @@
 start = "2004-01-01"
 benchmark = "SPY"
 cash_proxy = "BIL"
+reconciliation_months = 12
+monthly_return_tolerance = 0.005
+max_primary_age_calendar_days = 4
 tickers = [
   "SPY", "QQQ", "IWM", "MDY",
   "XLB", "XLE", "XLF", "XLI", "XLK", "XLP", "XLU", "XLV", "XLY",

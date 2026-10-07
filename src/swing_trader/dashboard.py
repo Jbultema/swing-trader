@@ -24,9 +24,13 @@ metrics = pd.read_csv(REPORTS / "metrics.csv")
 equity = pd.read_csv(REPORTS / "equity.csv", parse_dates=["date"]).set_index("date")
 regimes = pd.read_csv(REPORTS / "regime_metrics.csv")
 validation = json.loads((REPORTS / "validation_summary.json").read_text())
+data_quality = json.loads((REPORTS / "data_quality.json").read_text())
 
 status, as_of, exposure = st.columns(3)
-status.metric("Status", "RESEARCH ONLY")
+status.metric(
+    "Status",
+    "DATA RECONCILED" if decisions["data_reconciled"] else "DATA GATE FAILED",
+)
 as_of.metric("Signals as of", decisions["as_of_close"])
 exposure.metric("Gross exposure cap", f"{decisions['market']['gross_exposure_cap']:.0%}")
 
@@ -56,8 +60,20 @@ with overview:
 with action:
     st.subheader("Champion: monthly long-only dual momentum")
     st.caption(f"Last scheduled decision: {decisions['last_monthly_decision']}")
-    st.dataframe(pd.DataFrame(decisions["actions"]), hide_index=True, width="stretch")
-    st.info("These are auditable decision-support tickets, not orders. Review prices and account restrictions manually.")
+    if not decisions["data_reconciled"]:
+        st.error(
+            "No action is valid: the independent monthly price reconciliation did not pass. "
+            "The table below is hypothetical research output only."
+        )
+    st.dataframe(
+        pd.DataFrame(decisions["hypothetical_actions"]),
+        hide_index=True,
+        width="stretch",
+    )
+    st.info(
+        "These are auditable research tickets, never orders. Even with reconciled data, "
+        "live use requires separate prospective and account-readiness approval."
+    )
 
 with risk:
     st.subheader("Known hostile regimes")
@@ -66,6 +82,8 @@ with risk:
     st.warning("Stops reduce modeled exposure after observed damage; they cannot prevent overnight gaps or guarantee an execution price.")
 
 with methods:
+    st.subheader("Decision data gate")
+    st.json(data_quality)
     st.subheader("Validation warning")
     pbo = validation["approximate_pbo"][
         "probability_selected_variant_below_oos_median"

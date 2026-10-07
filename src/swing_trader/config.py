@@ -10,6 +10,9 @@ class DataConfig:
     start: str
     benchmark: str
     cash_proxy: str
+    reconciliation_months: int
+    monthly_return_tolerance: float
+    max_primary_age_calendar_days: int
     tickers: tuple[str, ...]
 
 

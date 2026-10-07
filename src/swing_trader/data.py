@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, datetime
+from collections.abc import Callable
+from datetime import UTC, date, datetime
 from pathlib import Path
+from urllib.parse import urlencode
+from urllib.request import urlopen
 
 import pandas as pd
 import yfinance as yf
 
 REQUIRED_FIELDS = ("Open", "High", "Low", "Close", "Volume")
+ALPHA_VANTAGE_URL = "https://www.alphavantage.co/query"
 
 
 class MarketDataError(ValueError):
@@ -68,6 +72,132 @@ def load_prices(path: Path | str) -> pd.DataFrame:
     return frame.sort_index()
 
 
+def download_alpha_vantage_monthly(
+    tickers: tuple[str, ...],
+    api_key: str,
+    output_path: Path,
+    *,
+    opener: Callable[..., object] = urlopen,
+) -> pd.DataFrame:
+    """Fetch adjusted monthly closes from the documented Alpha Vantage API."""
+    if not api_key.strip():
+        raise MarketDataError("Alpha Vantage API key is empty.")
+    series: dict[str, pd.Series] = {}
+    for ticker in tickers:
+        query = urlencode(
+            {
+                "function": "TIME_SERIES_MONTHLY_ADJUSTED",
+                "symbol": ticker,
+                "apikey": api_key,
+            }
+        )
+        with opener(f"{ALPHA_VANTAGE_URL}?{query}", timeout=30) as response:  # type: ignore[attr-defined]
+            payload = json.load(response)
+        series[ticker] = _parse_alpha_vantage_monthly(payload, ticker)
+    frame = pd.DataFrame(series).sort_index()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_parquet(output_path)
+    return frame
+
+
+def reconcile_monthly_adjusted(
+    primary: pd.DataFrame,
+    secondary: pd.DataFrame | None,
+    tickers: tuple[str, ...],
+    *,
+    months: int,
+    return_tolerance: float,
+    max_primary_age_calendar_days: int = 4,
+    as_of: date | None = None,
+    secondary_error: str | None = None,
+) -> dict[str, object]:
+    """Compare recent completed-month total returns across independent providers."""
+    checked_at = datetime.now(UTC).isoformat()
+    primary_close = primary["Close"].reindex(columns=tickers)
+    primary_latest_date = pd.Timestamp(primary_close.index.max())
+    effective_as_of = as_of or datetime.now(UTC).date()
+    age_days = (effective_as_of - primary_latest_date.date()).days
+    last_valid_dates = {
+        ticker: primary_close[ticker].last_valid_index() for ticker in tickers
+    }
+    all_tickers_current = all(
+        pd.Timestamp(last_valid) == primary_latest_date
+        for last_valid in last_valid_dates.values()
+        if last_valid is not None
+    ) and all(last_valid is not None for last_valid in last_valid_dates.values())
+    primary_fresh = 0 <= age_days <= max_primary_age_calendar_days and all_tickers_current
+    primary_status = {
+        "primary_latest_date": str(primary_latest_date.date()),
+        "primary_age_calendar_days": age_days,
+        "max_primary_age_calendar_days": max_primary_age_calendar_days,
+        "all_primary_tickers_current": all_tickers_current,
+        "primary_fresh": primary_fresh,
+    }
+    if secondary is None:
+        return {
+            "status": "secondary_source_unavailable",
+            "decision_data_gate_passed": False,
+            "checked_at_utc": checked_at,
+            "secondary_error": secondary_error or "Alpha Vantage data not supplied.",
+            "primary_provider": "Yahoo Finance via yfinance",
+            "secondary_provider": "Alpha Vantage monthly adjusted",
+            **primary_status,
+        }
+    if months < 2:
+        raise ValueError("Reconciliation requires at least two monthly returns.")
+
+    complete_mask = _completed_month_mask(primary_close.index)
+    primary_monthly = primary_close.loc[complete_mask].copy()
+    primary_monthly.index = primary_monthly.index.to_period("M")
+    secondary_monthly = secondary.reindex(columns=tickers).copy()
+    secondary_monthly.index = pd.DatetimeIndex(secondary_monthly.index).to_period("M")
+    secondary_monthly = secondary_monthly.loc[~secondary_monthly.index.duplicated(keep="last")]
+
+    rows: list[dict[str, object]] = []
+    passed = primary_fresh
+    expected_period = primary_monthly.index.max()
+    for ticker in tickers:
+        joined = pd.concat(
+            {
+                "primary": primary_monthly[ticker],
+                "secondary": secondary_monthly[ticker],
+            },
+            axis=1,
+            join="inner",
+        ).sort_index()
+        returns = joined.pct_change(fill_method=None).dropna().tail(months)
+        latest_period = returns.index.max() if not returns.empty else None
+        differences = (returns["primary"] - returns["secondary"]).abs()
+        max_difference = float(differences.max()) if not differences.empty else None
+        enough = len(returns) >= months
+        current = latest_period == expected_period
+        within_tolerance = max_difference is not None and max_difference <= return_tolerance
+        ticker_passed = enough and current and within_tolerance
+        passed &= ticker_passed
+        rows.append(
+            {
+                "ticker": ticker,
+                "months_compared": len(returns),
+                "latest_completed_period": str(latest_period) if latest_period else None,
+                "expected_completed_period": str(expected_period),
+                "max_absolute_monthly_return_difference": max_difference,
+                "tolerance": return_tolerance,
+                "passed": ticker_passed,
+            }
+        )
+    return {
+        "status": "passed" if passed else "failed_reconciliation",
+        "decision_data_gate_passed": passed,
+        "checked_at_utc": checked_at,
+        "primary_provider": "Yahoo Finance via yfinance",
+        "secondary_provider": "Alpha Vantage monthly adjusted",
+        "months_required": months,
+        "return_tolerance": return_tolerance,
+        **primary_status,
+        "ticker_checks": rows,
+    }
+
+
 def validate_prices(frame: pd.DataFrame, tickers: tuple[str, ...]) -> None:
     if not isinstance(frame.columns, pd.MultiIndex):
         raise MarketDataError("Expected field/ticker MultiIndex columns.")
@@ -99,3 +229,31 @@ def _normalize_download(raw: pd.DataFrame, tickers: tuple[str, ...]) -> pd.DataF
     frame = raw.reindex(columns=wanted).copy()
     frame.index = pd.DatetimeIndex(pd.to_datetime(frame.index)).tz_localize(None)
     return frame.sort_index().dropna(how="all")
+
+
+def _parse_alpha_vantage_monthly(payload: object, ticker: str) -> pd.Series:
+    if not isinstance(payload, dict):
+        raise MarketDataError(f"Alpha Vantage returned invalid payload for {ticker}.")
+    error = payload.get("Error Message") or payload.get("Information") or payload.get("Note")
+    if error:
+        raise MarketDataError(f"Alpha Vantage error for {ticker}: {error}")
+    raw = payload.get("Monthly Adjusted Time Series")
+    if not isinstance(raw, dict) or not raw:
+        raise MarketDataError(f"Alpha Vantage monthly adjusted series missing for {ticker}.")
+    values: dict[pd.Timestamp, float] = {}
+    for date_text, fields in raw.items():
+        if not isinstance(fields, dict) or "5. adjusted close" not in fields:
+            raise MarketDataError(
+                f"Alpha Vantage adjusted close missing for {ticker} on {date_text}."
+            )
+        values[pd.Timestamp(date_text)] = float(fields["5. adjusted close"])
+    return pd.Series(values, name=ticker, dtype=float).sort_index()
+
+
+def _completed_month_mask(index: pd.DatetimeIndex) -> pd.Series:
+    periods = index.to_period("M")
+    next_period = pd.Series(periods, index=index).shift(-1)
+    mask = pd.Series(periods != next_period.array, index=index)
+    if len(index) and (index[-1] + pd.offsets.BDay(1)).to_period("M") == periods[-1]:
+        mask.iloc[-1] = False
+    return mask
