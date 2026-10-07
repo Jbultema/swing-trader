@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "evaluation_method": "first adjusted open after the locked as-of close through the adjusted open 5, 21, or 63 sessions later; model return deducts frozen one-way turnover cost",
+  "evaluated_through": "2026-10-06",
+  "horizons_sessions": [
+    5,
+    21,
+    63
+  ],
+  "records_seen": 1,
+  "unique_schema_v3_decisions": 0,
+  "excluded_records": [
+    {
+      "file": "20261007T020750.773333Z-8a1bd0da62b8.json",
+      "reason": "not_self_contained_schema_v3"
+    }
+  ],
+  "outcomes": [],
+  "eligible_summary": {
+    "eligible_unique_decisions": 0,
+    "by_horizon": {
+      "5": {
+        "matured_decisions": 0,
+        "mean_model_net_return": null,
+        "mean_net_excess_return": null
+      },
+      "21": {
+        "matured_decisions": 0,
+        "mean_model_net_return": null,
+        "mean_net_excess_return": null
+      },
+      "63": {
+        "matured_decisions": 0,
+        "mean_model_net_return": null,
+        "mean_net_excess_return": null
+      }
+    }
+  }
+}
