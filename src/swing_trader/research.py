@@ -162,22 +162,14 @@ def _write_artifacts(
     (output_dir / "latest_decisions.json").write_text(
         json.dumps(decisions, indent=2) + "\n", encoding="utf-8"
     )
-    manifest = {
-        "created_at_utc": datetime.now(UTC).isoformat(),
+    specification = {
         "system": "robust_dual_momentum_v1",
         "champion": "classic_12m_dual_momentum",
         "capital_preservation_comparator": "dual_momentum_panic_guard",
         "rejected_fast_candidates": ["swing_momentum_v1", "swing_momentum_v2"],
-        "research_status": "retrospective_candidate_not_live_approved",
         "execution_model": "close signal; next-session adjusted-open rebalance; open-to-open P&L",
         "tax_model": "ignored_retirement_account_first_pass",
         "parameter_source": "published_prior; v2 corrects v1 daily-resizing schedule defect",
-        "holdout_status": "diagnostic_only_after_v1_result_was_opened",
-        "automatic_order_placement": False,
-        "decision_data_gate_passed": bool(quality.get("decision_data_gate_passed", False)),
-        "data_quality_status": quality.get("status", "unknown"),
-        "data_start": str(prices.index.min().date()),
-        "data_end": str(prices.index.max().date()),
         "config": {
             "data": asdict(config.data),
             "strategy": asdict(config.strategy),
@@ -185,12 +177,37 @@ def _write_artifacts(
             "validation": asdict(config.validation),
         },
     }
-    payload = json.dumps(manifest, sort_keys=True, default=list).encode()
-    manifest["specification_sha256"] = hashlib.sha256(payload).hexdigest()
+    specification_payload = json.dumps(specification, sort_keys=True, default=list).encode()
+    manifest = {
+        "created_at_utc": datetime.now(UTC).isoformat(),
+        **specification,
+        "research_status": "retrospective_candidate_not_live_approved",
+        "holdout_status": "diagnostic_only_after_v1_result_was_opened",
+        "automatic_order_placement": False,
+        "decision_data_gate_passed": bool(quality.get("decision_data_gate_passed", False)),
+        "data_quality_status": quality.get("status", "unknown"),
+        "data_start": str(prices.index.min().date()),
+        "data_end": str(prices.index.max().date()),
+        "specification": specification,
+        "specification_sha256": hashlib.sha256(specification_payload).hexdigest(),
+        "implementation_sha256": _implementation_sha256(),
+    }
     (output_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
     )
     build_validation_artifacts(prices, config, results, output_dir)
+
+
+def _implementation_sha256() -> str:
+    """Hash the complete installed strategy package with stable path ordering."""
+    package_root = Path(__file__).parent
+    digest = hashlib.sha256()
+    for path in sorted(package_root.glob("*.py")):
+        digest.update(path.name.encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def latest_champion_decisions(

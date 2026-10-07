@@ -17,6 +17,7 @@ def test_shadow_snapshot_is_hashed_and_non_overwriting(tmp_path: Path) -> None:
             "created_at_utc": "2026-10-07T01:00:00+00:00",
             "system": "candidate",
             "specification_sha256": "abc",
+            "implementation_sha256": "def",
             "research_status": "research_only",
         },
     )
@@ -28,6 +29,9 @@ def test_shadow_snapshot_is_hashed_and_non_overwriting(tmp_path: Path) -> None:
 
     output = record_shadow_snapshot(reports, tmp_path / "shadow")
     assert verify_shadow_snapshot(output)
+    payload = json.loads(output.read_text())
+    assert payload["schema_version"] == 2
+    assert payload["implementation_sha256"] == "def"
     with pytest.raises(FileExistsError):
         record_shadow_snapshot(reports, tmp_path / "shadow")
 

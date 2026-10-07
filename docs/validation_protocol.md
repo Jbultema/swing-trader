@@ -37,4 +37,4 @@ shadow interval is the next valid holdout.
 
 At no stage may a backtest or dashboard place an order automatically.
 
-Each `swing-trader daily` run writes a content-hashed, non-overwriting JSON record under `reports/shadow`. The record binds the specification hash, data-quality gate, and exact hypothetical ticket before later outcomes are known. Scheduled artifacts are retained for 90 days; a longer evidence window requires exporting them to durable personal storage.
+Each `swing-trader daily` run writes a content-hashed, non-overwriting JSON record under `reports/shadow`. The schema-v2 record separately binds a stable strategy/configuration hash, the full Python-package implementation hash, the exact primary-data snapshot, the data-quality gate, and the hypothetical ticket before later outcomes are known. Run timestamps and changing data endpoints are deliberately excluded from the strategy hash so repeated records can prove whether the specification actually remained frozen. Scheduled artifacts are retained for 90 days; records are also appended to a durable evidence branch.

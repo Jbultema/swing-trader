@@ -78,10 +78,18 @@ def audit_operational_artifacts(
 
     if manifest:
         expected = manifest.get("specification_sha256")
-        unsigned = {key: value for key, value in manifest.items() if key != "specification_sha256"}
-        actual = hashlib.sha256(
-            json.dumps(unsigned, sort_keys=True, default=list).encode()
-        ).hexdigest()
+        specification = manifest.get("specification")
+        if isinstance(specification, dict):
+            actual = hashlib.sha256(
+                json.dumps(specification, sort_keys=True, default=list).encode()
+            ).hexdigest()
+        else:
+            unsigned = {
+                key: value for key, value in manifest.items() if key != "specification_sha256"
+            }
+            actual = hashlib.sha256(
+                json.dumps(unsigned, sort_keys=True, default=list).encode()
+            ).hexdigest()
         if expected != actual:
             errors.append("Manifest specification hash does not match its contents.")
 
@@ -129,6 +137,10 @@ def audit_operational_artifacts(
             "specification_sha256"
         ):
             errors.append("Latest shadow does not bind the current specification hash.")
+        if manifest and latest_payload.get("implementation_sha256") != manifest.get(
+            "implementation_sha256"
+        ):
+            errors.append("Latest shadow does not bind the current implementation hash.")
         if manifest and latest_payload.get("recorded_from_manifest_utc") != manifest.get(
             "created_at_utc"
         ):

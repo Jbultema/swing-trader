@@ -83,6 +83,7 @@ def _bundle(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     prices_digest = hashlib.sha256(prices.read_bytes()).hexdigest()
     prices_manifest = tmp_path / "prices.manifest.json"
     _write(prices_manifest, {"sha256": prices_digest})
+    specification = {"system": "candidate", "config": {"top_n": 3}}
     manifest = {
         "created_at_utc": "2026-10-07T02:00:00+00:00",
         "system": "candidate",
@@ -91,9 +92,11 @@ def _bundle(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         "decision_data_gate_passed": False,
         "data_quality_status": "secondary_source_unavailable",
         "data_end": "2026-10-06",
+        "implementation_sha256": "implementation-v1",
+        "specification": specification,
     }
     manifest["specification_sha256"] = hashlib.sha256(
-        json.dumps(manifest, sort_keys=True, default=list).encode()
+        json.dumps(specification, sort_keys=True, default=list).encode()
     ).hexdigest()
     _write(reports / "manifest.json", manifest)
     _write(

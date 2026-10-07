@@ -17,13 +17,14 @@ concurrency:
   group: daily-research-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
   snapshot:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      integrity_passed: ${{ steps.integrity.outputs.passed }}
     env:
       ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
     steps:
@@ -35,7 +36,12 @@ jobs:
       - run: pip install poetry
       - run: poetry install --only main --sync
       - run: poetry run swing-trader daily
-      - name: Audit locked decision artifacts
+      - name: Audit artifact integrity
+        id: integrity
+        run: |
+          poetry run swing-trader audit
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+      - name: Enforce decision data gate
         run: poetry run swing-trader audit --require-data-gate
       - uses: actions/upload-artifact@v4
         if: always()
@@ -48,3 +54,34 @@ jobs:
             reports/shadow/
           if-no-files-found: error
           retention-days: 90
+
+  archive-shadow:
+    needs: snapshot
+    if: ${{ always() && needs.snapshot.outputs.integrity_passed == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: shadow-evidence
+          path: archive
+      - uses: actions/download-artifact@v4
+        with:
+          name: swing-trader-${{ github.run_id }}
+          path: staging
+      - name: Append immutable shadow record
+        run: |
+          mkdir -p archive/evidence/records
+          cp staging/reports/shadow/*.json archive/evidence/records/
+          git -C archive config user.name "github-actions[bot]"
+          git -C archive config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C archive add evidence/records
+          if git -C archive diff --cached --quiet; then
+            echo "Record already archived."
+            exit 0
+          fi
+          git -C archive commit -m "Archive shadow record ${{ github.run_id }}"
+          git -C archive push origin HEAD:shadow-evidence
