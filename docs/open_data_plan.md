@@ -91,6 +91,17 @@ transient timeouts and rate limits but do not conceal persistent absences. The l
 run recovered a rate-limited SYF request and passed at 503 of 504 latest closes, with WBD retained as
 the sole missing symbol.
 
+Yahoo can also publish logically inconsistent daily bars, including a high below a positive open or
+a nonpositive field. The prospective loader applies only a conservative, manifest-enumerated repair:
+it expands high/low to include positive open/close values and quarantines the entire row otherwise.
+It never narrows a range or invents a close. The source-quality gate still fails when any expansion
+exceeds 1% of close, when more than 5% of the latest cross-section is affected, or when quarantined
+rows exceed 0.01% of the requested history. Scheduled artifacts retain the price and universe
+parquets for a 90-day forensic window; the immutable manifest records every original and normalized
+value used by the strategy. The 2026-10-07 live proof enumerated 16 range expansions across 3.17%
+of the latest cross-section (maximum 0.473% of close), quarantined one nonpositive WBD row, and then
+passed the normalized price gate with 502 of 504 latest closes.
+
 The free Alpha quota is shared across the project. ETF monthly reconciliation is refreshed on
 Sunday and stored with a capture timestamp and content hash for at most eight days. Stock checks run
 after weekday closes. This schedule prevents two individually free workflows from jointly exceeding

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import math
 from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, time, timedelta
@@ -20,6 +21,10 @@ from swing_trader.stock_universe import (
 
 REQUIRED_PRICE_FIELDS = ("Open", "High", "Low", "Close", "Volume")
 PRICE_PROVIDER_ROLE = "research_only_unofficial_endpoint_prospective_snapshot"
+SOURCE_QUALITY_POLICY = "conservative-yahoo-ohlcv-repair-v1"
+MAXIMUM_RELATIVE_RANGE_EXPANSION = 0.01
+MAXIMUM_LATEST_AFFECTED_FRACTION = 0.05
+MAXIMUM_QUARANTINED_FRACTION = 0.0001
 
 
 class StockPriceDataError(ValueError):
@@ -56,12 +61,57 @@ class StockPriceValidation:
 
 
 @dataclass(frozen=True)
+class StockPriceRepairEvent:
+    session: str
+    ticker: str
+    action: str
+    source_open: float | None
+    source_high: float | None
+    source_low: float | None
+    source_close: float | None
+    source_volume: float | None
+    normalized_open: float | None
+    normalized_high: float | None
+    normalized_low: float | None
+    normalized_close: float | None
+    normalized_volume: float | None
+    relative_range_expansion: float | None
+
+
+@dataclass(frozen=True)
+class StockPriceRepairReport:
+    status: str
+    policy: str
+    source_invalid_rows: int
+    expanded_range_rows: int
+    quarantined_rows: int
+    latest_affected_rows: int
+    latest_affected_fraction: float
+    maximum_latest_affected_fraction: float
+    quarantined_fraction: float
+    maximum_quarantined_fraction: float
+    maximum_relative_range_expansion: float
+    allowed_maximum_relative_range_expansion: float
+    affected_tickers: tuple[str, ...]
+    quarantined_tickers: tuple[str, ...]
+    events: tuple[StockPriceRepairEvent, ...]
+
+    @property
+    def passed(self) -> bool:
+        return self.status == "passed"
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class StockPriceSnapshot:
     data_path: Path
     manifest_path: Path
     rows: int
     tickers: int
     validation: StockPriceValidation
+    source_quality: StockPriceRepairReport
 
 
 @dataclass(frozen=True)
@@ -149,6 +199,7 @@ def download_current_stock_prices(
         batch_size=batch_size,
         downloader=downloader,
     )
+    frame, source_quality = normalize_yahoo_ohlcv(frame, tickers)
     return write_current_stock_price_snapshot(
         frame,
         tickers,
@@ -159,7 +210,111 @@ def download_current_stock_prices(
         captured_at=captured_at,
         requested_start=start,
         requested_end_exclusive=end_exclusive,
+        source_quality=source_quality,
     )
+
+
+def normalize_yahoo_ohlcv(
+    frame: pd.DataFrame,
+    requested_tickers: Iterable[str],
+    *,
+    maximum_relative_range_expansion: float = MAXIMUM_RELATIVE_RANGE_EXPANSION,
+    maximum_latest_affected_fraction: float = MAXIMUM_LATEST_AFFECTED_FRACTION,
+    maximum_quarantined_fraction: float = MAXIMUM_QUARANTINED_FRACTION,
+) -> tuple[pd.DataFrame, StockPriceRepairReport]:
+    """Apply only conservative, fully enumerated repairs to provider OHLCV rows."""
+    requested = tuple(dict.fromkeys(str(value) for value in requested_tickers))
+    if not requested:
+        raise ValueError("At least one ticker is required.")
+    if maximum_relative_range_expansion < 0.0:
+        raise ValueError("Maximum relative range expansion cannot be negative.")
+    if not 0.0 <= maximum_latest_affected_fraction <= 1.0:
+        raise ValueError("Maximum latest affected fraction must be between zero and one.")
+    if not 0.0 <= maximum_quarantined_fraction <= 1.0:
+        raise ValueError("Maximum quarantined fraction must be between zero and one.")
+    normalized = frame.sort_index().sort_index(axis=1).copy()
+    if normalized.empty:
+        return normalized, _stock_price_repair_report(
+            events=(),
+            requested_tickers=requested,
+            source_rows=0,
+            latest_session=None,
+            maximum_relative_range_expansion=maximum_relative_range_expansion,
+            maximum_latest_affected_fraction=maximum_latest_affected_fraction,
+            maximum_quarantined_fraction=maximum_quarantined_fraction,
+        )
+    if not isinstance(normalized.columns, pd.MultiIndex):
+        raise StockPriceDataError("Stock prices must use field/ticker MultiIndex columns.")
+    fields = set(normalized.columns.get_level_values(0))
+    if missing_fields := set(REQUIRED_PRICE_FIELDS) - fields:
+        raise StockPriceDataError(f"Stock prices are missing fields: {sorted(missing_fields)}")
+
+    open_ = normalized["Open"].reindex(columns=requested)
+    high = normalized["High"].reindex(columns=requested)
+    low = normalized["Low"].reindex(columns=requested)
+    close = normalized["Close"].reindex(columns=requested)
+    volume = normalized["Volume"].reindex(columns=requested)
+    complete = open_.notna() & high.notna() & low.notna() & close.notna()
+    finite_ohlc = (
+        open_.map(math.isfinite)
+        & high.map(math.isfinite)
+        & low.map(math.isfinite)
+        & close.map(math.isfinite)
+    )
+    invalid_volume = volume.notna() & (~volume.map(math.isfinite) | volume.lt(0.0))
+    quarantine = (
+        complete
+        & (~finite_ohlc | open_.le(0.0) | high.le(0.0) | low.le(0.0) | close.le(0.0))
+    ) | invalid_volume
+    upper = pd.concat([open_, high, low, close], axis=0).groupby(level=0).max()
+    lower = pd.concat([open_, high, low, close], axis=0).groupby(level=0).min()
+    expand = complete & ~quarantine & (high.lt(upper) | low.gt(lower))
+    events: list[StockPriceRepairEvent] = []
+
+    for session, ticker in quarantine.stack()[lambda values: values].index:
+        source_values = _ohlcv_values(normalized, session, ticker)
+        for field in REQUIRED_PRICE_FIELDS:
+            normalized.loc[session, (field, ticker)] = float("nan")
+        events.append(
+            _repair_event(
+                session,
+                ticker,
+                "quarantined_nonpositive_nonfinite_or_negative_volume",
+                source_values,
+                _ohlcv_values(normalized, session, ticker),
+                None,
+            )
+        )
+
+    for session, ticker in expand.stack()[lambda values: values].index:
+        source_values = _ohlcv_values(normalized, session, ticker)
+        new_high = max(source_values[0], source_values[1], source_values[2], source_values[3])
+        new_low = min(source_values[0], source_values[1], source_values[2], source_values[3])
+        expansion = max(new_high - source_values[1], source_values[2] - new_low)
+        relative_expansion = expansion / abs(source_values[3])
+        normalized.loc[session, ("High", ticker)] = new_high
+        normalized.loc[session, ("Low", ticker)] = new_low
+        events.append(
+            _repair_event(
+                session,
+                ticker,
+                "expanded_high_low_to_include_positive_open_close",
+                source_values,
+                _ohlcv_values(normalized, session, ticker),
+                relative_expansion,
+            )
+        )
+
+    report = _stock_price_repair_report(
+        events=tuple(events),
+        requested_tickers=requested,
+        source_rows=len(frame),
+        latest_session=pd.Timestamp(frame.index.max()),
+        maximum_relative_range_expansion=maximum_relative_range_expansion,
+        maximum_latest_affected_fraction=maximum_latest_affected_fraction,
+        maximum_quarantined_fraction=maximum_quarantined_fraction,
+    )
+    return normalized.sort_index(axis=1), report
 
 
 def validate_current_stock_prices(
@@ -269,8 +424,24 @@ def write_current_stock_price_snapshot(
     captured_at: datetime,
     requested_start: date,
     requested_end_exclusive: date,
+    source_quality: StockPriceRepairReport | None = None,
 ) -> StockPriceSnapshot:
     normalized = frame.sort_index().sort_index(axis=1)
+    if source_quality is None:
+        source_quality = _stock_price_repair_report(
+            events=(),
+            requested_tickers=tuple(requested_tickers),
+            source_rows=len(normalized),
+            latest_session=None if normalized.empty else pd.Timestamp(normalized.index.max()),
+            maximum_relative_range_expansion=MAXIMUM_RELATIVE_RANGE_EXPANSION,
+            maximum_latest_affected_fraction=MAXIMUM_LATEST_AFFECTED_FRACTION,
+            maximum_quarantined_fraction=MAXIMUM_QUARANTINED_FRACTION,
+        )
+    if not source_quality.passed:
+        raise StockPriceDataError(
+            "Stock-price source anomalies exceeded the conservative repair gate: "
+            + json.dumps(source_quality.to_dict(), sort_keys=True)
+        )
     validation = validate_current_stock_prices(
         normalized,
         requested_tickers,
@@ -294,7 +465,7 @@ def write_current_stock_price_snapshot(
         handle.write(buffer.getvalue())
     try:
         manifest = {
-            "schema_version": 1,
+            "schema_version": 2,
             "provider": "Yahoo Finance via yfinance",
             "data_cost_policy": "no_paid_sources",
             "provider_role": PRICE_PROVIDER_ROLE,
@@ -309,6 +480,7 @@ def write_current_stock_price_snapshot(
             "tabular_sha256": fingerprint,
             "data_file_sha256": file_sha256(data_path),
             "validation": validation.to_dict(),
+            "source_quality": source_quality.to_dict(),
             "price_data_gate_passed": validation.passed,
             "universe_manifest": universe_manifest_path.name,
             "universe_manifest_sha256": file_sha256(universe_manifest_path),
@@ -327,6 +499,7 @@ def write_current_stock_price_snapshot(
         len(normalized),
         validation.available_tickers,
         validation,
+        source_quality,
     )
 
 
@@ -377,6 +550,15 @@ def audit_current_stock_price_snapshot(
         errors.append("Stock-price provider role is not prospective research-only.")
     if manifest.get("price_data_gate_passed") is not True:
         errors.append("Original stock-price data gate did not pass.")
+    if int(manifest.get("schema_version", 1)) >= 2:
+        source_quality = manifest.get("source_quality")
+        if not isinstance(source_quality, dict):
+            errors.append("Stock-price source-quality report is missing.")
+        else:
+            if source_quality.get("policy") != SOURCE_QUALITY_POLICY:
+                errors.append("Stock-price source-quality policy is invalid.")
+            if source_quality.get("status") != "passed":
+                errors.append("Stock-price source-quality gate did not pass.")
     if universe_manifest_path is not None:
         if not universe_manifest_path.exists():
             errors.append("Bound universe manifest is missing.")
@@ -507,6 +689,89 @@ def _normalize_yahoo_batch(
         [REQUIRED_PRICE_FIELDS, canonical_tickers], names=["field", "ticker"]
     )
     return frame.reindex(columns=expected).sort_index()
+
+
+def _ohlcv_values(
+    frame: pd.DataFrame,
+    session: object,
+    ticker: str,
+) -> tuple[float, float, float, float, float]:
+    return tuple(float(frame.loc[session, (field, ticker)]) for field in REQUIRED_PRICE_FIELDS)  # type: ignore[return-value]
+
+
+def _finite_or_none(value: float) -> float | None:
+    return value if math.isfinite(value) else None
+
+
+def _repair_event(
+    session: object,
+    ticker: str,
+    action: str,
+    source: tuple[float, float, float, float, float],
+    normalized: tuple[float, float, float, float, float],
+    relative_range_expansion: float | None,
+) -> StockPriceRepairEvent:
+    return StockPriceRepairEvent(
+        session=pd.Timestamp(session).date().isoformat(),
+        ticker=ticker,
+        action=action,
+        source_open=_finite_or_none(source[0]),
+        source_high=_finite_or_none(source[1]),
+        source_low=_finite_or_none(source[2]),
+        source_close=_finite_or_none(source[3]),
+        source_volume=_finite_or_none(source[4]),
+        normalized_open=_finite_or_none(normalized[0]),
+        normalized_high=_finite_or_none(normalized[1]),
+        normalized_low=_finite_or_none(normalized[2]),
+        normalized_close=_finite_or_none(normalized[3]),
+        normalized_volume=_finite_or_none(normalized[4]),
+        relative_range_expansion=relative_range_expansion,
+    )
+
+
+def _stock_price_repair_report(
+    *,
+    events: tuple[StockPriceRepairEvent, ...],
+    requested_tickers: tuple[str, ...],
+    source_rows: int,
+    latest_session: pd.Timestamp | None,
+    maximum_relative_range_expansion: float,
+    maximum_latest_affected_fraction: float,
+    maximum_quarantined_fraction: float,
+) -> StockPriceRepairReport:
+    expanded = tuple(event for event in events if event.relative_range_expansion is not None)
+    quarantined = tuple(event for event in events if event.relative_range_expansion is None)
+    latest_date = None if latest_session is None else latest_session.date().isoformat()
+    latest_affected = sum(event.session == latest_date for event in events)
+    latest_fraction = latest_affected / len(requested_tickers)
+    possible_rows = source_rows * len(requested_tickers)
+    quarantined_fraction = len(quarantined) / possible_rows if possible_rows else 0.0
+    observed_maximum_expansion = max(
+        (float(event.relative_range_expansion) for event in expanded),
+        default=0.0,
+    )
+    passed = (
+        latest_fraction <= maximum_latest_affected_fraction
+        and quarantined_fraction <= maximum_quarantined_fraction
+        and observed_maximum_expansion <= maximum_relative_range_expansion
+    )
+    return StockPriceRepairReport(
+        status="passed" if passed else "failed",
+        policy=SOURCE_QUALITY_POLICY,
+        source_invalid_rows=len(events),
+        expanded_range_rows=len(expanded),
+        quarantined_rows=len(quarantined),
+        latest_affected_rows=latest_affected,
+        latest_affected_fraction=latest_fraction,
+        maximum_latest_affected_fraction=maximum_latest_affected_fraction,
+        quarantined_fraction=quarantined_fraction,
+        maximum_quarantined_fraction=maximum_quarantined_fraction,
+        maximum_relative_range_expansion=observed_maximum_expansion,
+        allowed_maximum_relative_range_expansion=maximum_relative_range_expansion,
+        affected_tickers=tuple(sorted({event.ticker for event in events})),
+        quarantined_tickers=tuple(sorted({event.ticker for event in quarantined})),
+        events=events,
+    )
 
 
 def _safe_yahoo_end_date(captured_at: datetime) -> date:
