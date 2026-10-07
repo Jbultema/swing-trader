@@ -35,6 +35,10 @@ validation_end = "2021-12-31"
 sealed_test_start = "2022-01-03"
 primary_metric = "median_walk_forward_net_excess_return"
 required_comparators = ["spy", "equal_weight_universe", "classic_12_1_momentum"]
+bootstrap_samples = 2000
+mean_block_sessions = 21
+pbo_partitions = 8
+fdr_level = 0.05
 
 [benchmarks]
 market = "SPY"

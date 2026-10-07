@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
 
+from swing_trader.provenance import file_sha256
 from swing_trader.stock_config import load_stock_experiment_config
 from swing_trader.stock_research import run_stock_research
 
@@ -67,4 +69,16 @@ def test_stock_research_writes_preregistered_walk_forward_artifacts(tmp_path) ->
     assert run.selected_variant.startswith("short_volume__combined")
     assert (tmp_path / "walk_forward_folds.csv").exists()
     assert (tmp_path / "selected_decisions.parquet").exists()
+    assert (tmp_path / "multiple_testing.csv").exists()
+    assert (tmp_path / "statistical_validation.json").exists()
+    assert (tmp_path / "hostile_regimes.csv").exists()
+    assert (tmp_path / "asset_concentration.csv").exists()
     assert (tmp_path / "manifest.json").exists()
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    assert len(manifest["input_fingerprints"]["ohlcv"]) == 64
+    assert len(manifest["input_fingerprints"]["membership"]) == 64
+    assert "statistical_validation.json" in manifest["artifact_sha256"]
+    assert "asset_concentration.csv" in manifest["artifact_sha256"]
+    assert manifest["artifact_sha256"]["statistical_validation.json"] == file_sha256(
+        tmp_path / "statistical_validation.json"
+    )

@@ -26,6 +26,7 @@ from swing_trader.prospective import write_prospective_evaluation
 from swing_trader.research import run_research
 from swing_trader.shadow import record_shadow_snapshot
 from swing_trader.sharadar import write_sharadar_panel
+from swing_trader.stock_audit import audit_stock_research_bundle
 from swing_trader.stock_config import load_stock_experiment_config
 from swing_trader.stock_data import write_stock_coverage_audit
 from swing_trader.stock_research import run_stock_research
@@ -195,6 +196,17 @@ def research_stocks(
         f"Stock research selected {result.selected_variant} on the selection period; "
         f"wrote retrospective evidence to {output}. No order was placed."
     )
+
+
+@research_app.command("verify-stocks")
+def research_verify_stocks(
+    report_dir: Annotated[Path, typer.Option("--reports")] = Path("reports/stock/latest"),
+) -> None:
+    """Fail closed if a stock evidence bundle is missing, stale, or modified."""
+    result = audit_stock_research_bundle(report_dir)
+    typer.echo(json.dumps(result.to_dict(), indent=2))
+    if not result.integrity_passed:
+        raise typer.Exit(code=2)
 
 
 @app.command("daily")

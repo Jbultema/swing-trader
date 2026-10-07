@@ -65,12 +65,23 @@ The paid-data path is prepared but does not download or purchase anything automa
 poetry run swing-trader data import-sharadar
 poetry run swing-trader data update-cash
 poetry run swing-trader research stocks
+poetry run swing-trader research verify-stocks
 ```
 
 The importer requires `stocks.csv.zip`, `sp500.csv.zip`, and `actions.csv.zip`, writes hashed
 normalized artifacts under ignored `data/stock/`, and records unsupported terminal events rather
 than inventing a delisting return. The research command fails closed on incomplete point-in-time
 coverage, an unpriced held security, or excessive volume participation.
+
+The stock report also writes the complete variant registry, expanding walk-forward path,
+stationary-bootstrap uncertainty, family-wide and false-discovery-adjusted tests, approximate PBO,
+hostile-regime results, and split-specific ticker P&L concentration. Statistical significance is
+reported as a fragility diagnostic and never treated as trading authorization.
+
+The dashboard exposes a separate read-only stock-research tab only when that bundle passes artifact,
+implementation, input-binding, and research-authority checks. It shows the latest retrospective
+BUY/HOLD/SELL/SKIP reasons, comparator metrics, multiple-testing evidence, hostile regimes,
+execution capacity, and winner concentration; it does not relabel the result as a current trade.
 
 Prospective operation can also lock the next Alpha Vantage earnings calendar before decisions:
 

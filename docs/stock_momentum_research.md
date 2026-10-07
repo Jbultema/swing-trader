@@ -179,6 +179,34 @@ comparison/reference implementations, not dependencies until parity tests demons
 
 No candidate becomes actionable merely because it has a higher retrospective CAGR.
 
+### Statistical validation details
+
+The configured inference settings are frozen with the experiment family: 2,000 stationary
+bootstrap resamples, a 21-session mean block, eight PBO time partitions, and a 5% false-discovery
+level. The implementation applies one bootstrap index to every variant so serial dependence and
+cross-strategy correlation are not broken. It reports:
+
+- centered one-sided excess-return tests for every capacity-passing variant;
+- a family-wide p-value for the best observed t-statistic;
+- conservative Benjamini-Yekutieli q-values, chosen because related signal/exit variants are not
+  independent;
+- a transparent CSCV-style approximate PBO showing how often an in-sample winner ranks below the
+  out-of-sample median; and
+- a paired stationary-bootstrap interval for the stitched expanding walk-forward path versus SPY.
+
+The stationary bootstrap follows the dependence-preserving motivation of Politis and Romano:
+https://doi.org/10.1080/01621459.1994.10476870. The multiplicity controls follow Benjamini and
+Hochberg's false-discovery framework and the dependency extension of Benjamini and Yekutieli:
+https://doi.org/10.1111/j.2517-6161.1995.tb02031.x and
+https://doi.org/10.1214/aos/1013699998. PBO is explicitly labeled approximate because the small,
+correlated registry is not a guarantee that every formal asymptotic assumption holds:
+https://escholarship.org/uc/item/4w1110bb.
+
+The selected strategy also receives split-specific ticker-level gross P&L attribution and hostile
+regime reports. Large top-one/top-five contribution shares expose dependence on a few historical
+winners. Current sector or "AI" labels are intentionally not projected backward; a sector claim
+requires dated point-in-time classifications, not today's company narrative.
+
 ## Implemented research scaffold
 
 - `stock_signals.py` calculates the three causal feature families from dated OHLCV and mandatory
@@ -197,6 +225,15 @@ No candidate becomes actionable merely because it has a higher retrospective CAG
 - `stock_research.py` runs the fixed signal/exit registry, required comparators, 20/50/100 bp
   round-trip cost tiers, fixed selection/validation/sealed-test reports, and expanding annual
   walk-forward selection.
+- `stock_validation.py` adds common stationary-bootstrap family tests, arbitrary-dependence
+  false-discovery adjustment, approximate combinatorial PBO, paired walk-forward uncertainty, and
+  held-weight ticker P&L concentration.
+- Every stock manifest binds ordered fingerprints of the exact OHLCV, membership, benchmark, cash,
+  and terminal-return objects used by the run, plus SHA-256 hashes of every generated evidence
+  artifact and the complete installed strategy package.
+- `stock_audit.py` and `swing-trader research verify-stocks` fail closed on missing, modified,
+  untracked, stale-code, or non-research-authority bundles. The dashboard's stock tab renders only
+  after this verification passes.
 - `cash.py` uses the official FRED DGS3MO series with a one-observation lag and calendar-day accrual,
   avoiding an implicit 0% cash return before BIL existed.
   https://fred.stlouisfed.org/series/DGS3MO

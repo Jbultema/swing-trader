@@ -7,9 +7,12 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from swing_trader.stock_audit import audit_stock_research_bundle
+
 ROOT = Path(__file__).resolve().parents[2]
 REPORTS = ROOT / "reports/latest"
 SHADOW = ROOT / "reports/shadow"
+STOCK_REPORTS = ROOT / "reports/stock/latest"
 
 st.set_page_config(page_title="Swing Trader", page_icon="↗", layout="wide")
 st.title("Swing Trader")
@@ -39,7 +42,9 @@ exposure.metric("Gross exposure cap", f"{decisions['market']['gross_exposure_cap
 shadow_files = sorted(SHADOW.glob("*.json")) if SHADOW.exists() else []
 shadow_count.metric("Locked shadows", len(shadow_files))
 
-overview, action, risk, methods = st.tabs(["Performance", "Next action", "Risk", "Methods"])
+overview, action, risk, stock, methods = st.tabs(
+    ["Performance", "Next action", "Risk", "Stock research", "Methods"]
+)
 
 with overview:
     full = metrics.loc[metrics["split"] == "full"].copy()
@@ -104,6 +109,135 @@ with risk:
     st.warning(
         "Stops reduce modeled exposure after observed damage; they cannot prevent overnight gaps or guarantee an execution price."
     )
+
+with stock:
+    st.subheader("Individual-stock momentum research")
+    stock_manifest_path = STOCK_REPORTS / "manifest.json"
+    if not stock_manifest_path.exists():
+        st.info(
+            "No survivor-free stock research bundle exists yet. The Yahoo prototype failed the "
+            "coverage gate; run the preregistered pipeline only after importing licensed "
+            "point-in-time data."
+        )
+    else:
+        stock_audit = audit_stock_research_bundle(STOCK_REPORTS)
+        if not stock_audit.integrity_passed:
+            st.error(
+                "Stock evidence failed integrity or implementation verification. Results are "
+                "hidden rather than presented from a stale or modified bundle."
+            )
+            st.json(stock_audit.to_dict())
+        else:
+            stock_manifest = json.loads(stock_manifest_path.read_text())
+            stock_metrics = pd.read_csv(STOCK_REPORTS / "metrics.csv")
+            stock_validation = json.loads(
+                (STOCK_REPORTS / "statistical_validation.json").read_text()
+            )
+            stock_decisions = pd.read_parquet(STOCK_REPORTS / "selected_decisions.parquet")
+            stock_capacity = pd.read_csv(STOCK_REPORTS / "capacity.csv")
+            stock_regimes = pd.read_csv(STOCK_REPORTS / "hostile_regimes.csv")
+            stock_concentration = pd.read_csv(STOCK_REPORTS / "asset_concentration.csv")
+            selected_stock = stock_manifest["selected_variant"]
+            sealed = stock_metrics.loc[
+                (stock_metrics["strategy"] == selected_stock)
+                & (stock_metrics["split"] == "sealed_test")
+            ]
+            family = stock_validation["selection_family"]
+            pbo = stock_validation["approximate_combinatorial_pbo"]
+            walk_forward = stock_validation["walk_forward_vs_spy"]
+            sealed_concentration = stock_validation["selected_variant_asset_concentration"][
+                "sealed_test"
+            ]
+
+            cols = st.columns(5)
+            cols[0].metric("Evidence integrity", "PASS")
+            cols[1].metric("Selected variant", selected_stock)
+            cols[2].metric(
+                "Sealed-test CAGR",
+                f"{float(sealed.iloc[0]['cagr']):.1%}" if not sealed.empty else "N/A",
+            )
+            pbo_value = pbo.get("probability_selected_variant_below_oos_median")
+            cols[3].metric(
+                "Approximate PBO",
+                f"{float(pbo_value):.1%}" if pbo_value is not None else "N/A",
+            )
+            cols[4].metric(
+                "Walk-forward P(excess > 0)",
+                f"{float(walk_forward['probability_resampled_mean_excess_is_positive']):.1%}",
+            )
+            st.warning(
+                "This is retrospective, research-only evidence. It is not today's stock "
+                "recommendation and cannot authorize an order."
+            )
+
+            st.subheader("Why each modeled action occurred")
+            latest_date = pd.Timestamp(stock_decisions["date"].max())
+            latest = stock_decisions.loc[stock_decisions["date"] == latest_date].copy()
+            latest["reasons"] = latest["reasons"].map(
+                lambda values: (
+                    values if isinstance(values, str) else ", ".join(str(value) for value in values)
+                )
+            )
+            st.caption(
+                f"Latest retrospective close in this bundle: {latest_date.date()}; modeled "
+                "execution is no earlier than the next regular-session open."
+            )
+            st.dataframe(
+                latest[
+                    [
+                        "ticker",
+                        "action",
+                        "reasons",
+                        "rank",
+                        "score",
+                        "close",
+                        "entry_price",
+                        "high_watermark",
+                        "holding_sessions",
+                    ]
+                ],
+                hide_index=True,
+                width="stretch",
+            )
+
+            st.subheader("Validation and fragility")
+            validation_cols = st.columns(4)
+            validation_cols[0].metric(
+                "Family-wide p-value",
+                f"{float(family['family_wide_best_variant_p_value']):.3f}",
+            )
+            validation_cols[1].metric("BY-FDR discoveries", int(family["fdr_discoveries"]))
+            validation_cols[2].metric(
+                "Largest sealed winner",
+                sealed_concentration["largest_positive_contributor"] or "none",
+            )
+            validation_cols[3].metric(
+                "Top-5 positive P&L share",
+                f"{float(sealed_concentration['top_5_positive_pnl_share']):.1%}",
+            )
+            st.dataframe(
+                stock_metrics.loc[
+                    stock_metrics["strategy"].isin(
+                        [selected_stock, *stock_manifest["required_comparators"]]
+                    )
+                ],
+                hide_index=True,
+                width="stretch",
+            )
+            st.caption(
+                "Ticker concentration is measured from actual held weights. Current sector or "
+                "AI labels are not projected backward into historical claims."
+            )
+            st.dataframe(
+                stock_concentration.loc[stock_concentration["split"] == "sealed_test"].head(20),
+                hide_index=True,
+                width="stretch",
+            )
+            st.subheader("Hostile regimes and execution capacity")
+            st.dataframe(stock_regimes, hide_index=True, width="stretch")
+            st.dataframe(stock_capacity, hide_index=True, width="stretch")
+            if stock_audit.warnings:
+                st.json(stock_audit.to_dict())
 
 with methods:
     st.subheader("Decision data gate")

@@ -16,8 +16,8 @@ from swing_trader.backtest import (
 )
 from swing_trader.config import ExecutionConfig
 from swing_trader.execution import analyze_execution_capacity
-from swing_trader.metrics import performance_metrics
-from swing_trader.provenance import implementation_sha256
+from swing_trader.metrics import performance_metrics, regime_metrics
+from swing_trader.provenance import file_sha256, implementation_sha256, tabular_sha256
 from swing_trader.stock_comparators import (
     classic_stock_momentum_weights,
     point_in_time_equal_weight_weights,
@@ -32,8 +32,12 @@ from swing_trader.stock_signals import (
 from swing_trader.stock_strategy import StockStrategyPlan, build_stock_strategy_plan
 from swing_trader.stock_validation import (
     WalkForwardSelection,
+    approximate_combinatorial_pbo,
+    asset_pnl_concentration,
     expanding_walk_forward_selection,
     median_annual_excess_return,
+    paired_stationary_bootstrap,
+    stationary_bootstrap_family_validation,
 )
 
 
@@ -58,6 +62,17 @@ def run_stock_research(
     terminal_return_overrides: pd.DataFrame | None = None,
 ) -> StockResearchRun:
     """Run the preregistered stock family without silently dropping invalid paths."""
+    input_fingerprints = {
+        "ohlcv": tabular_sha256(ohlcv),
+        "membership": tabular_sha256(membership),
+        "benchmark": tabular_sha256(benchmark),
+        "cash_returns": tabular_sha256(cash_returns),
+        "terminal_return_overrides": (
+            tabular_sha256(terminal_return_overrides)
+            if terminal_return_overrides is not None
+            else None
+        ),
+    }
     close = ohlcv["Close"].astype(float)
     opens = ohlcv["Open"].astype(float)
     volume = ohlcv["Volume"].astype(float)
@@ -172,6 +187,7 @@ def run_stock_research(
         opens,
         cash_returns,
         terminal_return_overrides,
+        input_fingerprints,
     )
     return StockResearchRun(
         results=results,
@@ -298,6 +314,7 @@ def _write_stock_artifacts(
     opens: pd.DataFrame,
     cash_returns: pd.Series,
     terminal_returns: pd.DataFrame | None,
+    input_fingerprints: dict[str, str | None],
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     splits = {
@@ -373,6 +390,95 @@ def _write_stock_artifacts(
     pd.DataFrame(selected_cost_rows).to_csv(
         output_dir / "selected_cost_sensitivity.csv", index=False
     )
+    candidate_names = selection_scores.index.astype(str).tolist()
+    candidate_returns = pd.concat({name: results[name].returns for name in candidate_names}, axis=1)
+    benchmark_returns = results["spy"].returns.reindex(candidate_returns.index)
+    selection_returns = candidate_returns.loc[: config.validation.selection_end]
+    selection_benchmark = benchmark_returns.loc[selection_returns.index]
+    family_validation = stationary_bootstrap_family_validation(
+        selection_returns,
+        selection_benchmark,
+        mean_block_sessions=config.validation.mean_block_sessions,
+        samples=config.validation.bootstrap_samples,
+        fdr_level=config.validation.fdr_level,
+    )
+    family_validation.variants.to_csv(output_dir / "multiple_testing.csv")
+    pbo = approximate_combinatorial_pbo(
+        selection_returns,
+        partitions=config.validation.pbo_partitions,
+    )
+    walk_forward_bootstrap = paired_stationary_bootstrap(
+        walk_forward.selected_returns,
+        benchmark_returns.reindex(walk_forward.selected_returns.index),
+        mean_block_sessions=config.validation.mean_block_sessions,
+        samples=config.validation.bootstrap_samples,
+    )
+    concentration_frames: list[pd.DataFrame] = []
+    concentration_summary: dict[str, object] = {}
+    for split, (start, end) in splits.items():
+        concentration = asset_pnl_concentration(
+            results[selected_variant],
+            opens,
+            initial_capital=config.execution.initial_capital,
+            start=start,
+            end=end,
+            terminal_return_overrides=terminal_returns,
+        )
+        concentration_summary[split] = concentration.summary
+        frame = concentration.assets.reset_index()
+        frame.insert(0, "split", split)
+        concentration_frames.append(frame)
+    pd.concat(concentration_frames, ignore_index=True).to_csv(
+        output_dir / "asset_concentration.csv", index=False
+    )
+    statistical_validation = {
+        "selection_family": family_validation.summary,
+        "approximate_combinatorial_pbo": pbo,
+        "walk_forward_vs_spy": walk_forward_bootstrap,
+        "selected_variant_asset_concentration": concentration_summary,
+        "selection_period_only_for_family_tests": (f"through {config.validation.selection_end}"),
+        "interpretation": (
+            "Multiplicity tests use the complete capacity-passing preregistered family. "
+            "The paired interval uses stitched expanding walk-forward returns. Neither result "
+            "authorizes trading without prospective evidence."
+        ),
+    }
+    (output_dir / "statistical_validation.json").write_text(
+        json.dumps(statistical_validation, indent=2) + "\n", encoding="utf-8"
+    )
+
+    regime_rows: list[pd.DataFrame] = []
+    for name in [selected_variant, *config.validation.required_comparators]:
+        result = results[name]
+        regimes = regime_metrics(result.returns, result.equity)
+        if regimes.empty:
+            continue
+        regimes = regimes.reset_index()
+        regimes.insert(0, "strategy", name)
+        regime_rows.append(regimes)
+    regime_output = (
+        pd.concat(regime_rows, ignore_index=True)
+        if regime_rows
+        else pd.DataFrame(
+            columns=[
+                "strategy",
+                "regime",
+                "start",
+                "end",
+                "total_return",
+                "annualized_volatility",
+                "max_drawdown",
+                "worst_day",
+            ]
+        )
+    )
+    regime_output.to_csv(output_dir / "hostile_regimes.csv", index=False)
+
+    artifact_sha256 = {
+        path.name: file_sha256(path)
+        for path in sorted(output_dir.iterdir())
+        if path.is_file() and path.name != "manifest.json"
+    }
     manifest = {
         "created_at_utc": datetime.now(UTC).isoformat(),
         "research_status": "retrospective_candidate_not_live_approved",
@@ -390,6 +496,9 @@ def _write_stock_artifacts(
             orient="records"
         ),
         "required_comparators": list(config.validation.required_comparators),
+        "statistical_validation": statistical_validation,
+        "input_fingerprints": input_fingerprints,
+        "artifact_sha256": artifact_sha256,
         "implementation_sha256": implementation_sha256(),
     }
     (output_dir / "manifest.json").write_text(

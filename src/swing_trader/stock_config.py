@@ -52,6 +52,10 @@ class StockValidationConfig:
     sealed_test_start: str
     primary_metric: str
     required_comparators: tuple[str, ...]
+    bootstrap_samples: int
+    mean_block_sessions: int
+    pbo_partitions: int
+    fdr_level: float
 
 
 @dataclass(frozen=True)
@@ -122,5 +126,13 @@ def _validate_stock_config(config: StockExperimentConfig) -> None:
     sealed_start = date.fromisoformat(config.validation.sealed_test_start)
     if not selection_end < validation_start <= validation_end < sealed_start:
         raise ValueError("Stock selection, validation, and sealed-test dates must not overlap.")
+    if config.validation.bootstrap_samples < 100:
+        raise ValueError("Stock validation requires at least 100 bootstrap samples.")
+    if config.validation.mean_block_sessions < 1:
+        raise ValueError("Stock validation mean_block_sessions must be positive.")
+    if config.validation.pbo_partitions < 4 or config.validation.pbo_partitions % 2:
+        raise ValueError("Stock validation pbo_partitions must be even and at least four.")
+    if not 0.0 < config.validation.fdr_level < 1.0:
+        raise ValueError("Stock validation fdr_level must be in (0, 1).")
     if config.benchmarks.cash_series != "FRED_DGS3MO":
         raise ValueError("The implemented causal stock cash series is FRED_DGS3MO.")
