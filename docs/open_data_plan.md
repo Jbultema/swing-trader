@@ -115,6 +115,32 @@ Official references:
    `historical_backtest_ready=false` and `action_authorized=false`: Tiingo states that its public
    catalog includes reserved symbols, so only authenticated metadata and historical bars can prove
    availability, and neither can prove that a recycled ticker refers to the intended security.
+10. Probe and acquire the official public-domain WIKI archive only through the ignored local
+    `NASDAQ_DATA_LINK_API_KEY`. `probe-nasdaq-wiki` retains no credential or returned price, while
+    `download-nasdaq-wiki` hashes and schema-checks the raw ZIP and still labels it pending identity
+    and coverage audit. The keyless endpoint returned HTTP 403 on 2026-10-08 UTC, so the project
+    does not pretend the archive can be reproduced unattended without a free account.
+
+### WIKI supplement feasibility result
+
+The public WIKI ticker list suggested meaningful overlap, so a second diagnostic examined the
+unlicensed `teddykoker/survivorship-free-spy` research archive without importing or committing it.
+Its 18 MiB ZIP (`38f59346018c8ffab5a2ad97843231f15b3988fb52798f0552ea153752b42af4`)
+contains 617,642 adjusted OHLCV rows for 639 labels from 2013-02-28 through 2018-02-28,
+derived by its author from WIKI and Yahoo.
+
+Merged with the locked October 2026 research panel, exact point-date coverage rose to 99.8% on
+2015-01-05 and 100% on 2017-01-03. Across all SPY sessions from 2014-01-02 through 2026-09-29,
+the diagnostic reached 99.31% member-date coverage and 98.75% 252-session warm-up coverage. It
+still failed the production research gate because BTUUQ-201704, FRC, HFC, and LIFE-201402 had no
+accepted mapped series. FRC is especially non-negotiable: excluding the S&P 500 member that failed
+during the 2023 bank crisis would directly flatter a loss-avoidance strategy.
+
+This establishes that the official free-key WIKI archive is worth acquiring and auditing, not that
+the community ZIP is an accepted source. WIKI ends before FRC joined the index, so even the official
+archive cannot close every post-2018 failure hole. A historical performance claim remains prohibited
+until every missing identity, corporate action, and terminal return is resolved or the tested period
+is prospectively bounded without selecting it from performance.
 
 ### Tiingo catalog feasibility result
 

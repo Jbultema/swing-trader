@@ -33,6 +33,11 @@ from swing_trader.finra_activity import (
     download_candidate_finra_activity,
     latest_finra_activity_manifest,
 )
+from swing_trader.nasdaq_wiki import (
+    download_nasdaq_wiki_archive,
+    probe_nasdaq_wiki_access,
+    verify_nasdaq_wiki_archive,
+)
 from swing_trader.prospective import write_prospective_evaluation
 from swing_trader.published_momentum import (
     audit_published_momentum_report,
@@ -231,6 +236,51 @@ def data_probe_alpha_shares(
         f"Alpha {result.endpoint} capability={result.status}; "
         f"free-tier usable={result.usable_on_free_tier}; evidence={result.path.name}."
     )
+
+
+@data_app.command("probe-nasdaq-wiki")
+def data_probe_nasdaq_wiki(
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "reports/private/provider-capabilities/nasdaq-wiki"
+    ),
+) -> None:
+    """Test free-key access to one frozen public-domain WIKI row; retain no row or key."""
+    _load_local_environment()
+    key = os.getenv("NASDAQ_DATA_LINK_API_KEY", "").strip()
+    result = probe_nasdaq_wiki_access(key, output)
+    typer.echo(
+        f"Nasdaq WIKI capability={result.status}; "
+        f"configured-key usable={result.usable_with_configured_key}; evidence={result.path.name}."
+    )
+
+
+@data_app.command("download-nasdaq-wiki")
+def data_download_nasdaq_wiki(
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "data/raw/nasdaq-wiki/WIKI_PRICES.zip"
+    ),
+) -> None:
+    """Lock the free-key WIKI bulk archive locally; never mark it backtest-ready."""
+    _load_local_environment()
+    key = os.getenv("NASDAQ_DATA_LINK_API_KEY", "").strip()
+    result = download_nasdaq_wiki_archive(key, output)
+    typer.echo(
+        f"Locked Nasdaq WIKI archive {result.archive_path}; sha256={result.sha256}. "
+        "Identity and PIT coverage audits remain required; no order was placed."
+    )
+
+
+@data_app.command("verify-nasdaq-wiki")
+def data_verify_nasdaq_wiki(
+    archive: Annotated[Path, typer.Option("--archive")] = Path(
+        "data/raw/nasdaq-wiki/WIKI_PRICES.zip"
+    ),
+) -> None:
+    """Verify the local WIKI archive hash, schema, and research-only manifest."""
+    passed = verify_nasdaq_wiki_archive(archive)
+    typer.echo(json.dumps({"archive": str(archive), "integrity_passed": passed}, indent=2))
+    if not passed:
+        raise typer.Exit(code=2)
 
 
 @data_app.command("snapshot-earnings")

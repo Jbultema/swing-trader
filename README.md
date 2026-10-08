@@ -211,6 +211,20 @@ Inputs default to ignored `imports/sp500-data/` paths and the report to ignored
 reserved symbols, and ticker reuse can map an old company to a different current security. The
 command therefore never marks the history backtest-ready or action-authorized.
 
+The official public-domain Nasdaq WIKI archive is another optional local supplement. It requires a
+free Nasdaq Data Link account key even though the archived dataset itself is public domain:
+
+```bash
+poetry run swing-trader data probe-nasdaq-wiki
+poetry run swing-trader data download-nasdaq-wiki
+poetry run swing-trader data verify-nasdaq-wiki
+```
+
+Set `NASDAQ_DATA_LINK_API_KEY` only in the ignored `.env`. The downloader sends it in an HTTP
+header, never writes it to evidence, and stores the raw archive under ignored `data/raw/`. Passing
+the archive verifier proves only bytes and schema; ticker identity, terminal returns, PIT coverage,
+and the post-2018 gap remain separate mandatory gates.
+
 Official published portfolios provide a separate gross sanity check that does not bypass that gate:
 
 ```bash
