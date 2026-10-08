@@ -167,7 +167,7 @@ def download_current_stock_prices(
     extra_tickers: Iterable[str] = (),
     benchmark: str = "SPY",
     lookback_calendar_days: int = 800,
-    batch_size: int = 100,
+    batch_size: int = 600,
     downloader: PriceDownloader = yf.download,
     now: datetime | None = None,
 ) -> StockPriceSnapshot:
@@ -588,50 +588,91 @@ def _download_batches(
     downloader: PriceDownloader,
     retry_attempts: int = 2,
     retry_delay_seconds: float = 2.0,
+    individual_retry_limit: int = 10,
+    request_timeout_seconds: float = 20.0,
     sleeper: Callable[[float], None] = sleep,
 ) -> pd.DataFrame:
+    if retry_attempts < 0:
+        raise ValueError("retry_attempts cannot be negative.")
+    if individual_retry_limit < 0:
+        raise ValueError("individual_retry_limit cannot be negative.")
+    if request_timeout_seconds <= 0.0:
+        raise ValueError("request_timeout_seconds must be positive.")
+
     frames: list[pd.DataFrame] = []
     for offset in range(0, len(tickers), batch_size):
         canonical = tickers[offset : offset + batch_size]
-        provider = [ticker.replace(".", "-") for ticker in canonical]
-        raw = downloader(
-            provider,
-            start=start.isoformat(),
-            end=end.isoformat(),
-            auto_adjust=True,
-            actions=False,
-            group_by="column",
-            progress=False,
-            threads=True,
+        frames.append(
+            _download_ticker_group(
+                canonical,
+                start=start,
+                end=end,
+                downloader=downloader,
+                request_timeout_seconds=request_timeout_seconds,
+            )
         )
-        frames.append(_normalize_yahoo_batch(raw, canonical, provider))
     combined = pd.concat(frames, axis=1).sort_index()
     combined = combined.loc[:, ~combined.columns.duplicated()]
     combined.columns = pd.MultiIndex.from_tuples(combined.columns, names=["field", "ticker"])
+
+    # Yahoo can return complete history but omit the newest row for an entire request shard. Retry
+    # the unresolved set collectively before considering single-symbol recovery. This avoids
+    # turning a transient 150-name partial response into hundreds of serial HTTP calls.
     for attempt in range(retry_attempts):
         pending = _incomplete_tickers(combined, tickers)
         if not pending:
             break
         if retry_delay_seconds > 0:
             sleeper(retry_delay_seconds * (attempt + 1))
+        for offset in range(0, len(pending), batch_size):
+            canonical = pending[offset : offset + batch_size]
+            retry = _download_ticker_group(
+                canonical,
+                start=start,
+                end=end,
+                downloader=downloader,
+                request_timeout_seconds=request_timeout_seconds,
+            )
+            combined = combined.combine_first(retry)
+
+    pending = _incomplete_tickers(combined, tickers)
+    if 0 < len(pending) <= individual_retry_limit:
         for ticker in pending:
-            provider = ticker.replace(".", "-")
-            try:
-                raw = downloader(
-                    [provider],
-                    start=start.isoformat(),
-                    end=end.isoformat(),
-                    auto_adjust=True,
-                    actions=False,
-                    group_by="column",
-                    progress=False,
-                    threads=False,
-                )
-                retry = _normalize_yahoo_batch(raw, (ticker,), [provider])
-                combined = combined.combine_first(retry)
-            except Exception:
-                continue
+            retry = _download_ticker_group(
+                (ticker,),
+                start=start,
+                end=end,
+                downloader=downloader,
+                request_timeout_seconds=request_timeout_seconds,
+            )
+            combined = combined.combine_first(retry)
     return combined.sort_index(axis=1)
+
+
+def _download_ticker_group(
+    canonical_tickers: tuple[str, ...],
+    *,
+    start: date,
+    end: date,
+    downloader: PriceDownloader,
+    request_timeout_seconds: float,
+) -> pd.DataFrame:
+    provider_tickers = [ticker.replace(".", "-") for ticker in canonical_tickers]
+    try:
+        raw = downloader(
+            provider_tickers,
+            start=start.isoformat(),
+            end=end.isoformat(),
+            auto_adjust=True,
+            actions=False,
+            group_by="column",
+            progress=False,
+            threads=len(provider_tickers) > 1,
+            timeout=request_timeout_seconds,
+        )
+    except Exception:
+        raw = pd.DataFrame()
+    return _normalize_yahoo_batch(raw, canonical_tickers, provider_tickers)
 
 
 def _incomplete_tickers(frame: pd.DataFrame, tickers: tuple[str, ...]) -> tuple[str, ...]:

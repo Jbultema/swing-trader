@@ -45,7 +45,20 @@ jobs:
           poetry run swing-trader audit
           echo "passed=true" >> "$GITHUB_OUTPUT"
       - name: Enforce decision data gate
-        run: poetry run swing-trader audit --require-data-gate
+        run: |
+          set +e
+          poetry run swing-trader audit --require-data-gate
+          audit_status=$?
+          set -e
+          if [[ "$audit_status" -eq 0 ]]; then
+            exit 0
+          fi
+          if [[ "$audit_status" -eq 3 ]]; then
+            echo "::warning title=Decision data gate unavailable::Research artifacts are intact, but no action is authorized."
+            exit 0
+          fi
+          echo "::error title=Operational audit failed::Unexpected audit exit code $audit_status."
+          exit "$audit_status"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -50,8 +50,11 @@ independent gates, candidate construction, signals, exits, and paper accounting.
 hash is retained on every state and the evaluator has its own code hash, so UI or neutral sidecar
 changes stay visible without restarting the portfolio. The hosted job restores only a matching
 policy lineage, records holidays as no-ops before spending optional-provider calls, and fails on a
-missed trading session. Public-price batches receive bounded single-symbol retries, but the 99%
-close coverage threshold is never relaxed.
+missed trading session. The current roster is requested in one bounded Yahoo batch when possible.
+A partial newest row is retried as a collective missing-name set before at most ten residual
+symbols receive individual recovery calls. This prevents a provider shard failure from becoming
+hundreds of serial requests; the unchanged 99% close coverage gate still rejects an incomplete
+cross-section.
 Yahoo share collection is additionally isolated behind a ten-minute process deadline because the
 underlying unofficial client can hang below Python's request boundary. Timed-out names remain
 auditable unavailable rows; they cannot acquire an inferred denominator or block the primary arm.
@@ -78,6 +81,14 @@ prior close's gate for the following realized transition and reports failed-gate
 diagnostic evidence.
 
 The scheduled workflow downloads data, reconciles completed-month returns against Alpha Vantage when its repository secret is configured, runs validation, locks a content-hashed shadow record, and uploads a read-only artifact. The same job is triggered by decision-path pushes to `main`, so a changed policy receives clean hosted evidence without depending on manual-dispatch authority. It has `contents: read` permission and no broker credentials. A missing or failed secondary feed leaves hypothetical research visible but invalidates every action. Human execution is a hard system boundary.
+
+Workflow status separates system integrity from optional-provider availability. Missing, malformed,
+tampered, or implementation-mismatched evidence remains a hard failure. An otherwise intact daily
+bundle whose independent decision gate is unavailable is a warning and remains fail-closed. The
+weekly Alpha cache skips with a warning only when its secret is absent; a configured refresh error
+still fails. The SEC connectivity check is weekly/manual and treats a well-formed provider-access
+failure as diagnostic evidence, but fails if its structured report is missing or malformed. Thus a
+green workflow means the automation and evidence contract completed, not that a trade is authorized.
 
 ## Champion exit hierarchy
 

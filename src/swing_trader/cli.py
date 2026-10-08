@@ -642,7 +642,10 @@ def audit(
     if not result.integrity_passed:
         raise typer.Exit(code=1)
     if require_data_gate and not result.data_gate_passed:
-        raise typer.Exit(code=2)
+        # Keep a data-availability refusal distinct from Typer's usage-error code (2)
+        # and from artifact-integrity failures (1). Hosted automation may surface this
+        # exact fail-closed state as a warning without hiding real implementation errors.
+        raise typer.Exit(code=3)
 
 
 @shadow_app.command("record")

@@ -181,6 +181,13 @@ data can support a strong prospective system and selected covered historical rep
 cannot justify a universal survivor-free historical claim when missing names are correlated with
 failure.
 
+The hosted price collector requests the current roster in one batch and retries incomplete latest
+rows collectively before allowing at most ten residual single-name calls. The job is scheduled at
+06:30 UTC so the previous U.S. session has settled and both UTC and U.S. Eastern midnight have
+passed. Alpha Vantage documents the 25-request free daily allowance but not its reset boundary, so
+the workflow does not infer that UTC midnight restores quota. Neither recovery step relaxes the
+99% current-close gate; a partial provider cross-section still produces no state.
+
 ## Implemented FINRA workaround
 
 `swing-trader data snapshot-finra-activity` retrieves 21 consolidated daily files from FINRA's
@@ -210,5 +217,6 @@ bindings. Its manifest disables sentiment, direction, ranking, portfolio-state, 
 The official endpoint returned HTTP 403 from this execution environment on 2026-10-07 even with a
 declared research user agent. The module and daily nonblocking recovery path are implemented and
 tested, but live availability is not claimed until the dedicated GitHub-hosted access probe passes.
-The probe writes a retained success/failure artifact; the bot does not silently substitute an
-unofficial filing mirror.
+That probe is a weekly/manual diagnostic: a well-formed provider-access failure is retained and
+warned without generating a red run, while a missing or malformed report fails the workflow. The
+bot does not silently substitute an unofficial filing mirror.

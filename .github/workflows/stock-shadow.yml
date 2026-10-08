@@ -20,7 +20,7 @@ on:
       - "src/swing_trader/stock_turnover.py"
       - "src/swing_trader/stock_universe.py"
   schedule:
-    - cron: "30 0 * * 2-6"
+    - cron: "30 6 * * 2-6"
   workflow_dispatch:
 
 concurrency:
@@ -47,6 +47,17 @@ jobs:
           cache: pip
       - run: pip install poetry
       - run: poetry install --only main --sync
+      - name: Report unconfigured optional provider
+        if: ${{ env.ALPHA_VANTAGE_API_KEY == '' }}
+        run: |
+          echo "::warning title=Alpha Vantage secret not configured::The stock shadow will remain fail-closed for independent validation."
+          {
+            echo "## No-paid stock shadow"
+            echo
+            echo "- Alpha Vantage validation: **not configured**"
+            echo "- Result: the shadow may record research evidence, but independent-validation eligibility remains false"
+            echo "- Trading authorization: **false**"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Advance immutable stock shadow
         run: poetry run swing-trader stock-daily --archive-root durable-evidence/evidence/stock-shadow
       - uses: actions/upload-artifact@v4

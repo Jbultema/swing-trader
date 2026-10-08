@@ -71,8 +71,17 @@ def test_cli_strict_gate_alerts_but_default_audit_remains_diagnostic(tmp_path: P
     strict = runner.invoke(app, [*common, "--require-data-gate"])
 
     assert diagnostic.exit_code == 0
-    assert strict.exit_code == 2
+    assert strict.exit_code == 3
     assert "FAIL CLOSED" in strict.stdout
+
+    shadow_path = next(shadows.glob("*.json"))
+    shadow = _read(shadow_path)
+    shadow["system"] = "tampered"
+    _write(shadow_path, shadow)
+    broken = runner.invoke(app, [*common, "--require-data-gate"])
+
+    assert broken.exit_code == 1
+    assert "Artifact integrity: **FAIL**" in broken.stdout
 
 
 def _bundle(tmp_path: Path) -> tuple[Path, Path, Path, Path]:

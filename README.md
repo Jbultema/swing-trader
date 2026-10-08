@@ -39,7 +39,7 @@ GitHub Actions runs the same research-only snapshot after U.S. market hours on w
 
 Each hosted run also scores previously locked, unique monthly decisions at 5-, 21-, and 63-session horizons once those future opens exist. Repeated daily holds are deduplicated, frozen turnover costs are applied, and failed-gate records are excluded from performance summaries. Point the same evaluator at a local archive with `poetry run swing-trader shadow evaluate --records evidence/records`.
 
-Each run also binds the exact downloaded price-file SHA-256 into the quality report and locked shadow. Stable strategy/configuration and full implementation-code hashes are recorded separately, so an audit can distinguish a new data date from an actual model change. The audit checks that provenance chain, cross-file gate consistency, research-only authority, and every shadow-record hash. The result—including the gate state, hypothetical holdings, and capital-preservation comparator—is written to the GitHub Actions run summary. Run the same check locally with `poetry run swing-trader audit`; integrity failures return a nonzero exit code, while an unavailable independent feed is clearly reported as `FAIL CLOSED`. Hosted runs add `--require-data-gate`, so a missing or divergent independent feed creates a visible failed workflow while `if: always()` still preserves its forensic artifact.
+Each run also binds the exact downloaded price-file SHA-256 into the quality report and locked shadow. Stable strategy/configuration and full implementation-code hashes are recorded separately, so an audit can distinguish a new data date from an actual model change. The audit checks that provenance chain, cross-file gate consistency, research-only authority, and every shadow-record hash. The result—including the gate state, hypothetical holdings, and capital-preservation comparator—is written to the GitHub Actions run summary. Run the same check locally with `poetry run swing-trader audit`; integrity failures return a nonzero exit code, while an unavailable independent feed is clearly reported as `FAIL CLOSED`. Hosted runs classify that exact intact-but-unavailable state as a yellow warning so recurring provider limits do not create failure email, but any missing, malformed, tampered, or implementation-mismatched artifact remains a failed workflow. Either state authorizes no action, and `if: always()` still preserves the forensic artifact.
 
 ## Evidence boundaries
 
@@ -156,17 +156,26 @@ eligible sessions, 30 completed exits, and 10 risk-off sessions. At 21 eligible 
 report begins a 2,000-sample paired stationary-bootstrap interval, but meeting any monitoring
 threshold still does not authorize a trade.
 
-The `No-paid stock shadow` workflow runs at 00:30 UTC Tuesday through Saturday, corresponding to
-the prior U.S. weekday close. A push to `main` that changes the decision path also runs the same
-job, providing a clean hosted initialization for each changed policy when manual dispatch is not
-available. It restores the exact content-hashed lineage from the durable evidence
-branch, retries transient Yahoo misses twice as single-symbol requests, and archives candidates,
+The `No-paid stock shadow` workflow runs at 06:30 UTC Tuesday through Saturday, after the prior
+U.S. weekday's public daily bars have settled and after both UTC and U.S. Eastern midnight. Alpha
+Vantage documents its 25-request free daily limit but not the reset boundary, so the schedule does
+not assume an undocumented UTC reset. A push to `main` that changes the
+decision path also runs the same job, providing a clean hosted initialization for each changed
+policy when manual dispatch is not available. It restores the exact content-hashed lineage from
+the durable evidence branch, retries a partial Yahoo cross-section collectively before making at
+most ten residual single-symbol requests, and archives candidates,
 validations, earnings inputs, decisions, and run diagnostics. The state lineage is keyed by both the
 stock decision-policy hash and frozen config; a signal, gate, execution, or config change starts a
 new paper sequence from cash rather than joining incomparable rules. The full package hash and a
 separate evaluation-method hash remain recorded for forensic reproducibility, but dashboard and
 diagnostic-collector changes no longer erase portfolio continuity. A holiday is a recorded no-op,
 while a genuinely missed trading session fails closed for manual reconciliation.
+
+The optional weekly Alpha Vantage cache is skipped with a visible warning when its repository
+secret is absent; a configured provider call that fails still fails the workflow. The SEC access
+check is a weekly/manual diagnostic because the official endpoint may reject GitHub-hosted network
+traffic even though the parser and evidence path are healthy. A structured `failed` provider result
+is retained as a warning, while a missing or malformed report remains a real workflow failure.
 
 The dashboard's stock tab shows the latest state gate, decision-policy lineage status, market regime,
 next-open targets, cash/equity/cost accounting, captured shares, share turnover, independent return

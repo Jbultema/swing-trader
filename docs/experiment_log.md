@@ -30,21 +30,29 @@ Removing every sector ETF produced 11.08% CAGR, 0.78 Sharpe, 23.65% maximum draw
 
 ## Exact share-turnover forward test — initialized, no performance yet
 
-After the 2026-10-07 close, policy lineage
-`policy-afeefb47543e-config-304c8f60d6cb` initialized from cash. The open Yahoo
-shares-outstanding gate passed for 500 of 503 current constituents (99.40%); ERIE, WAT, and WBD
-were excluded as stale. Independent top quintiles of t-20-to-t-3 return and share turnover
-intersected in 31 names. The locked top ten were MRNA, ILMN, P, ON, LITE, SWKS, COHR, GNRC, SMCI,
-and RVTY. Separate 5-, 10-, and 21-session maximum-hold arms all recorded those next-open targets.
+After the 2026-10-07 close, the current policy lineage
+`policy-fab869db5397-config-3c8429efbbec` initialized from cash. The Yahoo price gate passed with
+501 of 504 requested symbols current (99.40%) and 499 with at least 252 observations (99.01%). The
+separate shares-outstanding gate passed for 500 of 503 current constituents (99.40%); ERIE, WAT,
+and WBD were excluded as stale. Independent top quintiles of t-20-to-t-3 return and share turnover
+again selected MRNA, ILMN, P, ON, LITE, SWKS, COHR, GNRC, SMCI, and RVTY before portfolio
+constraints. The new three-name sector entry cap left SWKS, COHR, and SMCI as explained
+Information Technology `SKIP` rows, so the exact 5-, 10-, and 21-session arms each recorded seven
+next-open targets and 30% cash. The primary consensus recorded nine targets and 10% cash after A
+became an explained fourth-Health-Care skip.
 
 This record has one state and zero realized transitions, so CAGR, Sharpe, drawdown, hit rate, and
-excess return are all undefined. Alpha Vantage and earnings checks failed because the daily free
-quota had already been consumed; the primary consensus state therefore failed its eligibility gate.
-The exact Yahoo-only diagnostics initialized correctly, FINRA context passed, all candidate/state
-hashes verified, and no order was placed. The next completed session is the first possible return
+excess return are all undefined. Alpha Vantage and earnings checks still received the provider's
+free-limit response, so the primary consensus state is operationally visible but ineligible. The
+exact Yahoo-only diagnostics initialized correctly, FINRA context passed, every candidate/state
+hash verified, and no order was placed. The next completed session is the first possible return
 observation; 21 sessions are required before paired intervals and 63 before family-wide inference.
-An earlier same-close initialization was superseded before any realized transition after review
-found that its experimental shares gate could halt the primary lineage. The hardened policy keeps
-the primary sequence running, forces exact arms toward cash after a failed shares gate, and excludes
-the affected transition from exact-signal inference. Because neither lineage had observed a return,
-this correction did not discard or select on performance.
+
+The same-close earlier lineages were superseded before observing any transition while share-gate
+coupling, sector concentration, and public-price recovery were hardened. One hosted run had failed
+unchanged 99% coverage after Yahoo returned only 354 of 504 latest closes and the old recovery path
+made hundreds of serial requests. A later full-roster collection passed with 501 current closes in
+18 seconds. The frozen recovery now retries incomplete names collectively, permits at most ten
+residual single-name calls, and runs after both UTC and U.S. Eastern midnight; it never relaxes the
+coverage gate. Because none of the superseded lineages observed a return, these changes did not
+discard or select on performance.

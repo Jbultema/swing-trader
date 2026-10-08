@@ -162,6 +162,56 @@ def test_batch_downloader_retries_missing_symbols_individually() -> None:
     assert calls == [("A", "B"), ("B",)]
 
 
+def test_batch_downloader_retries_a_large_missing_set_collectively() -> None:
+    dates = pd.bdate_range("2026-10-01", periods=3)
+    calls: list[tuple[str, ...]] = []
+
+    def downloader(tickers: list[str], **_kwargs: object) -> pd.DataFrame:
+        calls.append(tuple(tickers))
+        if len(calls) == 1:
+            return _provider_prices(dates, ("A",))
+        return _provider_prices(dates, tuple(tickers))
+
+    result = _download_batches(
+        ("A", "B", "C", "D"),
+        start=date(2026, 10, 1),
+        end=date(2026, 10, 7),
+        batch_size=100,
+        downloader=downloader,
+        retry_attempts=1,
+        retry_delay_seconds=0.0,
+        individual_retry_limit=0,
+    )
+
+    assert result["Close"].notna().all().all()
+    assert calls == [("A", "B", "C", "D"), ("B", "C", "D")]
+
+
+def test_batch_downloader_recovers_from_an_initial_request_exception() -> None:
+    dates = pd.bdate_range("2026-10-01", periods=3)
+    calls = 0
+
+    def downloader(tickers: list[str], **_kwargs: object) -> pd.DataFrame:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise TimeoutError("transient provider timeout")
+        return _provider_prices(dates, tuple(tickers))
+
+    result = _download_batches(
+        ("A", "B"),
+        start=date(2026, 10, 1),
+        end=date(2026, 10, 7),
+        batch_size=100,
+        downloader=downloader,
+        retry_attempts=1,
+        retry_delay_seconds=0.0,
+    )
+
+    assert result["Close"].notna().all().all()
+    assert calls == 2
+
+
 def test_stock_price_snapshot_audit_binds_universe_and_detects_tampering(
     tmp_path: Path,
 ) -> None:
