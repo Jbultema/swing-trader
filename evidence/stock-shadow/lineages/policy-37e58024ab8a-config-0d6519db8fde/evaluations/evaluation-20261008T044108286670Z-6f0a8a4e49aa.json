@@ -1,0 +1,532 @@
+{
+  "schema_version": 6,
+  "record_type": "prospective_stock_shadow_evaluation",
+  "research_status": "prospective_paper_only_not_trading_authority",
+  "data_cost_policy": "no_paid_sources",
+  "action_authorized": false,
+  "lineage_id": "policy-37e58024ab8a-config-0d6519db8fde",
+  "stock_policy_sha256": "37e58024ab8a68065503fa68a628cdbd2e62975bd806d80e566e182465489d9f",
+  "state_package_implementation_sha256": [
+    "c6f5de91de419f39d724e16655f7ee6e266a69cad55e1254f67561f91c5925db"
+  ],
+  "evaluation_implementation_sha256": "2ef1787594f2fe299a5c834e9c596ae50a9e41d7af2bf5146a429ced601fffdc",
+  "evaluation_package_implementation_sha256": "c6f5de91de419f39d724e16655f7ee6e266a69cad55e1254f67561f91c5925db",
+  "states_seen": 1,
+  "state_record_sha256": [
+    "d6021d275eaea25866ae4cf75912f5845a2807392847eccd22f5fbf0bff2cfaa"
+  ],
+  "first_session": "2026-10-07",
+  "last_session": "2026-10-07",
+  "method": "self-financing fractional-share paper accounts; prior-close decision executes at next adjusted open; survivors are not resized; 50bp round-trip cost is split evenly across entry and exit; eligibility belongs to the prior decision gate",
+  "transitions": [],
+  "diagnostic_all_sessions": {
+    "primary_consensus": {
+      "sessions": 0,
+      "cumulative_return": null,
+      "annualized_return": null,
+      "annualized_volatility": null,
+      "sharpe_zero_cash_benchmark": null,
+      "maximum_drawdown": null,
+      "positive_session_fraction": null
+    },
+    "market_guard_comparator": {
+      "sessions": 0,
+      "cumulative_return": null,
+      "annualized_return": null,
+      "annualized_volatility": null,
+      "sharpe_zero_cash_benchmark": null,
+      "maximum_drawdown": null,
+      "positive_session_fraction": null
+    },
+    "experimental_arms": {
+      "consensus_breadth_guard": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "classic_12_1_hold21": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "share_turnover_hold5": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "share_turnover_hold10": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "share_turnover_hold21": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "short_volume_hold5": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "short_volume_hold10": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "short_volume_hold21": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      }
+    },
+    "spy_buy_hold": {
+      "sessions": 0,
+      "cumulative_return": null,
+      "annualized_return": null,
+      "annualized_volatility": null,
+      "sharpe_zero_cash_benchmark": null,
+      "maximum_drawdown": null,
+      "positive_session_fraction": null
+    }
+  },
+  "diagnostic_data_gate_eligible": {
+    "experimental_arms": {
+      "consensus_breadth_guard": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "classic_12_1_hold21": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "share_turnover_hold5": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "share_turnover_hold10": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "share_turnover_hold21": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "short_volume_hold5": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "short_volume_hold10": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      },
+      "short_volume_hold21": {
+        "sessions": 0,
+        "cumulative_return": null,
+        "annualized_return": null,
+        "annualized_volatility": null,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": null,
+        "positive_session_fraction": null
+      }
+    },
+    "method": "a transition is eligible only when the prior close had that arm's signal data and the current close valuation is complete"
+  },
+  "diagnostic_arm_comparisons": {
+    "status": "diagnostic_only_not_primary_evidence",
+    "minimum_paired_sessions": 21,
+    "minimum_family_sessions": 63,
+    "same_signal_reference_arms": {
+      "breadth_guard": "consensus_breadth_guard",
+      "classic_12_1": "classic_12_1_hold21",
+      "short_volume": "short_volume_hold21",
+      "share_turnover": "share_turnover_hold21"
+    },
+    "method": "paired stationary bootstrap for each preregistered arm; common stationary bootstrap and Benjamini-Yekutieli correction across the complete arm family",
+    "per_arm": {
+      "consensus_breadth_guard": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "reference_arm",
+          "reference": "consensus_breadth_guard"
+        }
+      },
+      "classic_12_1_hold21": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "reference_arm",
+          "reference": "classic_12_1_hold21"
+        }
+      },
+      "share_turnover_hold5": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21,
+          "reference": "share_turnover_hold21"
+        }
+      },
+      "share_turnover_hold10": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21,
+          "reference": "share_turnover_hold21"
+        }
+      },
+      "share_turnover_hold21": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "reference_arm",
+          "reference": "share_turnover_hold21"
+        }
+      },
+      "short_volume_hold5": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21,
+          "reference": "short_volume_hold21"
+        }
+      },
+      "short_volume_hold10": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21,
+          "reference": "short_volume_hold21"
+        }
+      },
+      "short_volume_hold21": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 0,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "reference_arm",
+          "reference": "short_volume_hold21"
+        }
+      }
+    },
+    "family_vs_primary_consensus": {
+      "status": "insufficient_sessions",
+      "sessions": 0,
+      "minimum_sessions": 63,
+      "benchmark": "primary_consensus"
+    }
+  },
+  "session_return_attribution": {
+    "method": "multiplicatively linked prior-close-to-open gross return, explicit open trading-cost drag, and post-cost open-to-close return; components are not additive",
+    "arms": {
+      "consensus": {
+        "sessions": 0,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": null,
+        "cumulative_execution_cost_drag": null,
+        "cumulative_intraday_after_open_cost_return": null,
+        "linked_cumulative_net_return": null,
+        "maximum_absolute_reconciliation_error": null
+      },
+      "consensus_market_guard": {
+        "sessions": 0,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": null,
+        "cumulative_execution_cost_drag": null,
+        "cumulative_intraday_after_open_cost_return": null,
+        "linked_cumulative_net_return": null,
+        "maximum_absolute_reconciliation_error": null
+      },
+      "consensus_breadth_guard": {
+        "sessions": 0,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": null,
+        "cumulative_execution_cost_drag": null,
+        "cumulative_intraday_after_open_cost_return": null,
+        "linked_cumulative_net_return": null,
+        "maximum_absolute_reconciliation_error": null
+      },
+      "classic_12_1_hold21": {
+        "sessions": 0,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": null,
+        "cumulative_execution_cost_drag": null,
+        "cumulative_intraday_after_open_cost_return": null,
+        "linked_cumulative_net_return": null,
+        "maximum_absolute_reconciliation_error": null
+      },
+      "share_turnover_hold5": {
+        "sessions": 0,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": null,
+        "cumulative_execution_cost_drag": null,
+        "cumulative_intraday_after_open_cost_return": null,
+        "linked_cumulative_net_return": null,
+        "maximum_absolute_reconciliation_error": null
+      },
+      "share_turnover_hold10": {
+        "sessions": 0,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": null,
+        "cumulative_execution_cost_drag": null,
+        "cumulative_intraday_after_open_cost_return": null,
+        "linked_cumulative_net_return": null,
+        "maximum_absolute_reconciliation_error": null
+      },
+      "share_turnover_hold21": {
+        "sessions": 0,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": null,
+        "cumulative_execution_cost_drag": null,
+        "cumulative_intraday_after_open_cost_return": null,
+        "linked_cumulative_net_return": null,
+        "maximum_absolute_reconciliation_error": null
+      },
+      "short_volume_hold5": {
+        "sessions": 0,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": null,
+        "cumulative_execution_cost_drag": null,
+        "cumulative_intraday_after_open_cost_return": null,
+        "linked_cumulative_net_return": null,
+        "maximum_absolute_reconciliation_error": null
+      },
+      "short_volume_hold10": {
+        "sessions": 0,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": null,
+        "cumulative_execution_cost_drag": null,
+        "cumulative_intraday_after_open_cost_return": null,
+        "linked_cumulative_net_return": null,
+        "maximum_absolute_reconciliation_error": null
+      },
+      "short_volume_hold21": {
+        "sessions": 0,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": null,
+        "cumulative_execution_cost_drag": null,
+        "cumulative_intraday_after_open_cost_return": null,
+        "linked_cumulative_net_return": null,
+        "maximum_absolute_reconciliation_error": null
+      }
+    },
+    "spy_buy_hold": {
+      "sessions": 0,
+      "unavailable_sessions": 0,
+      "cumulative_overnight_gross_return": null,
+      "cumulative_execution_cost_drag": null,
+      "cumulative_intraday_after_open_cost_return": null,
+      "linked_cumulative_net_return": null,
+      "maximum_absolute_reconciliation_error": null
+    }
+  },
+  "eligible_original_gate_only": {
+    "sessions": 0,
+    "completed_exits": 0,
+    "risk_off_sessions": 0,
+    "primary_consensus": {
+      "sessions": 0,
+      "cumulative_return": null,
+      "annualized_return": null,
+      "annualized_volatility": null,
+      "sharpe_zero_cash_benchmark": null,
+      "maximum_drawdown": null,
+      "positive_session_fraction": null
+    },
+    "spy_buy_hold": {
+      "sessions": 0,
+      "cumulative_return": null,
+      "annualized_return": null,
+      "annualized_volatility": null,
+      "sharpe_zero_cash_benchmark": null,
+      "maximum_drawdown": null,
+      "positive_session_fraction": null
+    },
+    "paired_stationary_bootstrap": null
+  },
+  "rolling_policy_horizons": {
+    "status": "evaluated",
+    "method": "policy equity from the next open before that open's costs to the horizon close; every intervening prior-decision gate and current valuation must pass",
+    "by_horizon": {
+      "5": {
+        "matured_windows": 0,
+        "eligible_windows": 0,
+        "mean_primary_policy_net_return": null,
+        "mean_spy_same_window_return": null,
+        "mean_net_excess_vs_spy": null,
+        "positive_excess_fraction": null,
+        "windows": []
+      },
+      "21": {
+        "matured_windows": 0,
+        "eligible_windows": 0,
+        "mean_primary_policy_net_return": null,
+        "mean_spy_same_window_return": null,
+        "mean_net_excess_vs_spy": null,
+        "positive_excess_fraction": null,
+        "windows": []
+      },
+      "63": {
+        "matured_windows": 0,
+        "eligible_windows": 0,
+        "mean_primary_policy_net_return": null,
+        "mean_spy_same_window_return": null,
+        "mean_net_excess_vs_spy": null,
+        "positive_excess_fraction": null,
+        "windows": []
+      }
+    }
+  },
+  "readiness": {
+    "status": "insufficient_prospective_evidence",
+    "minimum_eligible_sessions": 126,
+    "minimum_completed_exits": 30,
+    "minimum_risk_off_sessions": 10,
+    "reasons": [
+      "minimum_eligible_sessions_not_met",
+      "minimum_completed_exits_not_met",
+      "minimum_risk_off_sessions_not_met"
+    ]
+  },
+  "evaluated_at_utc": "2026-10-08T04:41:08.286670+00:00",
+  "record_sha256": "6f0a8a4e49aa05958c788f2940426ab98bc06829542930a94857cb74411ab68b"
+}
