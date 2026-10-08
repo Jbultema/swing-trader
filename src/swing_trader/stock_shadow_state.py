@@ -24,7 +24,13 @@ from swing_trader.stock_live_data import (
     load_locked_current_universe,
 )
 from swing_trader.stock_shares import audit_current_stock_share_snapshot
-from swing_trader.stock_signals import SCORE_COLUMNS, ExitPolicy, build_stock_features, exit_reasons
+from swing_trader.stock_signals import (
+    SCORE_COLUMNS,
+    ExitPolicy,
+    build_stock_features,
+    exit_reasons,
+    exit_trigger_levels,
+)
 from swing_trader.stock_turnover import (
     SHARE_TURNOVER_METHOD,
     SHARE_TURNOVER_SIGNAL_FAMILY,
@@ -783,18 +789,16 @@ def _advance_arm(
             raise StockShadowStateError(f"Entry session is outside the current price snapshot: {ticker}")
         entry_price = _required_price(prices["Open"].loc[entry_session], ticker, "entry basis")
         path = prices["Close"][ticker].loc[entry_session:current_session].dropna()
+        high_watermark = (
+            max(entry_price, float(path.max())) if not path.empty else entry_price
+        )
+        holding_sessions = len(path)
         if path.empty or path.index.max() != current_session:
             exits[ticker] = ["missing_close"]
-            high_watermark = float(path.max()) if not path.empty else entry_price
-            holding_sessions = len(path)
         elif not signal_available:
-            high_watermark = float(path.max())
-            holding_sessions = len(path)
             assert signal_unavailable_reason is not None
             exits[ticker] = [signal_unavailable_reason]
         else:
-            high_watermark = float(path.max())
-            holding_sessions = len(path)
             if ticker not in current_tickers:
                 exits[ticker] = ["left_current_universe"]
             elif ticker not in day.index or not bool(day.loc[ticker, "eligible"]):
@@ -813,6 +817,12 @@ def _advance_arm(
                     exits[ticker] = reasons
         if guarded and not market_risk_on:
             exits.setdefault(ticker, []).append(guard_reason)
+        trigger_levels = exit_trigger_levels(
+            day.loc[ticker] if ticker in day.index else pd.Series(dtype=object),
+            entry_price=entry_price,
+            high_watermark=high_watermark,
+            policy=policy,
+        )
         enriched[ticker] = {
             "entry_session": entry_session.date().isoformat(),
             "entry_adjusted_open": entry_price,
@@ -822,6 +832,7 @@ def _advance_arm(
                 float(path.loc[current_session]) if current_session in path.index else None
             ),
             "paper_shares": shares[ticker],
+            **trigger_levels,
         }
 
     survivors = set(positions) - set(exits)
@@ -949,6 +960,7 @@ def _decision(
 ) -> dict[str, object]:
     row = day.loc[ticker] if ticker in day.index else pd.Series(dtype=object)
     rank = _finite_float(consensus_rank.get(ticker))
+    position = position or {}
     return {
         "as_of_session": session.date().isoformat(),
         "effective_at": "next_regular_session_open",
@@ -973,7 +985,19 @@ def _decision(
             row.get("share_turnover_percentile")
         ),
         "atr_fraction_14d": _finite_float(row.get("atr_fraction_14d")),
-        "position": position,
+        "entry_adjusted_open": position.get("entry_adjusted_open"),
+        "high_watermark_adjusted_close": position.get(
+            "high_watermark_adjusted_close"
+        ),
+        "hard_loss_trigger_adjusted_close": position.get(
+            "hard_loss_trigger_adjusted_close"
+        ),
+        "atr_adjusted_price": position.get("atr_adjusted_price"),
+        "atr_trailing_trigger_adjusted_close": position.get(
+            "atr_trailing_trigger_adjusted_close"
+        ),
+        "holding_sessions": position.get("holding_sessions"),
+        "position": position or None,
     }
 
 

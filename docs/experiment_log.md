@@ -62,6 +62,25 @@ rate, and excess return are undefined. The next completed session is the first p
 observation; paired intervals wait for 21 sessions, family-wide inference waits for 63, and
 readiness still requires 126 eligible sessions, 30 completed exits, and 10 risk-off sessions.
 
+## Exit-policy arithmetic correction — before any realized transition
+
+The pre-transition exit audit found that the ATR trail multiplied the current ATR fraction by the
+post-entry high-water price. That is not the registered close-based Chandelier-style construction:
+the ATR fraction is defined relative to the current adjusted close, so it must first be converted
+back to price units and then subtracted from the high-water mark. The old expression became
+artificially looser as a winner retreated. The prospective path also rebuilt its high-water mark
+from closes alone, while the historical path correctly retained a higher entry open, and only the
+historical path failed closed when ATR was missing.
+
+The corrected policy uses `high_water - 3 * (current_close * atr_fraction_14d)`, retains the entry
+adjusted open in the high-water maximum, and schedules a next-open fail-safe exit when ATR is
+unavailable. Historical and prospective ledgers now expose the entry basis, high-water mark, ATR in
+adjusted-price units, hard-loss trigger, and ATR trigger. This correction changes the decision-policy
+hash and therefore starts a new prospective lineage; it does not splice revised exit rules into the
+existing record. The prior lineage had one initialization and zero realized transitions, so no
+observed return was discarded and no result was selected. Retrospective stock metrics must be rerun
+under the corrected arithmetic before they are quoted again.
+
 ## Superseded simple 12-1 stock-momentum initialization — retained for audit
 
 Commit `43133d9` preregistered a transparent individual-stock comparator before the first realized

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from swing_trader.stock_signals import (
     ExitPolicy,
@@ -8,6 +9,7 @@ from swing_trader.stock_signals import (
     build_stock_features,
     exit_policy_for_family,
     exit_reasons,
+    exit_trigger_levels,
     rank_stock_candidates,
 )
 
@@ -88,6 +90,61 @@ def test_exit_family_ablation_keeps_emergency_stop_but_disables_other_rules() ->
     )
 
     assert reasons == ["hard_loss_limit"]
+
+
+def test_atr_trail_subtracts_current_atr_price_from_high_water_close() -> None:
+    row = pd.Series(
+        {
+            "close": 113.0,
+            "atr_fraction_14d": 0.02,
+            "trend_positive": True,
+            "return_21d": 0.05,
+        }
+    )
+
+    levels = exit_trigger_levels(
+        row,
+        entry_price=100.0,
+        high_watermark=120.0,
+        policy=ExitPolicy(),
+    )
+    reasons = exit_reasons(
+        row,
+        entry_price=100.0,
+        high_watermark=120.0,
+        holding_sessions=5,
+        cross_section_rank=1,
+        entry_top_n=10,
+        policy=ExitPolicy(),
+    )
+
+    assert levels["hard_loss_trigger_adjusted_close"] == 92.0
+    assert levels["atr_adjusted_price"] == pytest.approx(2.26)
+    assert levels["atr_trailing_trigger_adjusted_close"] == pytest.approx(113.22)
+    assert reasons == ["atr_trailing_exit"]
+
+
+def test_missing_atr_feature_fails_closed_when_trailing_exit_is_enabled() -> None:
+    row = pd.Series(
+        {
+            "close": 105.0,
+            "atr_fraction_14d": float("nan"),
+            "trend_positive": True,
+            "return_21d": 0.05,
+        }
+    )
+
+    reasons = exit_reasons(
+        row,
+        entry_price=100.0,
+        high_watermark=110.0,
+        holding_sessions=5,
+        cross_section_rank=1,
+        entry_top_n=10,
+        policy=ExitPolicy(),
+    )
+
+    assert reasons == ["missing_risk_feature"]
 
 
 def _panel() -> tuple[pd.DataFrame, pd.DataFrame]:

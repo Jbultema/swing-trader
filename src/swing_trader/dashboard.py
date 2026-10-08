@@ -292,6 +292,12 @@ with stock:
                         "return_percentile",
                         "share_turnover_percentile",
                         "atr_fraction_14d",
+                        "entry_adjusted_open",
+                        "high_watermark_adjusted_close",
+                        "hard_loss_trigger_adjusted_close",
+                        "atr_adjusted_price",
+                        "atr_trailing_trigger_adjusted_close",
+                        "holding_sessions",
                         "effective_at",
                     ]
                     st.dataframe(

@@ -110,6 +110,11 @@ def test_state_executes_prior_target_then_schedules_loss_exit_for_next_open() ->
     )
     assert loss_decision["action"] == "SELL"
     assert "hard_loss_limit" in loss_decision["reasons"]
+    assert loss_decision["entry_adjusted_open"] == 110.0
+    assert loss_decision["high_watermark_adjusted_close"] == 110.0
+    assert loss_decision["hard_loss_trigger_adjusted_close"] == 101.2
+    assert loss_decision["atr_adjusted_price"] == 1.0
+    assert loss_decision["atr_trailing_trigger_adjusted_close"] == 107.0
     sell = exited["executions_at_open"][0]
     assert (sell["ticker"], sell["action"], sell["price"], sell["reason"]) == (
         "A",

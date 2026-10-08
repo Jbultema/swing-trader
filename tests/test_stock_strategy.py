@@ -24,6 +24,9 @@ def test_stock_plan_enters_next_open_and_exits_after_gap_loss() -> None:
     sell = plan.decisions.query("date == @dates[1] and ticker == 'A' and action == 'SELL'").iloc[0]
     assert sell["entry_price"] == 110.0
     assert "hard_loss_limit" in sell["reasons"]
+    assert sell["hard_loss_trigger_adjusted_close"] == 101.2
+    assert sell["high_watermark"] == 110.0
+    assert sell["atr_trailing_trigger_adjusted_close"] == 10.0
 
 
 def test_stock_plan_is_unchanged_before_future_feature_revision() -> None:

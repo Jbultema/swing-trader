@@ -112,7 +112,8 @@ by trading costs.
 Each entry family is crossed with the same limited exit registry:
 
 - hard close-to-entry loss limit;
-- close-based ATR trail from the post-entry high-water mark;
+- close-based ATR trail equal to the greater post-entry adjusted open/close high-water mark minus
+  three times the current adjusted 14-session ATR;
 - loss of the 50-over-200-session trend state;
 - non-positive 21-session momentum;
 - cross-sectional rank falling below twice the entry breadth; and
@@ -120,7 +121,9 @@ Each entry family is crossed with the same limited exit registry:
 
 Stops are evaluated at a close and executed at the next open. The simulator never assumes a stop
 fills at its threshold through an overnight gap. Multiple simultaneous reasons are retained for the
-dashboard rather than collapsed into a generic `SELL`.
+dashboard rather than collapsed into a generic `SELL`. A missing or non-finite ATR fails closed for
+any arm whose ATR trail is enabled. The decision ledger exposes the adjusted entry basis, high-water
+mark, ATR in price units, hard-loss trigger, and ATR-trailing trigger so the action can be reproduced.
 
 ## Data-source findings
 

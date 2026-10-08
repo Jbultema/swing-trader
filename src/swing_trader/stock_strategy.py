@@ -5,7 +5,12 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from swing_trader.stock_signals import SCORE_COLUMNS, ExitPolicy, exit_reasons
+from swing_trader.stock_signals import (
+    SCORE_COLUMNS,
+    ExitPolicy,
+    exit_reasons,
+    exit_trigger_levels,
+)
 
 
 @dataclass(frozen=True)
@@ -100,13 +105,6 @@ def build_stock_strategy_plan(
                 exits[ticker] = ["left_point_in_time_universe"]
                 continue
             rank = float(ranks.get(ticker, np.inf))
-            if cfg.use_atr_trail:
-                atr = pd.to_numeric(pd.Series([row.get("atr_fraction_14d")]), errors="coerce").iloc[
-                    0
-                ]
-                if pd.isna(atr):
-                    exits[ticker] = ["missing_risk_feature"]
-                    continue
             reasons = exit_reasons(
                 row,
                 entry_price=position.entry_price,
@@ -145,6 +143,7 @@ def build_stock_strategy_plan(
                     ranks,
                     score_column,
                     position,
+                    cfg,
                 )
             )
         for ticker in blocked_entries:
@@ -162,6 +161,7 @@ def build_stock_strategy_plan(
                     ranks,
                     score_column,
                     positions.get(str(ticker)),
+                    cfg,
                 )
             )
         for ticker in sorted(selected):
@@ -178,6 +178,7 @@ def build_stock_strategy_plan(
                     ranks,
                     score_column,
                     position,
+                    cfg,
                 )
             )
         prior_target = selected
@@ -196,8 +197,23 @@ def _decision_row(
     ranks: pd.Series,
     score_column: str,
     position: _Position | None,
+    policy: ExitPolicy,
 ) -> dict[str, object]:
     row = day.loc[ticker]
+    triggers = (
+        exit_trigger_levels(
+            row,
+            entry_price=position.entry_price,
+            high_watermark=position.high_watermark,
+            policy=policy,
+        )
+        if position is not None
+        else {
+            "hard_loss_trigger_adjusted_close": None,
+            "atr_adjusted_price": None,
+            "atr_trailing_trigger_adjusted_close": None,
+        }
+    )
     return {
         "date": date,
         "ticker": ticker,
@@ -210,4 +226,5 @@ def _decision_row(
         "entry_price": position.entry_price if position else None,
         "high_watermark": position.high_watermark if position else None,
         "holding_sessions": position.holding_sessions if position else 0,
+        **triggers,
     }

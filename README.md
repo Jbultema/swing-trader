@@ -146,7 +146,11 @@ unofficial mirror.
 `record-stocks` starts from cash, records decisions made after the completed close, and applies them
 no earlier than the next regular-session open. It refuses to fill a missing paper session with the
 current roster. Hard-loss, ATR-trailing, trend, short-momentum, rank-decay, and 21-session time exits
-are retained as explicit reasons. No command places an order.
+are retained as explicit reasons. The close-based ATR trigger is the greater post-entry adjusted
+open/close high-water mark minus three times the current adjusted 14-session ATR; a missing ATR
+fails closed. The dashboard displays the entry basis, high-water mark, and both hard-loss and ATR
+trigger prices for every held-name decision. These are next-open decision thresholds, not guaranteed
+fill prices. No command places an order.
 
 Each arm carries a self-financing fractional-share paper account. New positions use available cash,
 surviving positions are not resized for free, and the frozen 50 bp round-trip assumption is charged

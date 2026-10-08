@@ -155,12 +155,21 @@ def exit_reasons(
     """Explain which close-known conditions require a next-session exit."""
     cfg = policy or ExitPolicy()
     close = float(feature_row["close"])
+    triggers = exit_trigger_levels(
+        feature_row,
+        entry_price=entry_price,
+        high_watermark=high_watermark,
+        policy=cfg,
+    )
     reasons: list[str] = []
-    if cfg.use_hard_stop and close <= entry_price * (1.0 - cfg.hard_stop_fraction):
+    hard_loss_trigger = triggers["hard_loss_trigger_adjusted_close"]
+    if hard_loss_trigger is not None and close <= hard_loss_trigger:
         reasons.append("hard_loss_limit")
     if cfg.use_atr_trail:
-        atr_fraction = float(feature_row["atr_fraction_14d"])
-        if close <= high_watermark * (1.0 - cfg.atr_multiple * atr_fraction):
+        atr_trailing_trigger = triggers["atr_trailing_trigger_adjusted_close"]
+        if atr_trailing_trigger is None:
+            reasons.append("missing_risk_feature")
+        elif close <= atr_trailing_trigger:
             reasons.append("atr_trailing_exit")
     if cfg.use_trend_break and not bool(feature_row["trend_positive"]):
         reasons.append("trend_broken")
@@ -171,6 +180,48 @@ def exit_reasons(
     if cfg.use_maximum_holding and holding_sessions >= cfg.maximum_holding_sessions:
         reasons.append("maximum_holding_period")
     return reasons
+
+
+def exit_trigger_levels(
+    feature_row: pd.Series,
+    *,
+    entry_price: float,
+    high_watermark: float,
+    policy: ExitPolicy | None = None,
+) -> dict[str, float | None]:
+    """Return close-known risk thresholds in adjusted-price units.
+
+    The ATR trail is a close-based Chandelier-style trigger: the post-entry
+    high-water close minus ``atr_multiple`` times the current 14-session ATR.
+    ``atr_fraction_14d`` is converted back to price units using the current
+    adjusted close before that distance is subtracted.
+    """
+    cfg = policy or ExitPolicy()
+    close = _finite_non_negative(feature_row.get("close"))
+    entry = _finite_non_negative(entry_price)
+    high_water = _finite_non_negative(high_watermark)
+    atr_fraction = _finite_non_negative(feature_row.get("atr_fraction_14d"))
+
+    hard_loss_trigger = (
+        entry * (1.0 - cfg.hard_stop_fraction)
+        if cfg.use_hard_stop and entry is not None
+        else None
+    )
+    atr_adjusted_price = (
+        close * atr_fraction
+        if cfg.use_atr_trail and close is not None and atr_fraction is not None
+        else None
+    )
+    atr_trailing_trigger = (
+        high_water - cfg.atr_multiple * atr_adjusted_price
+        if high_water is not None and atr_adjusted_price is not None
+        else None
+    )
+    return {
+        "hard_loss_trigger_adjusted_close": hard_loss_trigger,
+        "atr_adjusted_price": atr_adjusted_price,
+        "atr_trailing_trigger_adjusted_close": atr_trailing_trigger,
+    }
 
 
 def exit_policy_for_family(
@@ -218,6 +269,14 @@ def exit_policy_for_family(
 
 def _cross_sectional_rank(values: pd.DataFrame, eligible: pd.DataFrame) -> pd.DataFrame:
     return values.where(eligible).rank(axis=1, pct=True, method="average")
+
+
+def _finite_non_negative(value: object) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if np.isfinite(number) and number >= 0.0 else None
 
 
 def _average_true_range(
