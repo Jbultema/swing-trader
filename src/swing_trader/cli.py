@@ -34,7 +34,11 @@ from swing_trader.finra_activity import (
     latest_finra_activity_manifest,
 )
 from swing_trader.prospective import write_prospective_evaluation
-from swing_trader.published_momentum import write_published_momentum_report
+from swing_trader.published_momentum import (
+    audit_published_momentum_report,
+    latest_published_momentum_report,
+    write_published_momentum_report,
+)
 from swing_trader.research import run_research
 from swing_trader.sec_filing_events import (
     DEFAULT_SEC_USER_AGENT,
@@ -551,6 +555,22 @@ def research_published_momentum(
         f"Published momentum comparator through {result.latest_session}: "
         f"{result.source_status}; report={result.report_dir}"
     )
+
+
+@research_app.command("verify-published-momentum")
+def research_verify_published_momentum(
+    report_root: Annotated[Path, typer.Option("--reports")] = Path("reports/published"),
+    source_dir: Annotated[Path, typer.Option("--source-dir")] = Path("data/published"),
+) -> None:
+    """Fail closed if the newest official published comparator was modified or malformed."""
+    report_dir = latest_published_momentum_report(report_root)
+    if report_dir is None:
+        typer.echo(f"No published momentum comparator exists in {report_root}.")
+        raise typer.Exit(code=2)
+    result = audit_published_momentum_report(report_dir, source_dir=source_dir)
+    typer.echo(json.dumps({"report": str(report_dir), **result.to_dict()}, indent=2))
+    if not result.integrity_passed:
+        raise typer.Exit(code=2)
 
 
 @research_app.command("verify-stocks")

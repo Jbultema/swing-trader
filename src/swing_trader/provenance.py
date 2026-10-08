@@ -23,6 +23,10 @@ STOCK_EVALUATION_SOURCE_FILES = (
     "stock_prospective.py",
     "stock_validation.py",
 )
+PUBLISHED_COMPARATOR_SOURCE_FILES = (
+    "published_momentum.py",
+    "stock_validation.py",
+)
 
 
 def implementation_sha256() -> str:
@@ -49,6 +53,15 @@ def stock_evaluation_sha256(package_root: Path | None = None) -> str:
         package_root or Path(__file__).parent,
         STOCK_EVALUATION_SOURCE_FILES,
         domain="stock-prospective-evaluation-v1",
+    )
+
+
+def published_comparator_sha256(package_root: Path | None = None) -> str:
+    """Hash only code that constructs the official published comparator."""
+    return _source_files_sha256(
+        package_root or Path(__file__).parent,
+        PUBLISHED_COMPARATOR_SOURCE_FILES,
+        domain="published-momentum-comparator-v1",
     )
 
 

@@ -20,7 +20,9 @@ from swing_trader.published_momentum import (
     SIZE_SHORT_REVERSAL_URL,
     PublishedDocument,
     PublishedMomentumError,
+    audit_published_momentum_report,
     build_published_momentum_returns,
+    latest_published_momentum_report,
     parse_daily_factors,
     parse_daily_portfolios,
     parse_daily_size_portfolios,
@@ -122,6 +124,7 @@ def test_published_report_locks_sources_and_labels_gross_limitations(tmp_path: P
 
     assert result.source_status == "passed"
     manifest = json.loads(result.manifest_path.read_text())
+    assert manifest["schema_version"] == 2
     assert manifest["action_authorized"] is False
     assert manifest["daily_return_rows"] == 3
     assert "gross" in manifest["research_status"]
@@ -144,6 +147,39 @@ def test_published_report_locks_sources_and_labels_gross_limitations(tmp_path: P
         "short_term_loser_1_0",
         "short_term_winner_1_0",
     }
+    assert latest_published_momentum_report(tmp_path / "reports") == result.report_dir
+    audit = audit_published_momentum_report(
+        result.report_dir,
+        source_dir=tmp_path / "sources",
+        now=datetime(2026, 10, 7, 22, tzinfo=UTC),
+    )
+    assert audit.integrity_passed
+    assert audit.research_only
+    assert audit.current_implementation_matches
+    assert audit.source_fresh
+    assert audit.verified_artifacts == 5
+    assert audit.verified_sources == 7
+
+    source_path = tmp_path / "sources" / manifest["sources"]["momentum_12_2"]["file"]
+    original_source = source_path.read_bytes()
+    source_path.write_bytes(b"modified")
+    modified_source = audit_published_momentum_report(
+        result.report_dir,
+        source_dir=tmp_path / "sources",
+        now=datetime(2026, 10, 7, 22, tzinfo=UTC),
+    )
+    assert not modified_source.integrity_passed
+    assert any("source archive hash mismatch" in error for error in modified_source.errors)
+    source_path.write_bytes(original_source)
+
+    result.metrics_path.write_text("modified\n", encoding="utf-8")
+    modified = audit_published_momentum_report(
+        result.report_dir,
+        source_dir=tmp_path / "sources",
+        now=datetime(2026, 10, 7, 22, tzinfo=UTC),
+    )
+    assert not modified.integrity_passed
+    assert any("artifact hash mismatch" in error for error in modified.errors)
 
 
 def _portfolio_zip(*lo_hi: tuple[float, float]) -> bytes:

@@ -5,9 +5,11 @@ from pathlib import Path
 import pandas as pd
 
 from swing_trader.provenance import (
+    PUBLISHED_COMPARATOR_SOURCE_FILES,
     STOCK_EVALUATION_SOURCE_FILES,
     STOCK_POLICY_SOURCE_FILES,
     file_sha256,
+    published_comparator_sha256,
     stock_evaluation_sha256,
     stock_policy_sha256,
     tabular_sha256,
@@ -71,3 +73,18 @@ def test_stock_policy_and_evaluation_hashes_change_only_for_their_domains(
 
     (tmp_path / "stock_prospective.py").write_text("# changed evaluator\n", encoding="utf-8")
     assert stock_evaluation_sha256(tmp_path) != evaluation
+
+
+def test_published_comparator_hash_ignores_dashboard_but_tracks_method_code(
+    tmp_path: Path,
+) -> None:
+    for name in PUBLISHED_COMPARATOR_SOURCE_FILES:
+        (tmp_path / name).write_text(f"# {name}\n", encoding="utf-8")
+    (tmp_path / "dashboard.py").write_text("# dashboard\n", encoding="utf-8")
+    baseline = published_comparator_sha256(tmp_path)
+
+    (tmp_path / "dashboard.py").write_text("# changed dashboard\n", encoding="utf-8")
+    assert published_comparator_sha256(tmp_path) == baseline
+
+    (tmp_path / "published_momentum.py").write_text("# changed method\n", encoding="utf-8")
+    assert published_comparator_sha256(tmp_path) != baseline

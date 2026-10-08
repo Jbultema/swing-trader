@@ -212,6 +212,16 @@ an effect from two standalone CAGRs. The report remains a published CRSP aggrega
 constituent turnover, execution costs, and swing-trader exits cannot be inferred from the returns,
 so it never authorizes a trade or substitutes for the prospective bot.
 
+Verify the newest report and all seven cached source archives before presenting it:
+
+```bash
+poetry run swing-trader research verify-published-momentum
+```
+
+The stock dashboard shows only an integrity-passing report, flags older code or stale official
+data, and emphasizes direct largest-size-quintile winner-minus-loser spreads rather than a
+potentially market-driven winner-portfolio CAGR.
+
 The stock report also writes the complete variant registry, expanding walk-forward path,
 stationary-bootstrap uncertainty, family-wide and false-discovery-adjusted tests, approximate PBO,
 hostile-regime results, and split-specific ticker P&L concentration. Statistical significance is

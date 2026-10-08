@@ -286,6 +286,13 @@ chasing before turnover costs. The analogous 12-to-2-month spreads were 8.27% (t
 the share-turnover and volume-conditioned fast arms as falsifiable prospective diagnostics rather
 than assuming shorter holding periods create an edge.
 
+The report uses a comparator-specific implementation hash, hashes every derived artifact and all
+seven downloaded archives, and can be checked with
+`swing-trader research verify-published-momentum`. The dashboard refuses to render a modified or
+malformed bundle and separately warns when intact evidence was built by older comparator code or
+has aged past the 75-day source window. This verification does not turn the aggregate portfolio
+returns into evidence for swing-trader's stock selection or exits.
+
 The 2026-10-07 snapshot produced the following gross CAGRs:
 
 | Window | Market | Broad 12-2 winners | Large 12-2 winners | Large prior-month winners | Large prior-month losers |
