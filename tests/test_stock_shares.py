@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from time import sleep
 
 import pandas as pd
 
 from swing_trader.stock_shares import (
+    _collect_default_share_rows_bounded,
     audit_current_stock_share_snapshot,
     download_current_stock_shares,
     validate_current_stock_shares,
@@ -181,6 +183,47 @@ def test_share_validation_rejects_inconsistent_source_accounting() -> None:
     assert validation.inconsistent_source_tickers == ("A",)
 
 
+def test_bounded_default_collection_preserves_results_and_marks_timeouts() -> None:
+    rows = _collect_default_share_rows_bounded(
+        ("A", "B"),
+        ("A", "B"),
+        request_start=date(2025, 9, 2),
+        request_end=date(2026, 10, 8),
+        max_workers=1,
+        retry_attempts=2,
+        retry_delay_seconds=0.0,
+        overall_timeout_seconds=3.0,
+        worker_target=_partial_hanging_worker,
+    )
+
+    assert rows["A"]["source_status"] == "available"
+    assert rows["B"]["source_status"] == "collection_timeout"
+    assert rows["B"]["provider_request_attempts"] == 0
+
+
+def test_share_validation_accepts_explicit_collection_timeout_as_failed_coverage() -> None:
+    captured = datetime(2026, 10, 7, 22, tzinfo=UTC)
+    frame = _share_frame(
+        captured,
+        [
+            ("A", 1_000_000, "2026-10-01", "available"),
+            ("B", pd.NA, None, "collection_timeout"),
+        ],
+    )
+    frame.loc[frame["ticker"] == "B", "provider_request_attempts"] = 0
+
+    validation = validate_current_stock_shares(
+        frame,
+        ("A", "B"),
+        captured_at=captured,
+        minimum_coverage_fraction=1.0,
+    )
+
+    assert not validation.passed
+    assert validation.collection_timeout_tickers == ("B",)
+    assert validation.inconsistent_source_tickers == ()
+
+
 def _share_frame(
     captured: datetime,
     rows: list[tuple[str, object, str | None, str]],
@@ -241,3 +284,31 @@ def _universe_snapshot(output: Path, captured: datetime):
         output,
         captured_at=captured,
     )
+
+
+def _partial_hanging_worker(
+    output_queue: object,
+    tickers: tuple[str, ...],
+    provider_symbols: tuple[str, ...],
+    request_start: date,
+    request_end: date,
+    max_workers: int,
+    retry_attempts: int,
+    retry_delay_seconds: float,
+) -> None:
+    del provider_symbols, request_start, request_end, max_workers, retry_attempts
+    del retry_delay_seconds
+    output_queue.put(  # type: ignore[attr-defined]
+        (
+            tickers[0],
+            {
+                "shares_outstanding": 1_000_000,
+                "provider_observation_date": pd.Timestamp("2026-10-01"),
+                "source_status": "available",
+                "source_observation_count": 1,
+                "discarded_historical_observations": 0,
+                "provider_request_attempts": 1,
+            },
+        )
+    )
+    sleep(30.0)

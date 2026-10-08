@@ -46,6 +46,30 @@ Primary literature:
 - Kaminski and Lo, *When Do Stop-Loss Rules Stop Losses?*, Journal of Financial Markets (2014):
   https://dspace.mit.edu/handle/1721.1/114876
 
+### Exact literature alignment and deliberate deviations
+
+Medhat and Schmeling's baseline is not a five-day stock-picking strategy. Their main portfolios are
+value weighted, long-short, rebalanced monthly, and formed with broad CRSP universes and NYSE
+breakpoints. Their daily robustness exercise forms on d-20 through d-3 and holds d+1 through d+21;
+their weekly high-turnover continuation results are negative. Independent double-quintile sorts
+that omit the last three formation days earn a published 0.74% per month gross and 0.42% after
+their modeled costs for the long-short spread. Those figures are evidence for the characteristic,
+not an expected return for this bot.
+
+`share_turnover_skip3` exactly uses volume divided by captured shares for its turnover denominator
+and matches the d-20-to-d-3 formation window. Everything downstream is constraint adapted: current
+S&P 500 membership, independent within-universe quintiles, long-only top-ten selection, equal 10%
+position caps, a maximum three entries per GICS sector, next-open costs, and disciplined individual
+exits. The 21-session arm is the academic holding-period reference. The 5- and 10-session arms are
+explicit falsification tests for the faster-trading hypothesis, and a favorable result must survive
+their higher realized turnover and the same 50 bp round-trip assumption.
+
+This distinction also controls concentration. The first uncapped exact shortlist contained six
+Information Technology names out of ten. The sector entry cap was frozen before any prospective
+return existed: the fourth same-sector name is explained as `SKIP`, no lower-ranked replacement is
+promoted, and the unused 10% allocation remains cash. This responds to the pre-existing requirement
+not to turn recent AI/semiconductor winners into a hindsight-driven portfolio.
+
 Post-earnings-announcement drift remains a second-stage family. It requires point-in-time analyst
 expectations or a carefully defined standardized-unexpected-earnings signal. Published evidence
 also warns that much of the apparent payoff is concentrated in illiquid stocks and can be consumed

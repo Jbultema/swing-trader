@@ -139,7 +139,10 @@ history is counted and discarded, never backfilled into earlier sessions. The im
 manifest require the exact roster, positive shares, no future timestamps, at least 99% coverage,
 and a maximum 130-day provider-observation age; they bind the current-universe hash and explicitly
 disable historical backfill and action authority. `verify-stock-shares` recalculates the gate and
-checks both file hashes and the universe binding.
+checks both file hashes and the universe binding. The default provider collection is isolated in a
+child process and bounded to ten minutes. A deadline breach preserves completed rows, labels every
+unresolved name `collection_timeout`, fails the experimental coverage gate when appropriate, and
+still lets the independent primary path continue.
 
 The 2026-10-07 live proof recorded 503 roster rows and 19,263 source observations, discarded 18,760
 historical rows, and passed with 500 usable names (99.40%). There were no missing, fetch-error,
@@ -155,6 +158,14 @@ lineage starts from cash and cannot manufacture a backtest. The 5-, 10-, and 21-
 the same exits and 50 bp round-trip cost assumption. Their evaluator compares holding horizons
 within the exact-signal family; they remain Yahoo-only diagnostics with no action authority and no
 performance conclusion until forward transitions accrue.
+
+The signal is an operational adaptation, not a claimed replication. Medhat and Schmeling study
+value-weighted long-short corner portfolios across broad common-stock universes and report their
+main effect over roughly 21 sessions. This project is long-only, selects at most ten current S&P 500
+names, equal weights them, applies a three-name GICS sector entry cap, and permits disciplined early
+exits. The 21-session arm is therefore the closest reference; 5 and 10 sessions test whether the
+user's faster-holding hypothesis survives rather than assuming it does. A capped candidate is not
+replaced by a lower-ranked stock, so unfilled risk remains cash.
 
 Share-turnover availability is deliberately not a primary-consensus dependency. If a freshly
 captured share artifact is intact and bound to the current universe but fails its coverage,

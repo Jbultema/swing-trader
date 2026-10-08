@@ -35,6 +35,9 @@ either a visibly biased diagnostic or omitted.
 The primary arm holds at most ten names. Its held-name union with ten new consensus candidates and
 SPY requires at most 21 Alpha Vantage daily calls. The market-guard arm cannot expand that quota:
 it is labeled as a diagnostic comparator and is never counted as primary prospective performance.
+All arms cap new entries at three names per GICS sector. Excess same-sector candidates are retained
+in the explanation ledger as `SKIP` rows and their allocations remain cash; lower-ranked names are
+not promoted merely to fill the portfolio.
 The 5/10/21-session short-volume proxy and exact share-turnover arms are Yahoo-only diagnostics;
 they cannot expand the free quota or qualify the primary record. All arms start from cash and must
 advance through immediately consecutive recorded sessions.
@@ -49,6 +52,9 @@ changes stay visible without restarting the portfolio. The hosted job restores o
 policy lineage, records holidays as no-ops before spending optional-provider calls, and fails on a
 missed trading session. Public-price batches receive bounded single-symbol retries, but the 99%
 close coverage threshold is never relaxed.
+Yahoo share collection is additionally isolated behind a ten-minute process deadline because the
+underlying unofficial client can hang below Python's request boundary. Timed-out names remain
+auditable unavailable rows; they cannot acquire an inferred denominator or block the primary arm.
 
 The FINRA sidecar downloads only dates already proven to be completed price sessions. Each source
 file must pass schema, trailer-count, uniqueness, and volume-consistency gates before the candidate
@@ -71,7 +77,7 @@ history, preventing corporate-action revisions from becoming phantom P&L. The ev
 prior close's gate for the following realized transition and reports failed-gate returns only as
 diagnostic evidence.
 
-The scheduled workflow downloads data, reconciles completed-month returns against Alpha Vantage when its repository secret is configured, runs validation, locks a content-hashed shadow record, and uploads a read-only artifact. It has `contents: read` permission and no broker credentials. A missing or failed secondary feed leaves hypothetical research visible but invalidates every action. Human execution is a hard system boundary.
+The scheduled workflow downloads data, reconciles completed-month returns against Alpha Vantage when its repository secret is configured, runs validation, locks a content-hashed shadow record, and uploads a read-only artifact. The same job is triggered by decision-path pushes to `main`, so a changed policy receives clean hosted evidence without depending on manual-dispatch authority. It has `contents: read` permission and no broker credentials. A missing or failed secondary feed leaves hypothetical research visible but invalidates every action. Human execution is a hard system boundary.
 
 ## Champion exit hierarchy
 

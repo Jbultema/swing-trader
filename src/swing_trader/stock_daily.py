@@ -34,6 +34,7 @@ from swing_trader.stock_prospective import write_stock_shadow_evaluation
 from swing_trader.stock_shadow_state import (
     held_tickers_from_latest_state,
     latest_stock_shadow_state,
+    load_stock_shadow_config,
     record_stock_shadow_state,
     stock_shadow_lineage_dir,
     stock_shadow_lineage_id,
@@ -73,6 +74,7 @@ def run_stock_shadow_daily(
     fixed_now = now is not None
     recorded_at = _as_utc(now or datetime.now(UTC))
     config_path = root / "config/stock_shadow.toml"
+    shadow_config, _ = load_stock_shadow_config(config_path)
     lineage_id = stock_shadow_lineage_id(config_path)
     lineage_dir = stock_shadow_lineage_dir(
         root / "reports/stock-shadow/lineages",
@@ -180,6 +182,7 @@ def run_stock_shadow_daily(
         lineage_dir / "candidates",
         required_validation_symbols=held,
         share_manifest_path=shares.manifest_path,
+        maximum_positions_per_sector=shadow_config.maximum_positions_per_sector,
         now=recorded_at,
     )
     finra_status, finra_path, finra_diagnostic = _record_or_reuse_finra_activity(

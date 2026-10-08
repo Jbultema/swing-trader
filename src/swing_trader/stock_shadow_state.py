@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import tomllib
+from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -36,6 +37,7 @@ class StockShadowStateError(ValueError):
 class StockShadowConfig:
     maximum_positions: int
     maximum_position_weight: float
+    maximum_positions_per_sector: int
     hard_stop_fraction: float
     atr_multiple: float
     rank_exit_multiple: float
@@ -68,6 +70,9 @@ def load_stock_shadow_config(path: Path) -> tuple[StockShadowConfig, dict[str, o
     config = StockShadowConfig(
         maximum_positions=int(raw["portfolio"]["maximum_positions"]),
         maximum_position_weight=float(raw["portfolio"]["maximum_position_weight"]),
+        maximum_positions_per_sector=int(
+            raw["portfolio"]["maximum_positions_per_sector"]
+        ),
         hard_stop_fraction=float(raw["exit"]["hard_stop_fraction"]),
         atr_multiple=float(raw["exit"]["atr_multiple"]),
         rank_exit_multiple=float(raw["exit"]["rank_exit_multiple"]),
@@ -181,6 +186,15 @@ def record_stock_shadow_state(
         )
 
     config, raw_config = load_stock_shadow_config(config_path)
+    concentration_policy = candidate.get("portfolio_concentration_policy")
+    if (
+        not isinstance(concentration_policy, dict)
+        or concentration_policy.get("maximum_positions_per_gics_sector")
+        != config.maximum_positions_per_sector
+    ):
+        raise StockShadowStateError(
+            "Candidate and state disagree on the GICS sector concentration policy."
+        )
     specification = {
         "config": raw_config,
         "signal": {
@@ -194,6 +208,7 @@ def record_stock_shadow_state(
             "signal_at": "regular_session_close",
             "execute_at": "next_regular_session_open",
         },
+        "portfolio_concentration_policy": concentration_policy,
         "data_cost_policy": "no_paid_sources",
     }
     specification_hash = hashlib.sha256(
@@ -214,6 +229,13 @@ def record_stock_shadow_state(
         )
 
     current_tickers = set(universe["ticker"].astype(str))
+    sector_by_ticker = dict(
+        zip(
+            universe["ticker"].astype(str),
+            universe["gics_sector"].astype(str),
+            strict=True,
+        )
+    )
     membership = pd.DataFrame(False, index=prices.index, columns=prices["Close"].columns)
     membership.loc[:, membership.columns.intersection(sorted(current_tickers))] = True
     features = build_stock_features(prices, membership)
@@ -368,6 +390,7 @@ def record_stock_shadow_state(
             config=config,
             policy=arm_policy,
             entry_reason=entry_reason,
+            sector_by_ticker=sector_by_ticker,
             signal_available=signal_available,
             signal_unavailable_reason=(
                 None
@@ -407,7 +430,7 @@ def record_stock_shadow_state(
     assert isinstance(primary_arm, dict)
     primary_eligible = bool(primary_arm["eligible_for_primary_prospective_performance"])
     payload: dict[str, object] = {
-        "schema_version": 5,
+        "schema_version": 6,
         "record_type": "prospective_stock_shadow_state",
         "research_status": "paper_only_human_execution_required",
         "data_cost_policy": "no_paid_sources",
@@ -438,6 +461,11 @@ def record_stock_shadow_state(
             else [],
             "fetch_error_tickers": share_manifest.get("validation", {}).get(
                 "fetch_error_tickers", []
+            )
+            if isinstance(share_manifest.get("validation"), dict)
+            else [],
+            "collection_timeout_tickers": share_manifest.get("validation", {}).get(
+                "collection_timeout_tickers", []
             )
             if isinstance(share_manifest.get("validation"), dict)
             else [],
@@ -565,6 +593,7 @@ def _advance_arm(
     config: StockShadowConfig,
     policy: ExitPolicy,
     entry_reason: str = "top_consensus_entry",
+    sector_by_ticker: dict[str, str] | None = None,
     signal_available: bool = True,
     signal_unavailable_reason: str | None = None,
 ) -> dict[str, object]:
@@ -699,6 +728,11 @@ def _advance_arm(
 
     survivors = set(positions) - set(exits)
     selected = set(survivors)
+    sector_counts = Counter(
+        sector_by_ticker[ticker]
+        for ticker in selected
+        if sector_by_ticker is not None and ticker in sector_by_ticker
+    )
     skipped: dict[str, list[str]] = {}
     allow_entries = not guarded or market_risk_on
     for ticker in candidates:
@@ -712,6 +746,14 @@ def _advance_arm(
         if not allow_entries and ticker not in positions:
             skipped[ticker] = ["market_regime_risk_off"]
             continue
+        if ticker not in positions and sector_by_ticker is not None:
+            sector = sector_by_ticker.get(ticker)
+            if not sector:
+                raise StockShadowStateError(f"Missing GICS sector for candidate {ticker}.")
+            if sector_counts[sector] >= config.maximum_positions_per_sector:
+                skipped[ticker] = ["gics_sector_position_cap"]
+                continue
+            sector_counts[sector] += 1
         selected.add(ticker)
 
     weight = min(config.maximum_position_weight, 1.0 / config.maximum_positions)
@@ -766,6 +808,9 @@ def _advance_arm(
                 enriched.get(ticker),
             )
         )
+    if sector_by_ticker is not None:
+        for row in decisions:
+            row["gics_sector"] = sector_by_ticker.get(str(row["ticker"]))
     account = _mark_paper_account(
         cash,
         shares,
@@ -1211,6 +1256,10 @@ def _validate_config(config: StockShadowConfig) -> None:
         raise ValueError("maximum_positions must be positive.")
     if not 0.0 < config.maximum_position_weight <= 1.0:
         raise ValueError("maximum_position_weight must be in (0, 1].")
+    if not 1 <= config.maximum_positions_per_sector <= config.maximum_positions:
+        raise ValueError(
+            "maximum_positions_per_sector must be between one and maximum_positions."
+        )
     if config.maximum_positions * config.maximum_position_weight > 1.0:
         raise ValueError("Stock shadow maximum weights exceed 100% gross exposure.")
     if not config.short_volume_holding_sessions:

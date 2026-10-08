@@ -1,6 +1,7 @@
 [portfolio]
 maximum_positions = 10
 maximum_position_weight = 0.10
+maximum_positions_per_sector = 3
 
 [exit]
 hard_stop_fraction = 0.08

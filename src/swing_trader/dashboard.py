@@ -252,6 +252,7 @@ with stock:
                     )
                     decision_columns = [
                         "ticker",
+                        "gics_sector",
                         "action",
                         "reasons",
                         "selection_rank",

@@ -144,6 +144,43 @@ def test_market_guard_blocks_entries_and_explains_the_skip() -> None:
     assert result["decisions"][0]["reasons"] == ["market_regime_risk_off"]
 
 
+def test_sector_entry_cap_leaves_excess_weight_in_cash_and_explains_skip() -> None:
+    session = pd.Timestamp("2026-10-06")
+    tickers = ["A", "B", "C", "D"]
+    prices = pd.concat(
+        {
+            "Open": pd.DataFrame([dict.fromkeys(tickers, 100.0)], index=[session]),
+            "Close": pd.DataFrame([dict.fromkeys(tickers, 100.0)], index=[session]),
+        },
+        axis=1,
+    )
+    prices.columns.names = ["field", "ticker"]
+    day = pd.concat([_day(100.0).rename(index={"A": ticker}) for ticker in tickers])
+    result = _advance_arm(
+        "share_turnover_hold21",
+        None,
+        session,
+        prices,
+        day,
+        pd.Series({ticker: float(rank) for rank, ticker in enumerate(tickers, 1)}),
+        tickers,
+        set(tickers),
+        set(),
+        guarded=False,
+        market_risk_on=True,
+        config=_config(),
+        policy=ExitPolicy(maximum_holding_sessions=21),
+        sector_by_ticker=dict.fromkeys(tickers, "Information Technology"),
+    )
+
+    assert result["target_for_next_open"] == {"A": 0.1, "B": 0.1, "C": 0.1}
+    assert result["target_cash_weight"] == pytest.approx(0.7)
+    skipped = next(row for row in result["decisions"] if row["ticker"] == "D")
+    assert skipped["action"] == "SKIP"
+    assert skipped["reasons"] == ["gics_sector_position_cap"]
+    assert skipped["gics_sector"] == "Information Technology"
+
+
 def test_unavailable_signal_schedules_a_fail_safe_exit_without_new_entries() -> None:
     sessions = pd.bdate_range("2026-10-05", periods=2)
     prices = _small_prices(sessions)
@@ -439,6 +476,7 @@ def _config() -> StockShadowConfig:
     return StockShadowConfig(
         maximum_positions=10,
         maximum_position_weight=0.1,
+        maximum_positions_per_sector=3,
         hard_stop_fraction=0.08,
         atr_multiple=3.0,
         rank_exit_multiple=2.0,
@@ -505,11 +543,23 @@ def _universe_snapshot(
     symbols: list[str],
     captured_at: datetime,
 ):
+    sectors = (
+        "Communication Services",
+        "Consumer Discretionary",
+        "Consumer Staples",
+        "Energy",
+        "Financials",
+        "Health Care",
+        "Industrials",
+        "Information Technology",
+        "Materials",
+        "Utilities",
+    )
     table = pd.DataFrame(
         {
             "Symbol": symbols,
             "Security": [f"Company {i}" for i in range(len(symbols))],
-            "GICS Sector": ["Industrials"] * len(symbols),
+            "GICS Sector": [sectors[i % len(sectors)] for i in range(len(symbols))],
             "GICS Sub-Industry": ["Research"] * len(symbols),
             "Headquarters Location": ["Denver, Colorado"] * len(symbols),
             "Date added": ["2020-01-02"] * len(symbols),

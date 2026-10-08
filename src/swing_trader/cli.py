@@ -60,6 +60,7 @@ from swing_trader.stock_prospective import write_stock_shadow_evaluation
 from swing_trader.stock_research import run_stock_research
 from swing_trader.stock_shadow_state import (
     held_tickers_from_latest_state,
+    load_stock_shadow_config,
     record_stock_shadow_state,
     stock_shadow_lineage_dir,
     verify_stock_shadow_state,
@@ -675,11 +676,13 @@ def shadow_screen_stocks(
     ),
 ) -> None:
     """Lock explainable stock candidates from fresh close-known inputs; never place orders."""
+    shadow_config, _ = load_stock_shadow_config(config_path)
     result = record_current_stock_candidates(
         latest_current_sp500_manifest(universe_snapshots),
         latest_stock_price_manifest(price_snapshots),
         output,
         share_manifest_path=latest_stock_share_manifest(share_snapshots),
+        maximum_positions_per_sector=shadow_config.maximum_positions_per_sector,
         required_validation_symbols=held_tickers_from_latest_state(
             stock_shadow_lineage_dir(state_root, config_path) / "states",
             arm_names=("consensus",),

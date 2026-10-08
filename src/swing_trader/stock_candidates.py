@@ -50,6 +50,7 @@ def record_current_stock_candidates(
     share_manifest_path: Path,
     families: tuple[str, ...] = tuple(SCORE_COLUMNS),
     top_n: int = 10,
+    maximum_positions_per_sector: int = 3,
     validation_symbol_limit: int = 23,
     benchmark: str = "SPY",
     required_validation_symbols: tuple[str, ...] = (),
@@ -60,6 +61,15 @@ def record_current_stock_candidates(
     universe, universe_manifest = load_locked_current_universe(
         universe_manifest_path,
         now=recorded_at,
+    )
+    if not 1 <= maximum_positions_per_sector <= top_n:
+        raise ValueError("Sector position cap must be between one and top_n.")
+    sector_by_ticker = dict(
+        zip(
+            universe["ticker"].astype(str),
+            universe["gics_sector"].astype(str),
+            strict=True,
+        )
     )
     price_audit = audit_current_stock_price_snapshot(
         price_manifest_path,
@@ -118,11 +128,12 @@ def record_current_stock_candidates(
         validation_symbol_limit=validation_symbol_limit,
         benchmark=benchmark,
         required_validation_symbols=required_validation_symbols,
+        sector_by_ticker=sector_by_ticker,
     )
     market_state = _market_state(prices["Close"][benchmark].dropna(), as_of)
     primary_close = prices["Close"].loc[as_of]
     payload: dict[str, object] = {
-        "schema_version": 3,
+        "schema_version": 4,
         "record_type": "prospective_stock_candidate_screen",
         "data_cost_policy": "no_paid_sources",
         "research_status": "candidate_screen_not_portfolio_state",
@@ -132,6 +143,14 @@ def record_current_stock_candidates(
         "recorded_at_utc": recorded_at.isoformat(),
         "families": list(families),
         "top_n_per_family": top_n,
+        "portfolio_concentration_policy": {
+            "maximum_positions_per_gics_sector": maximum_positions_per_sector,
+            "application": "entry_cap_leave_unfilled_weight_in_cash",
+            "selection_policy": (
+                "preserve raw signal order; do not replace a sector-capped name with a "
+                "lower-ranked candidate"
+            ),
+        },
         "market_state": market_state,
         "family_candidates": family_rows,
         "consensus_method": (
@@ -157,7 +176,10 @@ def record_current_stock_candidates(
                     if turnover_features is not None
                     else 0
                 ),
-                "candidates": _share_turnover_candidate_rows(turnover_candidates),
+                "candidates": _share_turnover_candidate_rows(
+                    turnover_candidates,
+                    sector_by_ticker,
+                ),
                 "data_gate_validation": share_manifest.get("validation"),
             }
         },
@@ -202,11 +224,15 @@ def record_current_stock_candidates(
     return CandidateSnapshot(path, as_of.date().isoformat(), len(unique), len(validation_symbols), record_hash)
 
 
-def _share_turnover_candidate_rows(frame: pd.DataFrame) -> list[dict[str, object]]:
+def _share_turnover_candidate_rows(
+    frame: pd.DataFrame,
+    sector_by_ticker: dict[str, str],
+) -> list[dict[str, object]]:
     return [
         {
             "ticker": str(row["ticker"]),
             "signal_family": SHARE_TURNOVER_SIGNAL_FAMILY,
+            "gics_sector": sector_by_ticker[str(row["ticker"])],
             "rank": int(row["candidate_rank"]),
             "selection_rank": int(row["selection_rank"]),
             "score": float(row["score_share_turnover_skip3"]),
@@ -238,6 +264,7 @@ def screen_latest_candidates(
     validation_symbol_limit: int,
     benchmark: str = "SPY",
     required_validation_symbols: tuple[str, ...] = (),
+    sector_by_ticker: dict[str, str] | None = None,
 ) -> tuple[list[dict[str, object]], list[dict[str, object]], list[str]]:
     if top_n < 1 or validation_symbol_limit < 1:
         raise ValueError("Candidate and validation limits must be positive.")
@@ -260,6 +287,11 @@ def screen_latest_candidates(
                 {
                     "ticker": ticker_text,
                     "signal_family": family,
+                    "gics_sector": (
+                        sector_by_ticker.get(ticker_text)
+                        if sector_by_ticker is not None
+                        else None
+                    ),
                     "rank": rank,
                     "score": score,
                     "close": _optional_float(row.get("close")),
@@ -297,6 +329,11 @@ def screen_latest_candidates(
             ),
             "mean_family_rank": sum(ranks_by_ticker[ticker]) / len(ranks_by_ticker[ticker]),
             "mean_score": sum(scores_by_ticker[ticker]) / len(scores_by_ticker[ticker]),
+            "gics_sector": (
+                sector_by_ticker.get(ticker)
+                if sector_by_ticker is not None
+                else None
+            ),
             "why": [
                 f"top_{top_n}_consensus",
                 f"appears_in_{len(ranks_by_ticker[ticker])}_of_{len(families)}_families",

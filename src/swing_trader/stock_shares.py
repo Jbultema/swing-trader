@@ -3,12 +3,14 @@ from __future__ import annotations
 import io
 import json
 import math
+import queue
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, timedelta
+from multiprocessing import get_context
 from pathlib import Path
-from time import sleep
+from time import monotonic, sleep
 
 import pandas as pd
 import yfinance as yf
@@ -28,7 +30,9 @@ REQUIRED_SHARE_COLUMNS = (
     "discarded_historical_observations",
     "provider_request_attempts",
 )
-ALLOWED_SOURCE_STATUSES = frozenset({"available", "missing", "fetch_error", "invalid"})
+ALLOWED_SOURCE_STATUSES = frozenset(
+    {"available", "missing", "fetch_error", "collection_timeout", "invalid"}
+)
 
 
 class StockShareDataError(ValueError):
@@ -47,6 +51,7 @@ class StockShareValidation:
     newest_provider_observation_date: str | None
     missing_tickers: tuple[str, ...]
     fetch_error_tickers: tuple[str, ...]
+    collection_timeout_tickers: tuple[str, ...]
     invalid_tickers: tuple[str, ...]
     stale_tickers: tuple[str, ...]
     future_observation_tickers: tuple[str, ...]
@@ -104,6 +109,7 @@ def download_current_stock_shares(
     max_workers: int = 4,
     retry_attempts: int = 2,
     retry_delay_seconds: float = 1.0,
+    overall_timeout_seconds: float = 600.0,
     sleeper: Callable[[float], None] = sleep,
 ) -> StockShareSnapshot:
     """Capture one currently known shares-outstanding value per current constituent.
@@ -119,6 +125,8 @@ def download_current_stock_shares(
         raise ValueError("max_workers must be positive.")
     if retry_attempts < 1:
         raise ValueError("retry_attempts must be positive.")
+    if overall_timeout_seconds <= 0.0:
+        raise ValueError("overall_timeout_seconds must be positive.")
     universe, universe_manifest = load_locked_current_universe(
         universe_manifest_path,
         now=requested_at,
@@ -134,27 +142,29 @@ def download_current_stock_shares(
     fetcher = share_fetcher or _fetch_yahoo_shares
     request_start = requested_at.date() - timedelta(days=request_lookback_calendar_days)
     request_end = requested_at.date() + timedelta(days=1)
-    rows: dict[str, dict[str, object]] = {}
-
-    def collect(ticker: str, provider_symbol: str) -> tuple[str, dict[str, object]]:
-        return ticker, _collect_one_share_value(
-            provider_symbol,
+    if share_fetcher is None:
+        rows = _collect_default_share_rows_bounded(
+            tickers,
+            provider_symbols,
+            request_start=request_start,
+            request_end=request_end,
+            max_workers=max_workers,
+            retry_attempts=retry_attempts,
+            retry_delay_seconds=retry_delay_seconds,
+            overall_timeout_seconds=overall_timeout_seconds,
+        )
+    else:
+        rows = _collect_share_rows_threaded(
+            tickers,
+            provider_symbols,
             fetcher,
             request_start=request_start,
             request_end=request_end,
+            max_workers=max_workers,
             retry_attempts=retry_attempts,
             retry_delay_seconds=retry_delay_seconds,
             sleeper=sleeper,
         )
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(collect, ticker, provider): ticker
-            for ticker, provider in zip(tickers, provider_symbols, strict=True)
-        }
-        for future in as_completed(futures):
-            ticker, result = future.result()
-            rows[ticker] = result
 
     captured_at = requested_at if now is not None else datetime.now(UTC)
     frame = pd.DataFrame(
@@ -179,6 +189,7 @@ def download_current_stock_shares(
         request_end_exclusive=request_end,
         minimum_coverage_fraction=minimum_coverage_fraction,
         maximum_observation_age_calendar_days=maximum_observation_age_calendar_days,
+        overall_collection_timeout_seconds=overall_timeout_seconds,
     )
 
 
@@ -231,6 +242,7 @@ def validate_current_stock_shares(
     usable = available & finite_positive & dated & ~future & ~stale
     missing = source_status.eq("missing")
     fetch_error = source_status.eq("fetch_error")
+    collection_timeout = source_status.eq("collection_timeout")
     available_consistent = (
         ~available
         | (
@@ -240,7 +252,7 @@ def validate_current_stock_shares(
             & dated
         )
     )
-    unavailable = missing | fetch_error
+    unavailable = missing | fetch_error | collection_timeout
     unavailable_consistent = (
         ~unavailable
         | (
@@ -253,7 +265,7 @@ def validate_current_stock_shares(
     nonnegative_counts = (
         observation_counts.ge(0)
         & discarded_counts.ge(0)
-        & request_attempts.ge(1)
+        & (request_attempts.ge(1) | (collection_timeout & request_attempts.eq(0)))
     )
     inconsistent = ~(available_consistent & unavailable_consistent & nonnegative_counts)
     coverage = float(usable.sum()) / len(requested)
@@ -282,6 +294,7 @@ def validate_current_stock_shares(
         ),
         missing_tickers=tuple(sorted(tickers.loc[missing])),
         fetch_error_tickers=tuple(sorted(tickers.loc[fetch_error])),
+        collection_timeout_tickers=tuple(sorted(tickers.loc[collection_timeout])),
         invalid_tickers=tuple(sorted(tickers.loc[invalid])),
         stale_tickers=tuple(sorted(tickers.loc[stale])),
         future_observation_tickers=tuple(sorted(tickers.loc[future])),
@@ -306,6 +319,7 @@ def write_current_stock_share_snapshot(
     request_end_exclusive: date,
     minimum_coverage_fraction: float = 0.99,
     maximum_observation_age_calendar_days: int = 130,
+    overall_collection_timeout_seconds: float = 600.0,
 ) -> StockShareSnapshot:
     normalized = _normalize_share_frame(frame)
     requested = tuple(str(value) for value in requested_tickers)
@@ -329,7 +343,7 @@ def write_current_stock_share_snapshot(
         handle.write(buffer.getvalue())
     try:
         manifest = {
-            "schema_version": 2,
+            "schema_version": 3,
             "provider": "Yahoo Finance via yfinance",
             "endpoint": "Ticker.get_shares_full",
             "data_cost_policy": "no_paid_sources",
@@ -340,6 +354,7 @@ def write_current_stock_share_snapshot(
             "captured_at_utc": captured.isoformat(),
             "request_start": request_start.isoformat(),
             "request_end_exclusive": request_end_exclusive.isoformat(),
+            "overall_collection_timeout_seconds": overall_collection_timeout_seconds,
             "provider_history_policy": (
                 "only the latest provider value is retained; provider dates are metadata and "
                 "the value becomes usable no earlier than captured_at_utc"
@@ -417,6 +432,15 @@ def audit_current_stock_share_snapshot(
         errors.append("Historical backfill must be explicitly prohibited.")
     if manifest.get("action_authorized") is not False:
         errors.append("Stock-share snapshot must not authorize trading.")
+    if int(manifest.get("schema_version", 1)) >= 3:
+        timeout_seconds = manifest.get("overall_collection_timeout_seconds")
+        if (
+            not isinstance(timeout_seconds, (int, float))
+            or isinstance(timeout_seconds, bool)
+            or not math.isfinite(float(timeout_seconds))
+            or float(timeout_seconds) <= 0.0
+        ):
+            errors.append("Stock-share collection timeout is missing or invalid.")
     data_gate = manifest.get("shares_data_gate_passed")
     if not isinstance(data_gate, bool):
         errors.append("Original stock-share data-gate result is missing or invalid.")
@@ -453,6 +477,8 @@ def audit_current_stock_share_snapshot(
                     normalized_validation = json.loads(json.dumps(recalculated.to_dict()))
                     if int(manifest.get("schema_version", 1)) < 2:
                         normalized_validation.pop("inconsistent_source_tickers", None)
+                    if int(manifest.get("schema_version", 1)) < 3:
+                        normalized_validation.pop("collection_timeout_tickers", None)
                     if recalculated.inconsistent_source_tickers:
                         errors.append("Stock-share source accounting is inconsistent.")
                     if normalized_validation != stored_validation:
@@ -472,6 +498,127 @@ def audit_current_stock_share_snapshot(
     if integrity and not freshness:
         status = "stale"
     return StockShareSnapshotAudit(integrity, freshness, age_hours, status, tuple(errors))
+
+
+def _collect_share_rows_threaded(
+    tickers: tuple[str, ...],
+    provider_symbols: tuple[str, ...],
+    fetcher: ShareFetcher,
+    *,
+    request_start: date,
+    request_end: date,
+    max_workers: int,
+    retry_attempts: int,
+    retry_delay_seconds: float,
+    sleeper: Callable[[float], None],
+) -> dict[str, dict[str, object]]:
+    rows: dict[str, dict[str, object]] = {}
+
+    def collect(ticker: str, provider_symbol: str) -> tuple[str, dict[str, object]]:
+        return ticker, _collect_one_share_value(
+            provider_symbol,
+            fetcher,
+            request_start=request_start,
+            request_end=request_end,
+            retry_attempts=retry_attempts,
+            retry_delay_seconds=retry_delay_seconds,
+            sleeper=sleeper,
+        )
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(collect, ticker, provider): ticker
+            for ticker, provider in zip(tickers, provider_symbols, strict=True)
+        }
+        for future in as_completed(futures):
+            ticker, result = future.result()
+            rows[ticker] = result
+    return rows
+
+
+def _default_share_collection_worker(
+    output_queue: object,
+    tickers: tuple[str, ...],
+    provider_symbols: tuple[str, ...],
+    request_start: date,
+    request_end: date,
+    max_workers: int,
+    retry_attempts: int,
+    retry_delay_seconds: float,
+) -> None:
+    def collect(ticker: str, provider_symbol: str) -> tuple[str, dict[str, object]]:
+        return ticker, _collect_one_share_value(
+            provider_symbol,
+            _fetch_yahoo_shares,
+            request_start=request_start,
+            request_end=request_end,
+            retry_attempts=retry_attempts,
+            retry_delay_seconds=retry_delay_seconds,
+            sleeper=sleep,
+        )
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(collect, ticker, provider): ticker
+            for ticker, provider in zip(tickers, provider_symbols, strict=True)
+        }
+        for future in as_completed(futures):
+            ticker, result = future.result()
+            output_queue.put((ticker, result))  # type: ignore[attr-defined]
+
+
+def _collect_default_share_rows_bounded(
+    tickers: tuple[str, ...],
+    provider_symbols: tuple[str, ...],
+    *,
+    request_start: date,
+    request_end: date,
+    max_workers: int,
+    retry_attempts: int,
+    retry_delay_seconds: float,
+    overall_timeout_seconds: float,
+    worker_target: Callable[..., None] = _default_share_collection_worker,
+) -> dict[str, dict[str, object]]:
+    context = get_context("spawn")
+    output_queue = context.Queue()
+    process = context.Process(
+        target=worker_target,
+        args=(
+            output_queue,
+            tickers,
+            provider_symbols,
+            request_start,
+            request_end,
+            max_workers,
+            retry_attempts,
+            retry_delay_seconds,
+        ),
+    )
+    process.start()
+    rows: dict[str, dict[str, object]] = {}
+    deadline = monotonic() + overall_timeout_seconds
+    while len(rows) < len(tickers):
+        remaining = deadline - monotonic()
+        if remaining <= 0.0:
+            break
+        try:
+            ticker, result = output_queue.get(timeout=min(0.25, remaining))
+        except queue.Empty:
+            if not process.is_alive():
+                break
+            continue
+        rows[str(ticker)] = result
+
+    if process.is_alive():
+        process.terminate()
+        process.join(timeout=5.0)
+        if process.is_alive():
+            process.kill()
+    process.join(timeout=1.0)
+    output_queue.close()
+    for ticker in tickers:
+        rows.setdefault(ticker, _empty_share_row("collection_timeout", 0))
+    return rows
 
 
 def _collect_one_share_value(
@@ -535,7 +682,9 @@ def _empty_share_row(status: str, attempts: int) -> dict[str, object]:
         "source_status": status,
         "source_observation_count": 0,
         "discarded_historical_observations": 0,
-        "provider_request_attempts": max(attempts, 1),
+        "provider_request_attempts": (
+            0 if status == "collection_timeout" else max(attempts, 1)
+        ),
     }
 
 

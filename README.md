@@ -83,6 +83,9 @@ top-ten large-cap screen for at most 5, 10, or 21 sessions with identical exit r
 round-trip costs. Those arms use Yahoo only, remain explicitly ineligible for primary performance,
 and exist to test whether faster turnover adds value before the project promotes any shorter
 holding rule.
+Every stock arm also enforces an entry cap of three names per GICS sector. A fourth same-sector
+candidate is shown as `SKIP`; it is not replaced by a weaker name, and its weight remains cash.
+This bounds a ten-name sleeve at 30% initial sector exposure without manufacturing diversification.
 Here `short_volume` is an immutable internal identifier for short-horizon price momentum plus
 relative trading-volume participation. It is neither FINRA short-sale volume nor the academic
 volume/shares-outstanding turnover characteristic. Alpha Vantage's endpoint was premium-only on
@@ -96,6 +99,10 @@ binding with 500 of 503 names usable (99.40%); ERIE, WAT, and WBD were stale und
 the top quintile of 18-session volume divided by captured shares, omitting the latest three
 sessions, then selects the ten strongest intersections. It starts only from the capture-forward
 policy lineage; no historical share values are inferred.
+The shares denominator matches the published characteristic, but the portfolio is a constraint-
+adapted test rather than a paper replication: it is long-only, equal weighted, current-S&P-500
+based, sector capped, and uses explicit exits. The 21-session arm is the literature-aligned holding
+reference; 5 and 10 sessions are preregistered falsification tests, not assumed improvements.
 The evaluator reports where each arm's return occurred (overnight, explicit next-open cost, or
 intraday), compares each 5/10-session arm with its own signal family's 21-session reference, starts
 paired uncertainty after 21 sessions, and applies family-wide error control after 63 sessions; none
@@ -108,6 +115,9 @@ and any exact-arm holdings receive an explicit fail-safe exit for the next open.
 P&L remains visible, but a transition whose prior signal gate failed is excluded from exact-signal
 inference. Corrupt, future-dated, stale-capture, or universe-mismatched artifacts still fail the
 whole run because their provenance cannot be trusted.
+The default Yahoo share collector runs in a disposable child process with a ten-minute wall-clock
+limit. Any unresolved names become explicit `collection_timeout` rows, so a hung provider request
+can fail the exact-share gate without hanging the whole primary workflow.
 A local ledger permits at most 24 of the documented 25 daily calls, leaving room for the one-call
 bulk earnings calendar. Missing, stale, divergent, or quota-limited validation still produces an
 immutable diagnostic state but makes it ineligible for primary prospective performance.
@@ -147,7 +157,9 @@ report begins a 2,000-sample paired stationary-bootstrap interval, but meeting a
 threshold still does not authorize a trade.
 
 The `No-paid stock shadow` workflow runs at 00:30 UTC Tuesday through Saturday, corresponding to
-the prior U.S. weekday close. It restores the exact content-hashed lineage from the durable evidence
+the prior U.S. weekday close. A push to `main` that changes the decision path also runs the same
+job, providing a clean hosted initialization for each changed policy when manual dispatch is not
+available. It restores the exact content-hashed lineage from the durable evidence
 branch, retries transient Yahoo misses twice as single-symbol requests, and archives candidates,
 validations, earnings inputs, decisions, and run diagnostics. The state lineage is keyed by both the
 stock decision-policy hash and frozen config; a signal, gate, execution, or config change starts a
