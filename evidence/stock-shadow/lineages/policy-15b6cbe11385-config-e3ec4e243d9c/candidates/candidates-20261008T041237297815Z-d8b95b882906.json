@@ -1,0 +1,1252 @@
+{
+  "schema_version": 5,
+  "record_type": "prospective_stock_candidate_screen",
+  "data_cost_policy": "no_paid_sources",
+  "research_status": "candidate_screen_not_portfolio_state",
+  "action_authorized": false,
+  "execution_assumption": "signal_after_regular_close_execute_no_earlier_than_next_open",
+  "as_of_session": "2026-10-07",
+  "recorded_at_utc": "2026-10-08T04:12:37.297815+00:00",
+  "families": [
+    "short_volume",
+    "smooth_momentum",
+    "volume_breakout"
+  ],
+  "top_n_per_family": 10,
+  "portfolio_concentration_policy": {
+    "maximum_positions_per_gics_sector": 3,
+    "application": "entry_cap_leave_unfilled_weight_in_cash",
+    "selection_policy": "preserve raw signal order; do not replace a sector-capped name with a lower-ranked candidate"
+  },
+  "market_state": {
+    "benchmark": "SPY",
+    "close": 777.219970703125,
+    "moving_average_200": 718.6695190429688,
+    "realized_volatility_20_annualized": 0.10297760863437662,
+    "risk_on": true,
+    "rule": "close_above_200dma_and_20d_annualized_volatility_at_or_below_35pct",
+    "role": "preregistered_shadow_variant_gate_not_retrospective_evidence"
+  },
+  "family_candidates": [
+    {
+      "ticker": "P",
+      "signal_family": "short_volume",
+      "gics_sector": "Information Technology",
+      "rank": 1,
+      "score": 0.9989939637826961,
+      "close": 152.66000366210938,
+      "return_21d": 0.5093929660210572,
+      "return_63d": 0.885622596201191,
+      "return_12_1": 0.11967228317798351,
+      "proximity_52w_high": 0.9947868954987767,
+      "volume_ratio_20_126": 2.01906817517153,
+      "atr_fraction_14d": 0.04697274710828805,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_short_volume"
+      ]
+    },
+    {
+      "ticker": "PTC",
+      "signal_family": "short_volume",
+      "gics_sector": "Information Technology",
+      "rank": 2,
+      "score": 0.9684104627766599,
+      "close": 193.60000610351562,
+      "return_21d": 0.45279914515968533,
+      "return_63d": 0.5639389665698904,
+      "return_12_1": -0.34995124630811736,
+      "proximity_52w_high": 0.9360796791773682,
+      "volume_ratio_20_126": 1.8812689827437226,
+      "atr_fraction_14d": 0.039348443422287764,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_short_volume"
+      ]
+    },
+    {
+      "ticker": "MPC",
+      "signal_family": "short_volume",
+      "gics_sector": "Energy",
+      "rank": 3,
+      "score": 0.9456740442655935,
+      "close": 442.260009765625,
+      "return_21d": 0.11184861095798748,
+      "return_63d": 0.5653758847245438,
+      "return_12_1": 1.0897784710503005,
+      "proximity_52w_high": 0.9938650744316471,
+      "volume_ratio_20_126": 1.2360478467248452,
+      "atr_fraction_14d": 0.037103266169992474,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_short_volume"
+      ]
+    },
+    {
+      "ticker": "VLO",
+      "signal_family": "short_volume",
+      "gics_sector": "Energy",
+      "rank": 4,
+      "score": 0.9430583501006036,
+      "close": 424.1000061035156,
+      "return_21d": 0.10774454575520309,
+      "return_63d": 0.5137385993670729,
+      "return_12_1": 1.3924071018772093,
+      "proximity_52w_high": 0.9886011696259212,
+      "volume_ratio_20_126": 1.262647770503861,
+      "atr_fraction_14d": 0.03935730805831919,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_short_volume"
+      ]
+    },
+    {
+      "ticker": "RVTY",
+      "signal_family": "short_volume",
+      "gics_sector": "Health Care",
+      "rank": 5,
+      "score": 0.9408450704225353,
+      "close": 153.60000610351562,
+      "return_21d": 0.2086874715953948,
+      "return_63d": 0.3607466260916301,
+      "return_12_1": 0.36465369289702343,
+      "proximity_52w_high": 0.9239098111489662,
+      "volume_ratio_20_126": 1.4514033202837546,
+      "atr_fraction_14d": 0.03905785070484618,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_short_volume"
+      ]
+    },
+    {
+      "ticker": "MRNA",
+      "signal_family": "short_volume",
+      "gics_sector": "Health Care",
+      "rank": 6,
+      "score": 0.9388329979879275,
+      "close": 196.47999572753906,
+      "return_21d": 0.4001282203650518,
+      "return_63d": 1.5663532130753635,
+      "return_12_1": 4.095497355337238,
+      "proximity_52w_high": 0.9258316586437351,
+      "volume_ratio_20_126": 1.2189755673207374,
+      "atr_fraction_14d": 0.08082139273930095,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_short_volume"
+      ]
+    },
+    {
+      "ticker": "META",
+      "signal_family": "short_volume",
+      "gics_sector": "Communication Services",
+      "rank": 7,
+      "score": 0.9195171026156941,
+      "close": 721.3099975585938,
+      "return_21d": 0.1766956776288342,
+      "return_63d": 0.14315464418728974,
+      "return_12_1": -0.14054785599707675,
+      "proximity_52w_high": 0.9249698530223798,
+      "volume_ratio_20_126": 1.2167745814907454,
+      "atr_fraction_14d": 0.039618586869673116,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_short_volume"
+      ]
+    },
+    {
+      "ticker": "MTD",
+      "signal_family": "short_volume",
+      "gics_sector": "Health Care",
+      "rank": 8,
+      "score": 0.9193158953722335,
+      "close": 1533.47998046875,
+      "return_21d": 0.15688933993697196,
+      "return_63d": 0.19057154175820212,
+      "return_12_1": -0.01468106752790177,
+      "proximity_52w_high": 0.9670559801228894,
+      "volume_ratio_20_126": 1.11999657383388,
+      "atr_fraction_14d": 0.031195151794473512,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_short_volume"
+      ]
+    },
+    {
+      "ticker": "A",
+      "signal_family": "short_volume",
+      "gics_sector": "Health Care",
+      "rank": 9,
+      "score": 0.9082494969818914,
+      "close": 169.08999633789062,
+      "return_21d": 0.15316367375035567,
+      "return_63d": 0.26762550244963323,
+      "return_12_1": 0.043229670795885244,
+      "proximity_52w_high": 0.9564647566837671,
+      "volume_ratio_20_126": 1.0933802103260364,
+      "atr_fraction_14d": 0.03291712797790882,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_short_volume"
+      ]
+    },
+    {
+      "ticker": "TWLO",
+      "signal_family": "short_volume",
+      "gics_sector": "Information Technology",
+      "rank": 10,
+      "score": 0.8971830985915493,
+      "close": 273.0,
+      "return_21d": 0.20855283871637575,
+      "return_63d": 0.24885632377669675,
+      "return_12_1": 1.0591614008542418,
+      "proximity_52w_high": 0.8852140253012893,
+      "volume_ratio_20_126": 1.6339025392964057,
+      "atr_fraction_14d": 0.06355208592038078,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_short_volume"
+      ]
+    },
+    {
+      "ticker": "LITE",
+      "signal_family": "smooth_momentum",
+      "gics_sector": "Information Technology",
+      "rank": 1,
+      "score": 0.9909456740442656,
+      "close": 1111.0699462890625,
+      "return_21d": 0.13544224456140674,
+      "return_63d": 0.4139887227459629,
+      "return_12_1": 5.0929946198993985,
+      "proximity_52w_high": 0.9770182062376026,
+      "volume_ratio_20_126": 0.8915782393147474,
+      "atr_fraction_14d": 0.054323766842959295,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_smooth_momentum"
+      ]
+    },
+    {
+      "ticker": "MPC",
+      "signal_family": "smooth_momentum",
+      "gics_sector": "Energy",
+      "rank": 2,
+      "score": 0.959758551307847,
+      "close": 442.260009765625,
+      "return_21d": 0.11184861095798748,
+      "return_63d": 0.5653758847245438,
+      "return_12_1": 1.0897784710503005,
+      "proximity_52w_high": 0.9938650744316471,
+      "volume_ratio_20_126": 1.2360478467248452,
+      "atr_fraction_14d": 0.037103266169992474,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_smooth_momentum"
+      ]
+    },
+    {
+      "ticker": "TER",
+      "signal_family": "smooth_momentum",
+      "gics_sector": "Information Technology",
+      "rank": 3,
+      "score": 0.9537223340040242,
+      "close": 411.7799987792969,
+      "return_21d": 0.1067569786629583,
+      "return_63d": 0.13559798041209792,
+      "return_12_1": 1.5210028915207734,
+      "proximity_52w_high": 0.844291317931747,
+      "volume_ratio_20_126": 0.6892994262979656,
+      "atr_fraction_14d": 0.046489789798886,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_smooth_momentum"
+      ]
+    },
+    {
+      "ticker": "HPE",
+      "signal_family": "smooth_momentum",
+      "gics_sector": "Information Technology",
+      "rank": 4,
+      "score": 0.948943661971831,
+      "close": 72.08999633789062,
+      "return_21d": 0.2898864511195274,
+      "return_63d": 0.47164190355390834,
+      "return_12_1": 1.2951358232327252,
+      "proximity_52w_high": 0.9837608834439221,
+      "volume_ratio_20_126": 0.9665209016864724,
+      "atr_fraction_14d": 0.04763689157076063,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_smooth_momentum"
+      ]
+    },
+    {
+      "ticker": "KEYS",
+      "signal_family": "smooth_momentum",
+      "gics_sector": "Information Technology",
+      "rank": 5,
+      "score": 0.9421529175050303,
+      "close": 381.4200134277344,
+      "return_21d": 0.143962563934104,
+      "return_63d": 0.18390910863990229,
+      "return_12_1": 0.9235030602966019,
+      "proximity_52w_high": 0.97817562278385,
+      "volume_ratio_20_126": 0.7984289326857464,
+      "atr_fraction_14d": 0.02546441566550667,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_smooth_momentum"
+      ]
+    },
+    {
+      "ticker": "VLO",
+      "signal_family": "smooth_momentum",
+      "gics_sector": "Energy",
+      "rank": 6,
+      "score": 0.9393863179074446,
+      "close": 424.1000061035156,
+      "return_21d": 0.10774454575520309,
+      "return_63d": 0.5137385993670729,
+      "return_12_1": 1.3924071018772093,
+      "proximity_52w_high": 0.9886011696259212,
+      "volume_ratio_20_126": 1.262647770503861,
+      "atr_fraction_14d": 0.03935730805831919,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_smooth_momentum"
+      ]
+    },
+    {
+      "ticker": "FCX",
+      "signal_family": "smooth_momentum",
+      "gics_sector": "Materials",
+      "rank": 7,
+      "score": 0.9351106639839034,
+      "close": 71.86000061035156,
+      "return_21d": -0.06212479725397568,
+      "return_63d": 0.19006142841728257,
+      "return_12_1": 0.9207262268044432,
+      "proximity_52w_high": 0.8955633415189589,
+      "volume_ratio_20_126": 0.8164520352178353,
+      "atr_fraction_14d": 0.0339052128351101,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_smooth_momentum"
+      ]
+    },
+    {
+      "ticker": "PSX",
+      "signal_family": "smooth_momentum",
+      "gics_sector": "Energy",
+      "rank": 8,
+      "score": 0.9293259557344065,
+      "close": 271.6199951171875,
+      "return_21d": 0.048159218041571084,
+      "return_63d": 0.43852929515742467,
+      "return_12_1": 1.00732579950854,
+      "proximity_52w_high": 0.9801530019597677,
+      "volume_ratio_20_126": 1.1846429815233324,
+      "atr_fraction_14d": 0.03307929678243339,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_smooth_momentum"
+      ]
+    },
+    {
+      "ticker": "FTNT",
+      "signal_family": "smooth_momentum",
+      "gics_sector": "Information Technology",
+      "rank": 9,
+      "score": 0.9041750503018109,
+      "close": 189.27999877929688,
+      "return_21d": 0.20200671437101358,
+      "return_63d": 0.1560496165545331,
+      "return_12_1": 0.8229915052986667,
+      "proximity_52w_high": 0.9837326291604407,
+      "volume_ratio_20_126": 0.7372513259924486,
+      "atr_fraction_14d": 0.030865086143129366,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_smooth_momentum"
+      ]
+    },
+    {
+      "ticker": "COHR",
+      "signal_family": "smooth_momentum",
+      "gics_sector": "Information Technology",
+      "rank": 10,
+      "score": 0.903420523138833,
+      "close": 334.55999755859375,
+      "return_21d": 0.10825490972304497,
+      "return_63d": 0.02236892660636025,
+      "return_12_1": 1.630304205912425,
+      "proximity_52w_high": 0.7603636308149858,
+      "volume_ratio_20_126": 1.1027534527165943,
+      "atr_fraction_14d": 0.05564448928964509,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_smooth_momentum"
+      ]
+    },
+    {
+      "ticker": "P",
+      "signal_family": "volume_breakout",
+      "gics_sector": "Information Technology",
+      "rank": 1,
+      "score": 0.9979879275653923,
+      "close": 152.66000366210938,
+      "return_21d": 0.5093929660210572,
+      "return_63d": 0.885622596201191,
+      "return_12_1": 0.11967228317798351,
+      "proximity_52w_high": 0.9947868954987767,
+      "volume_ratio_20_126": 2.01906817517153,
+      "atr_fraction_14d": 0.04697274710828805,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_volume_breakout"
+      ]
+    },
+    {
+      "ticker": "MPC",
+      "signal_family": "volume_breakout",
+      "gics_sector": "Energy",
+      "rank": 2,
+      "score": 0.9751509054325955,
+      "close": 442.260009765625,
+      "return_21d": 0.11184861095798748,
+      "return_63d": 0.5653758847245438,
+      "return_12_1": 1.0897784710503005,
+      "proximity_52w_high": 0.9938650744316471,
+      "volume_ratio_20_126": 1.2360478467248452,
+      "atr_fraction_14d": 0.037103266169992474,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_volume_breakout"
+      ]
+    },
+    {
+      "ticker": "VLO",
+      "signal_family": "volume_breakout",
+      "gics_sector": "Energy",
+      "rank": 3,
+      "score": 0.9722334004024145,
+      "close": 424.1000061035156,
+      "return_21d": 0.10774454575520309,
+      "return_63d": 0.5137385993670729,
+      "return_12_1": 1.3924071018772093,
+      "proximity_52w_high": 0.9886011696259212,
+      "volume_ratio_20_126": 1.262647770503861,
+      "atr_fraction_14d": 0.03935730805831919,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_volume_breakout"
+      ]
+    },
+    {
+      "ticker": "PSX",
+      "signal_family": "volume_breakout",
+      "gics_sector": "Energy",
+      "rank": 4,
+      "score": 0.9530181086519114,
+      "close": 271.6199951171875,
+      "return_21d": 0.048159218041571084,
+      "return_63d": 0.43852929515742467,
+      "return_12_1": 1.00732579950854,
+      "proximity_52w_high": 0.9801530019597677,
+      "volume_ratio_20_126": 1.1846429815233324,
+      "atr_fraction_14d": 0.03307929678243339,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_volume_breakout"
+      ]
+    },
+    {
+      "ticker": "PTC",
+      "signal_family": "volume_breakout",
+      "gics_sector": "Information Technology",
+      "rank": 5,
+      "score": 0.9521126760563381,
+      "close": 193.60000610351562,
+      "return_21d": 0.45279914515968533,
+      "return_63d": 0.5639389665698904,
+      "return_12_1": -0.34995124630811736,
+      "proximity_52w_high": 0.9360796791773682,
+      "volume_ratio_20_126": 1.8812689827437226,
+      "atr_fraction_14d": 0.039348443422287764,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_volume_breakout"
+      ]
+    },
+    {
+      "ticker": "MRNA",
+      "signal_family": "volume_breakout",
+      "gics_sector": "Health Care",
+      "rank": 6,
+      "score": 0.9227364185110665,
+      "close": 196.47999572753906,
+      "return_21d": 0.4001282203650518,
+      "return_63d": 1.5663532130753635,
+      "return_12_1": 4.095497355337238,
+      "proximity_52w_high": 0.9258316586437351,
+      "volume_ratio_20_126": 1.2189755673207374,
+      "atr_fraction_14d": 0.08082139273930095,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_volume_breakout"
+      ]
+    },
+    {
+      "ticker": "RVTY",
+      "signal_family": "volume_breakout",
+      "gics_sector": "Health Care",
+      "rank": 7,
+      "score": 0.9209255533199195,
+      "close": 153.60000610351562,
+      "return_21d": 0.2086874715953948,
+      "return_63d": 0.3607466260916301,
+      "return_12_1": 0.36465369289702343,
+      "proximity_52w_high": 0.9239098111489662,
+      "volume_ratio_20_126": 1.4514033202837546,
+      "atr_fraction_14d": 0.03905785070484618,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_volume_breakout"
+      ]
+    },
+    {
+      "ticker": "MTD",
+      "signal_family": "volume_breakout",
+      "gics_sector": "Health Care",
+      "rank": 8,
+      "score": 0.9083501006036218,
+      "close": 1533.47998046875,
+      "return_21d": 0.15688933993697196,
+      "return_63d": 0.19057154175820212,
+      "return_12_1": -0.01468106752790177,
+      "proximity_52w_high": 0.9670559801228894,
+      "volume_ratio_20_126": 1.11999657383388,
+      "atr_fraction_14d": 0.031195151794473512,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_volume_breakout"
+      ]
+    },
+    {
+      "ticker": "A",
+      "signal_family": "volume_breakout",
+      "gics_sector": "Health Care",
+      "rank": 9,
+      "score": 0.9043259557344066,
+      "close": 169.08999633789062,
+      "return_21d": 0.15316367375035567,
+      "return_63d": 0.26762550244963323,
+      "return_12_1": 0.043229670795885244,
+      "proximity_52w_high": 0.9564647566837671,
+      "volume_ratio_20_126": 1.0933802103260364,
+      "atr_fraction_14d": 0.03291712797790882,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_volume_breakout"
+      ]
+    },
+    {
+      "ticker": "TMO",
+      "signal_family": "volume_breakout",
+      "gics_sector": "Health Care",
+      "rank": 10,
+      "score": 0.8927565392354124,
+      "close": 662.0599975585938,
+      "return_21d": 0.0987486924290184,
+      "return_63d": 0.26273066081197727,
+      "return_12_1": 0.11163817414714705,
+      "proximity_52w_high": 0.953523513693814,
+      "volume_ratio_20_126": 1.0683207580011653,
+      "atr_fraction_14d": 0.02771974395425112,
+      "why": [
+        "eligible_current_constituent",
+        "price_and_liquidity_floor_passed",
+        "50_day_average_above_200_day_average",
+        "top_10_volume_breakout"
+      ]
+    }
+  ],
+  "consensus_method": "agreement_count_desc_then_mean_family_rank_asc_then_mean_score_desc",
+  "consensus_candidates": [
+    {
+      "rank": 1,
+      "ticker": "MPC",
+      "agreement_count": 3,
+      "signal_families": [
+        "short_volume",
+        "smooth_momentum",
+        "volume_breakout"
+      ],
+      "mean_family_rank": 2.3333333333333335,
+      "mean_score": 0.9601945003353455,
+      "gics_sector": "Energy",
+      "why": [
+        "top_10_consensus",
+        "appears_in_3_of_3_families"
+      ]
+    },
+    {
+      "rank": 2,
+      "ticker": "VLO",
+      "agreement_count": 3,
+      "signal_families": [
+        "short_volume",
+        "smooth_momentum",
+        "volume_breakout"
+      ],
+      "mean_family_rank": 4.333333333333333,
+      "mean_score": 0.951559356136821,
+      "gics_sector": "Energy",
+      "why": [
+        "top_10_consensus",
+        "appears_in_3_of_3_families"
+      ]
+    },
+    {
+      "rank": 3,
+      "ticker": "P",
+      "agreement_count": 2,
+      "signal_families": [
+        "short_volume",
+        "volume_breakout"
+      ],
+      "mean_family_rank": 1.0,
+      "mean_score": 0.9984909456740443,
+      "gics_sector": "Information Technology",
+      "why": [
+        "top_10_consensus",
+        "appears_in_2_of_3_families"
+      ]
+    },
+    {
+      "rank": 4,
+      "ticker": "PTC",
+      "agreement_count": 2,
+      "signal_families": [
+        "short_volume",
+        "volume_breakout"
+      ],
+      "mean_family_rank": 3.5,
+      "mean_score": 0.960261569416499,
+      "gics_sector": "Information Technology",
+      "why": [
+        "top_10_consensus",
+        "appears_in_2_of_3_families"
+      ]
+    },
+    {
+      "rank": 5,
+      "ticker": "PSX",
+      "agreement_count": 2,
+      "signal_families": [
+        "smooth_momentum",
+        "volume_breakout"
+      ],
+      "mean_family_rank": 6.0,
+      "mean_score": 0.9411720321931589,
+      "gics_sector": "Energy",
+      "why": [
+        "top_10_consensus",
+        "appears_in_2_of_3_families"
+      ]
+    },
+    {
+      "rank": 6,
+      "ticker": "RVTY",
+      "agreement_count": 2,
+      "signal_families": [
+        "short_volume",
+        "volume_breakout"
+      ],
+      "mean_family_rank": 6.0,
+      "mean_score": 0.9308853118712275,
+      "gics_sector": "Health Care",
+      "why": [
+        "top_10_consensus",
+        "appears_in_2_of_3_families"
+      ]
+    },
+    {
+      "rank": 7,
+      "ticker": "MRNA",
+      "agreement_count": 2,
+      "signal_families": [
+        "short_volume",
+        "volume_breakout"
+      ],
+      "mean_family_rank": 6.0,
+      "mean_score": 0.930784708249497,
+      "gics_sector": "Health Care",
+      "why": [
+        "top_10_consensus",
+        "appears_in_2_of_3_families"
+      ]
+    },
+    {
+      "rank": 8,
+      "ticker": "MTD",
+      "agreement_count": 2,
+      "signal_families": [
+        "short_volume",
+        "volume_breakout"
+      ],
+      "mean_family_rank": 8.0,
+      "mean_score": 0.9138329979879276,
+      "gics_sector": "Health Care",
+      "why": [
+        "top_10_consensus",
+        "appears_in_2_of_3_families"
+      ]
+    },
+    {
+      "rank": 9,
+      "ticker": "A",
+      "agreement_count": 2,
+      "signal_families": [
+        "short_volume",
+        "volume_breakout"
+      ],
+      "mean_family_rank": 9.0,
+      "mean_score": 0.906287726358149,
+      "gics_sector": "Health Care",
+      "why": [
+        "top_10_consensus",
+        "appears_in_2_of_3_families"
+      ]
+    },
+    {
+      "rank": 10,
+      "ticker": "LITE",
+      "agreement_count": 1,
+      "signal_families": [
+        "smooth_momentum"
+      ],
+      "mean_family_rank": 1.0,
+      "mean_score": 0.9909456740442656,
+      "gics_sector": "Information Technology",
+      "why": [
+        "top_10_consensus",
+        "appears_in_1_of_3_families"
+      ]
+    }
+  ],
+  "experimental_signals": {
+    "classic_12_1": {
+      "status": "available",
+      "data_gate_passed": true,
+      "method": "top_cross_sectional_return_from_t_minus_252_through_t_minus_21",
+      "role": "prospective_simple_momentum_diagnostic_not_primary_evidence",
+      "formation_sessions": 252,
+      "skip_recent_sessions": 21,
+      "long_only_adaptation": "top ten current-universe 12-1 returns; equal-weight position cap",
+      "candidates": [
+        {
+          "ticker": "SNDK",
+          "signal_family": "classic_12_1",
+          "gics_sector": "Information Technology",
+          "rank": 1,
+          "close": 1692.4200439453125,
+          "return_12_1": 13.343401968291891,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "top_cross_sectional_12_1_return",
+            "simple_momentum_control_without_composite_confirmation"
+          ]
+        },
+        {
+          "ticker": "LITE",
+          "signal_family": "classic_12_1",
+          "gics_sector": "Information Technology",
+          "rank": 2,
+          "close": 1111.0699462890625,
+          "return_12_1": 5.0929946198993985,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "top_cross_sectional_12_1_return",
+            "simple_momentum_control_without_composite_confirmation"
+          ]
+        },
+        {
+          "ticker": "MU",
+          "signal_family": "classic_12_1",
+          "gics_sector": "Information Technology",
+          "rank": 3,
+          "close": 1088.0,
+          "return_12_1": 4.243184076816483,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "top_cross_sectional_12_1_return",
+            "simple_momentum_control_without_composite_confirmation"
+          ]
+        },
+        {
+          "ticker": "MRNA",
+          "signal_family": "classic_12_1",
+          "gics_sector": "Health Care",
+          "rank": 4,
+          "close": 196.47999572753906,
+          "return_12_1": 4.095497355337238,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "top_cross_sectional_12_1_return",
+            "simple_momentum_control_without_composite_confirmation"
+          ]
+        },
+        {
+          "ticker": "WDC",
+          "signal_family": "classic_12_1",
+          "gics_sector": "Information Technology",
+          "rank": 5,
+          "close": 405.4200134277344,
+          "return_12_1": 2.8169734296685878,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "top_cross_sectional_12_1_return",
+            "simple_momentum_control_without_composite_confirmation"
+          ]
+        },
+        {
+          "ticker": "STX",
+          "signal_family": "classic_12_1",
+          "gics_sector": "Information Technology",
+          "rank": 6,
+          "close": 807.5700073242188,
+          "return_12_1": 2.7432856658686062,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "top_cross_sectional_12_1_return",
+            "simple_momentum_control_without_composite_confirmation"
+          ]
+        },
+        {
+          "ticker": "DELL",
+          "signal_family": "classic_12_1",
+          "gics_sector": "Information Technology",
+          "rank": 7,
+          "close": 578.9600219726562,
+          "return_12_1": 2.7094075685003,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "top_cross_sectional_12_1_return",
+            "simple_momentum_control_without_composite_confirmation"
+          ]
+        },
+        {
+          "ticker": "BE",
+          "signal_family": "classic_12_1",
+          "gics_sector": "Industrials",
+          "rank": 8,
+          "close": 291.2900085449219,
+          "return_12_1": 2.187535901226493,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "top_cross_sectional_12_1_return",
+            "simple_momentum_control_without_composite_confirmation"
+          ]
+        },
+        {
+          "ticker": "INTC",
+          "signal_family": "classic_12_1",
+          "gics_sector": "Information Technology",
+          "rank": 9,
+          "close": 113.12000274658203,
+          "return_12_1": 1.855151702242185,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "top_cross_sectional_12_1_return",
+            "simple_momentum_control_without_composite_confirmation"
+          ]
+        },
+        {
+          "ticker": "COHR",
+          "signal_family": "classic_12_1",
+          "gics_sector": "Information Technology",
+          "rank": 10,
+          "close": 334.55999755859375,
+          "return_12_1": 1.630304205912425,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "top_cross_sectional_12_1_return",
+            "simple_momentum_control_without_composite_confirmation"
+          ]
+        }
+      ]
+    },
+    "share_turnover_skip3": {
+      "status": "available",
+      "data_gate_passed": true,
+      "method": "independent_top_quintiles_of_return_and_share_turnover_over_t_minus_20_through_t_minus_3",
+      "role": "prospective_yahoo_only_diagnostic_not_primary_evidence",
+      "long_only_adaptation": "top ten by combined percentile inside independent top return and share-turnover quintiles; equal-weight position cap",
+      "lookback_sessions": 21,
+      "skip_recent_sessions": 3,
+      "measurement_sessions": 18,
+      "quantile_threshold": 0.8,
+      "candidate_count_before_top_n": 32,
+      "candidates": [
+        {
+          "ticker": "MRNA",
+          "signal_family": "share_turnover_skip3",
+          "gics_sector": "Health Care",
+          "rank": 1,
+          "selection_rank": 1,
+          "score": 0.9899799599198397,
+          "close": 196.47999572753906,
+          "formation_return_t20_t3": 0.3540226040586225,
+          "share_turnover_t20_t3": 0.6660014976759767,
+          "shares_outstanding_at_capture": 399235889,
+          "return_percentile": 0.9979959919839679,
+          "share_turnover_percentile": 0.9819639278557114,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "independent_top_prior_return_quintile",
+            "independent_top_share_turnover_quintile",
+            "latest_three_sessions_excluded_from_formation",
+            "shares_usable_only_from_snapshot_capture_forward"
+          ]
+        },
+        {
+          "ticker": "ILMN",
+          "signal_family": "share_turnover_skip3",
+          "gics_sector": "Health Care",
+          "rank": 2,
+          "selection_rank": 2,
+          "score": 0.9809619238476954,
+          "close": 267.760009765625,
+          "formation_return_t20_t3": 0.29366062590388053,
+          "share_turnover_t20_t3": 0.5286728476821192,
+          "shares_outstanding_at_capture": 151000000,
+          "return_percentile": 0.9919839679358717,
+          "share_turnover_percentile": 0.969939879759519,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "independent_top_prior_return_quintile",
+            "independent_top_share_turnover_quintile",
+            "latest_three_sessions_excluded_from_formation",
+            "shares_usable_only_from_snapshot_capture_forward"
+          ]
+        },
+        {
+          "ticker": "P",
+          "signal_family": "share_turnover_skip3",
+          "gics_sector": "Information Technology",
+          "rank": 3,
+          "selection_rank": 3,
+          "score": 0.9739478957915831,
+          "close": 152.66000366210938,
+          "formation_return_t20_t3": 0.3856041154375527,
+          "share_turnover_t20_t3": 0.4464343764009865,
+          "shares_outstanding_at_capture": 333227251,
+          "return_percentile": 1.0,
+          "share_turnover_percentile": 0.9478957915831663,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "independent_top_prior_return_quintile",
+            "independent_top_share_turnover_quintile",
+            "latest_three_sessions_excluded_from_formation",
+            "shares_usable_only_from_snapshot_capture_forward"
+          ]
+        },
+        {
+          "ticker": "ON",
+          "signal_family": "share_turnover_skip3",
+          "gics_sector": "Information Technology",
+          "rank": 4,
+          "selection_rank": 4,
+          "score": 0.9729458917835672,
+          "close": 82.51000213623047,
+          "formation_return_t20_t3": 0.1942880867028931,
+          "share_turnover_t20_t3": 0.5705917790270151,
+          "shares_outstanding_at_capture": 389318613,
+          "return_percentile": 0.9719438877755511,
+          "share_turnover_percentile": 0.9739478957915831,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "independent_top_prior_return_quintile",
+            "independent_top_share_turnover_quintile",
+            "latest_three_sessions_excluded_from_formation",
+            "shares_usable_only_from_snapshot_capture_forward"
+          ]
+        },
+        {
+          "ticker": "LITE",
+          "signal_family": "share_turnover_skip3",
+          "gics_sector": "Information Technology",
+          "rank": 5,
+          "selection_rank": 5,
+          "score": 0.9629258517034068,
+          "close": 1111.0699462890625,
+          "formation_return_t20_t3": 0.10922968900876895,
+          "share_turnover_t20_t3": 0.969654403567447,
+          "shares_outstanding_at_capture": 89700000,
+          "return_percentile": 0.9318637274549099,
+          "share_turnover_percentile": 0.9939879759519038,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "independent_top_prior_return_quintile",
+            "independent_top_share_turnover_quintile",
+            "latest_three_sessions_excluded_from_formation",
+            "shares_usable_only_from_snapshot_capture_forward"
+          ]
+        },
+        {
+          "ticker": "SWKS",
+          "signal_family": "share_turnover_skip3",
+          "gics_sector": "Information Technology",
+          "rank": 6,
+          "selection_rank": 6,
+          "score": 0.9609218436873748,
+          "close": 83.43000030517578,
+          "formation_return_t20_t3": 0.12801806682795203,
+          "share_turnover_t20_t3": 0.5867547376167757,
+          "shares_outstanding_at_capture": 235165549,
+          "return_percentile": 0.9438877755511023,
+          "share_turnover_percentile": 0.9779559118236473,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "independent_top_prior_return_quintile",
+            "independent_top_share_turnover_quintile",
+            "latest_three_sessions_excluded_from_formation",
+            "shares_usable_only_from_snapshot_capture_forward"
+          ]
+        },
+        {
+          "ticker": "COHR",
+          "signal_family": "share_turnover_skip3",
+          "gics_sector": "Information Technology",
+          "rank": 7,
+          "selection_rank": 7,
+          "score": 0.9589178356713427,
+          "close": 334.55999755859375,
+          "formation_return_t20_t3": 0.11647013082485613,
+          "share_turnover_t20_t3": 0.6380389468647569,
+          "shares_outstanding_at_capture": 195832246,
+          "return_percentile": 0.9378757515030061,
+          "share_turnover_percentile": 0.9799599198396793,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "independent_top_prior_return_quintile",
+            "independent_top_share_turnover_quintile",
+            "latest_three_sessions_excluded_from_formation",
+            "shares_usable_only_from_snapshot_capture_forward"
+          ]
+        },
+        {
+          "ticker": "GNRC",
+          "signal_family": "share_turnover_skip3",
+          "gics_sector": "Industrials",
+          "rank": 8,
+          "selection_rank": 8,
+          "score": 0.9559118236472945,
+          "close": 221.33999633789062,
+          "formation_return_t20_t3": 0.13979283633531403,
+          "share_turnover_t20_t3": 0.47083385148652895,
+          "shares_outstanding_at_capture": 59063935,
+          "return_percentile": 0.9478957915831663,
+          "share_turnover_percentile": 0.9639278557114228,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "independent_top_prior_return_quintile",
+            "independent_top_share_turnover_quintile",
+            "latest_three_sessions_excluded_from_formation",
+            "shares_usable_only_from_snapshot_capture_forward"
+          ]
+        },
+        {
+          "ticker": "SMCI",
+          "signal_family": "share_turnover_skip3",
+          "gics_sector": "Information Technology",
+          "rank": 9,
+          "selection_rank": 9,
+          "score": 0.9549098196392786,
+          "close": 44.939998626708984,
+          "formation_return_t20_t3": 0.08519623567249957,
+          "share_turnover_t20_t3": 1.0264342938348787,
+          "shares_outstanding_at_capture": 656965384,
+          "return_percentile": 0.9138276553106213,
+          "share_turnover_percentile": 0.9959919839679359,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "independent_top_prior_return_quintile",
+            "independent_top_share_turnover_quintile",
+            "latest_three_sessions_excluded_from_formation",
+            "shares_usable_only_from_snapshot_capture_forward"
+          ]
+        },
+        {
+          "ticker": "RVTY",
+          "signal_family": "share_turnover_skip3",
+          "gics_sector": "Health Care",
+          "rank": 10,
+          "selection_rank": 10,
+          "score": 0.9478957915831663,
+          "close": 153.60000610351562,
+          "formation_return_t20_t3": 0.19239846235402958,
+          "share_turnover_t20_t3": 0.3798070340130425,
+          "shares_outstanding_at_capture": 111586401,
+          "return_percentile": 0.969939879759519,
+          "share_turnover_percentile": 0.9258517034068137,
+          "why": [
+            "eligible_current_constituent",
+            "price_and_liquidity_floor_passed",
+            "independent_top_prior_return_quintile",
+            "independent_top_share_turnover_quintile",
+            "latest_three_sessions_excluded_from_formation",
+            "shares_usable_only_from_snapshot_capture_forward"
+          ]
+        }
+      ],
+      "data_gate_validation": {
+        "status": "passed",
+        "requested_tickers": 503,
+        "usable_tickers": 501,
+        "coverage_fraction": 0.9960238568588469,
+        "minimum_coverage_fraction": 0.99,
+        "maximum_observation_age_calendar_days": 130,
+        "oldest_provider_observation_date": "2026-04-23",
+        "newest_provider_observation_date": "2026-10-08",
+        "missing_tickers": [],
+        "fetch_error_tickers": [],
+        "collection_timeout_tickers": [],
+        "invalid_tickers": [],
+        "stale_tickers": [
+          "ERIE",
+          "WAT"
+        ],
+        "future_observation_tickers": [],
+        "inconsistent_source_tickers": [],
+        "duplicate_tickers": [],
+        "unexpected_tickers": [],
+        "absent_roster_tickers": [],
+        "source_observations_received": 19067,
+        "discarded_historical_observations": 18564
+      }
+    }
+  },
+  "validation_symbol_limit": 23,
+  "validation_symbols": [
+    "MPC",
+    "VLO",
+    "P",
+    "PTC",
+    "PSX",
+    "RVTY",
+    "MRNA",
+    "MTD",
+    "A",
+    "LITE",
+    "SPY"
+  ],
+  "primary_latest_close": {
+    "MPC": 442.260009765625,
+    "VLO": 424.1000061035156,
+    "P": 152.66000366210938,
+    "PTC": 193.60000610351562,
+    "PSX": 271.6199951171875,
+    "RVTY": 153.60000610351562,
+    "MRNA": 196.47999572753906,
+    "MTD": 1533.47998046875,
+    "A": 169.08999633789062,
+    "LITE": 1111.0699462890625,
+    "SPY": 777.219970703125
+  },
+  "inputs": {
+    "universe_manifest": "sp500-current-20261008T041202695162Z-d2636605bfd7.manifest.json",
+    "universe_manifest_sha256": "ce7cb06067800c38dbfbd8325e7b11ac12468fcf7ec0661d88bdb72a4f7f2fd4",
+    "universe_tabular_sha256": "d2636605bfd799d52509250ffdaa77a608b1a493b45ddbcbc8e86044eeea95cf",
+    "price_manifest": "adjusted-daily-20261008T041202695162Z-46ba78450a3b.manifest.json",
+    "price_manifest_sha256": "869e88d5d8f9960d6a9d097acdc95b82c5874f262b66b760f8c8e87d2a07500c",
+    "price_tabular_sha256": "46ba78450a3b5bb1bbfcdbfaefef39dac746e688cc8964c00e20bd1a71d1c8a0",
+    "feature_tabular_sha256": "e6bee0af47d9f2af4f8611f31e82de39e20660c43196b300210c8442b1b77259",
+    "share_manifest": "shares-outstanding-20261008T041237297815Z-b708abddf639.manifest.json",
+    "share_manifest_sha256": "e31660c5783e6182fb17b33a0ecaf1bcaf61391f87c62e5918dcfa0f3176a872",
+    "share_tabular_sha256": "b708abddf63911ca55c391c9fbd8dd22c27923c06ffd796177877dda820eacc1",
+    "share_data_role": "captured_now_for_future_use_only_not_historical_backfill",
+    "share_turnover_feature_tabular_sha256": "ac5d04063bcb4523027e41e7dc22837bce96ab9c646a8ae2ad17d294c5e20b25",
+    "stock_policy_sha256": "15b6cbe11385b83fa79ec155375c1b9107919dc35878578dcff28aca0eb754e0",
+    "implementation_sha256": "8fb938dc8653d6ff3a260ae76aa6c0cfa0772b01703815d6f88eabd58a5596b4"
+  },
+  "record_sha256": "d8b95b8829069248492a2a730b1599378ae2058b113d1270358523a0c6dba628"
+}
