@@ -14,9 +14,10 @@ benchmark = "SPY"
 moving_average_sessions = 200
 volatility_sessions = 20
 maximum_annualized_volatility = 0.35
-arms = ["consensus", "consensus_market_guard", "short_volume_hold5", "short_volume_hold10", "short_volume_hold21", "share_turnover_hold5", "share_turnover_hold10", "share_turnover_hold21"]
+arms = ["consensus", "consensus_market_guard", "classic_12_1_hold21", "short_volume_hold5", "short_volume_hold10", "short_volume_hold21", "share_turnover_hold5", "share_turnover_hold10", "share_turnover_hold21"]
 
 [experiments]
+classic_momentum_holding_sessions = 21
 short_volume_holding_sessions = [5, 10, 21]
 share_turnover_holding_sessions = [5, 10, 21]
 

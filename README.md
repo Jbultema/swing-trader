@@ -78,11 +78,13 @@ The candidate screen forms one top-ten consensus from the three frozen signal fa
 Vantage's free quota checks only the primary consensus portfolio's existing holdings, its new
 candidates, and SPY: at most 21 daily-price requests. The market-guard arm is retained as a
 diagnostic comparator rather than consuming enough calls to make the primary workflow unreliable.
-A preregistered set of short-volume proxy arms and exact share-turnover arms holds each signal's
-top-ten large-cap screen for at most 5, 10, or 21 sessions with identical exit rules and 50 bp
-round-trip costs. Those arms use Yahoo only, remain explicitly ineligible for primary performance,
-and exist to test whether faster turnover adds value before the project promotes any shorter
-holding rule.
+A preregistered simple 12-1 individual-stock momentum control holds the ten highest current-roster
+returns from t-252 through t-21 for at most 21 sessions, deliberately omitting the composite
+confirmation rules. Short-volume proxy and exact share-turnover arms hold each signal's top-ten
+large-cap screen for at most 5, 10, or 21 sessions. All use identical exits, next-open accounting,
+sector caps, and 50 bp round-trip costs. These Yahoo-only arms remain ineligible for primary
+performance and test whether the complex or faster rules add value over a transparent stock-level
+momentum baseline.
 Every stock arm also enforces an entry cap of three names per GICS sector. A fourth same-sector
 candidate is shown as `SKIP`; it is not replaced by a weaker name, and its weight remains cash.
 This bounds a ten-name sleeve at 30% initial sector exposure without manufacturing diversification.
@@ -180,8 +182,8 @@ is retained as a warning, while a missing or malformed report remains a real wor
 The dashboard's stock tab shows the latest state gate, decision-policy lineage status, market regime,
 next-open targets, cash/equity/cost accounting, captured shares, share turnover, independent return
 and turnover percentiles, per-arm signal availability, and every BUY/HOLD/SELL/SKIP reason. It
-hides no failed gate and labels the market-guard, short-volume, and exact share-turnover arms as
-diagnostic comparators.
+hides no failed gate and labels the market-guard, classic 12-1 stock-momentum, short-volume, and
+exact share-turnover arms as diagnostic comparators.
 
 These current-universe snapshots may never be projected backward as historical membership. Before
 any retrospective individual-stock experiment, normalized prices and point-in-time membership must

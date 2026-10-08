@@ -280,6 +280,7 @@ def _diagnostic_arm_comparisons(
     arm_names = tuple(diagnostic_returns)
     per_arm: dict[str, object] = {}
     reference_arms = {
+        "classic_12_1": "classic_12_1_hold21",
         "short_volume": "short_volume_hold21",
         "share_turnover": "share_turnover_hold21",
     }
@@ -806,6 +807,8 @@ def _diagnostic_arm_names(
 
 
 def _diagnostic_arm_family(arm_name: str) -> str:
+    if arm_name.startswith("classic_12_1_hold"):
+        return "classic_12_1"
     if arm_name.startswith("short_volume_hold"):
         return "short_volume"
     if arm_name.startswith("share_turnover_hold"):

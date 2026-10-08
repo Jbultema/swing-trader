@@ -6,7 +6,37 @@ from pathlib import Path
 
 import pandas as pd
 
-from swing_trader.stock_candidates import screen_latest_candidates, verify_candidate_snapshot
+from swing_trader.stock_candidates import (
+    CLASSIC_MOMENTUM_SIGNAL_FAMILY,
+    rank_classic_momentum_candidates,
+    screen_latest_candidates,
+    verify_candidate_snapshot,
+)
+
+
+def test_classic_momentum_control_ranks_12_1_return_without_composite_filter() -> None:
+    session = pd.Timestamp("2026-10-06")
+    features = pd.DataFrame(
+        {
+            "eligible": [True, True, False],
+            "trend_positive": [False, True, True],
+            "close": [100.0, 90.0, 80.0],
+            "return_12_1": [0.40, 0.20, 0.60],
+        },
+        index=pd.MultiIndex.from_product(
+            [[session], ["A", "B", "C"]],
+            names=["date", "ticker"],
+        ),
+    )
+
+    result = rank_classic_momentum_candidates(features, session, top_n=2)
+
+    assert result["ticker"].tolist() == ["A", "B"]
+    assert result["candidate_rank"].tolist() == [1, 2]
+    assert result["signal_family"].tolist() == [
+        CLASSIC_MOMENTUM_SIGNAL_FAMILY,
+        CLASSIC_MOMENTUM_SIGNAL_FAMILY,
+    ]
 
 
 def test_candidate_screen_prioritizes_cross_family_agreement_for_free_validation() -> None:

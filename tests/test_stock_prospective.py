@@ -163,6 +163,7 @@ def test_diagnostic_comparisons_use_a_hold21_reference_per_signal_family(
         spy_open=100.0,
         spy_close=100.0,
         diagnostic_equities={
+            "classic_12_1_hold21": 1.0,
             "short_volume_hold5": 1.0,
             "short_volume_hold21": 1.0,
             "share_turnover_hold5": 1.0,
@@ -182,6 +183,7 @@ def test_diagnostic_comparisons_use_a_hold21_reference_per_signal_family(
         spy_open=100.0,
         spy_close=101.0,
         diagnostic_equities={
+            "classic_12_1_hold21": 1.015,
             "short_volume_hold5": 1.01,
             "short_volume_hold21": 1.02,
             "share_turnover_hold5": 1.03,
@@ -192,6 +194,7 @@ def test_diagnostic_comparisons_use_a_hold21_reference_per_signal_family(
     comparisons = evaluate_stock_shadow_lineage(states)["diagnostic_arm_comparisons"]
 
     assert comparisons["same_signal_reference_arms"] == {
+        "classic_12_1": "classic_12_1_hold21",
         "short_volume": "short_volume_hold21",
         "share_turnover": "share_turnover_hold21",
     }
@@ -201,6 +204,9 @@ def test_diagnostic_comparisons_use_a_hold21_reference_per_signal_family(
     assert comparisons["per_arm"]["share_turnover_hold5"][
         "versus_same_signal_hold21"
     ]["reference"] == "share_turnover_hold21"
+    assert comparisons["per_arm"]["classic_12_1_hold21"][
+        "versus_same_signal_hold21"
+    ]["status"] == "reference_arm"
 
 
 def test_diagnostic_inference_excludes_prior_signal_data_gate_failures(

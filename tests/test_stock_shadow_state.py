@@ -332,6 +332,7 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
     assert result.targets == {
         "consensus": 10,
         "consensus_market_guard": 10,
+        "classic_12_1_hold21": 10,
         "short_volume_hold5": 10,
         "short_volume_hold10": 10,
         "short_volume_hold21": 10,
@@ -354,6 +355,11 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
     )
     assert payload["arms"]["short_volume_hold5"]["independent_price_validation_applies"] is False
     assert payload["arms"]["short_volume_hold5"]["maximum_holding_sessions"] == 5
+    assert payload["arms"]["classic_12_1_hold21"]["prospective_role"] == (
+        "diagnostic_simple_classic_12_1_momentum_control"
+    )
+    assert payload["arms"]["classic_12_1_hold21"]["signal_family"] == "classic_12_1"
+    assert payload["arms"]["classic_12_1_hold21"]["maximum_holding_sessions"] == 21
     assert payload["arms"]["share_turnover_hold5"]["prospective_role"] == (
         "diagnostic_academic_share_turnover_skip3_max_hold_5_sessions"
     )
@@ -488,6 +494,7 @@ def _config() -> StockShadowConfig:
         arms=(
             "consensus",
             "consensus_market_guard",
+            "classic_12_1_hold21",
             "short_volume_hold5",
             "short_volume_hold10",
             "short_volume_hold21",
@@ -495,6 +502,7 @@ def _config() -> StockShadowConfig:
             "share_turnover_hold10",
             "share_turnover_hold21",
         ),
+        classic_momentum_holding_sessions=21,
         short_volume_holding_sessions=(5, 10, 21),
         share_turnover_holding_sessions=(5, 10, 21),
         earnings_lead_sessions=2,

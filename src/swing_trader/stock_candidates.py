@@ -28,6 +28,11 @@ from swing_trader.stock_turnover import (
     rank_share_turnover_candidates,
 )
 
+CLASSIC_MOMENTUM_SIGNAL_FAMILY = "classic_12_1"
+CLASSIC_MOMENTUM_METHOD = (
+    "top_cross_sectional_return_from_t_minus_252_through_t_minus_21"
+)
+
 
 class CandidateSnapshotError(ValueError):
     """Raised when a prospective candidate screen cannot be proven causal and fresh."""
@@ -130,10 +135,17 @@ def record_current_stock_candidates(
         required_validation_symbols=required_validation_symbols,
         sector_by_ticker=sector_by_ticker,
     )
+    classic_candidates = rank_classic_momentum_candidates(
+        features,
+        as_of,
+        top_n=top_n,
+    )
+    if classic_candidates.empty:
+        raise CandidateSnapshotError("Classic momentum control produced no candidates.")
     market_state = _market_state(prices["Close"][benchmark].dropna(), as_of)
     primary_close = prices["Close"].loc[as_of]
     payload: dict[str, object] = {
-        "schema_version": 4,
+        "schema_version": 5,
         "record_type": "prospective_stock_candidate_screen",
         "data_cost_policy": "no_paid_sources",
         "research_status": "candidate_screen_not_portfolio_state",
@@ -158,6 +170,21 @@ def record_current_stock_candidates(
         ),
         "consensus_candidates": consensus_rows,
         "experimental_signals": {
+            CLASSIC_MOMENTUM_SIGNAL_FAMILY: {
+                "status": "available",
+                "data_gate_passed": True,
+                "method": CLASSIC_MOMENTUM_METHOD,
+                "role": "prospective_simple_momentum_diagnostic_not_primary_evidence",
+                "formation_sessions": 252,
+                "skip_recent_sessions": 21,
+                "long_only_adaptation": (
+                    "top ten current-universe 12-1 returns; equal-weight position cap"
+                ),
+                "candidates": _classic_momentum_candidate_rows(
+                    classic_candidates,
+                    sector_by_ticker,
+                ),
+            },
             SHARE_TURNOVER_SIGNAL_FAMILY: {
                 "status": "available" if share_gate_passed else "data_gate_failed",
                 "data_gate_passed": share_gate_passed,
@@ -222,6 +249,69 @@ def record_current_stock_candidates(
         handle.write("\n")
     unique = {row["ticker"] for row in family_rows}
     return CandidateSnapshot(path, as_of.date().isoformat(), len(unique), len(validation_symbols), record_hash)
+
+
+def rank_classic_momentum_candidates(
+    features: pd.DataFrame,
+    as_of: pd.Timestamp | str,
+    *,
+    top_n: int = 10,
+) -> pd.DataFrame:
+    """Return a simple 12-1 cross-sectional momentum control.
+
+    This intentionally omits the composite families' trend and volume conditions. It is a
+    prospective comparator for whether those extra rules add value, not a promoted signal.
+    """
+    if top_n < 1:
+        raise ValueError("top_n must be positive.")
+    date = pd.Timestamp(as_of)
+    try:
+        day = features.xs(date, level="date").copy()
+    except (KeyError, ValueError) as exc:
+        raise CandidateSnapshotError(
+            "Classic momentum date is absent from the feature panel."
+        ) from exc
+    required = {"eligible", "return_12_1", "close"}
+    if missing := required - set(day.columns):
+        raise CandidateSnapshotError(
+            f"Classic momentum features are missing columns: {sorted(missing)}"
+        )
+    returns = pd.to_numeric(day["return_12_1"], errors="coerce")
+    eligible = day["eligible"].fillna(False).astype(bool) & returns.notna()
+    selected = day.loc[eligible].copy()
+    selected["return_12_1"] = returns.loc[eligible]
+    selected.insert(0, "ticker", selected.index.astype(str))
+    selected.index.name = None
+    selected = selected.sort_values(
+        ["return_12_1", "ticker"],
+        ascending=[False, True],
+    ).head(top_n)
+    selected.insert(1, "candidate_rank", range(1, len(selected) + 1))
+    selected.insert(2, "signal_family", CLASSIC_MOMENTUM_SIGNAL_FAMILY)
+    return selected.reset_index(drop=True)
+
+
+def _classic_momentum_candidate_rows(
+    frame: pd.DataFrame,
+    sector_by_ticker: dict[str, str],
+) -> list[dict[str, object]]:
+    return [
+        {
+            "ticker": str(row["ticker"]),
+            "signal_family": CLASSIC_MOMENTUM_SIGNAL_FAMILY,
+            "gics_sector": sector_by_ticker[str(row["ticker"])],
+            "rank": int(row["candidate_rank"]),
+            "close": float(row["close"]),
+            "return_12_1": float(row["return_12_1"]),
+            "why": [
+                "eligible_current_constituent",
+                "price_and_liquidity_floor_passed",
+                "top_cross_sectional_12_1_return",
+                "simple_momentum_control_without_composite_confirmation",
+            ],
+        }
+        for row in frame.to_dict(orient="records")
+    ]
 
 
 def _share_turnover_candidate_rows(

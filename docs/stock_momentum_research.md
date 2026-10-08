@@ -131,9 +131,10 @@ Several apparent alternatives were rejected after live review. Stooq's U.S. bulk
 HTTP 401 on 2026-10-07 and now requires an interactive access key. A promising new GitHub price
 panel has no clear license and acknowledges only 76% historical-member coverage in 2015. Nasdaq's
 public-domain WIKI Prices archive ends in April 2018 and its publisher explicitly no longer
-recommends it for investment analysis. These can inform replication checks, not become hidden
-sources of truth. Full findings and the prospective workaround are documented in
-`docs/open_data_plan.md`.
+recommends it for investment analysis. Nasdaq's current historical-price website is also not an
+acceptable workaround because its terms prohibit automated extraction for data analysis. These can
+inform replication checks, not become hidden sources of truth. Full findings and the prospective
+workaround are documented in `docs/open_data_plan.md`.
 
 ### Forward-looking information
 
@@ -272,12 +273,16 @@ each arm's prior-close-to-open gross return, explicit next-open trading-cost dra
 open-to-close return and fails if those components do not reconcile to the paper account. SPY uses
 the same decomposition and its modeled entry cost.
 
+The simple 12-1 individual-stock momentum arm is the stock-level control the complex rules must
+beat. It selects the current-roster top ten by t-252-to-t-21 return without the consensus trend or
+volume confirmations, then uses the same sector cap, exits, next-open execution, and 50 bp cost.
 The 5/10/21-session short-volume proxy and exact share-turnover arms receive paired
 stationary-bootstrap comparisons against SPY, the primary consensus, and their own signal family's
-21-session reference after 21 complete sessions. A common stationary bootstrap across the frozen
-arm family begins only after 63 sessions and applies the Benjamini-Yekutieli correction for
-dependent multiple tests. These remain Yahoo-only diagnostics; neither a favorable interval nor a
-family-wide discovery can enter the Alpha-validated primary record or authorize a trade.
+21-session reference after 21 complete sessions. A common stationary bootstrap across the entire
+frozen diagnostic family, including the simple control, begins only after 63 sessions and applies
+the Benjamini-Yekutieli correction for dependent multiple tests. These remain Yahoo-only
+diagnostics; neither a favorable interval nor a family-wide discovery can enter the Alpha-validated
+primary record or authorize a trade.
 
 - https://personal.lse.ac.uk/polk/research/TugOfWar.pdf
 - https://doi.org/10.1016/j.jfineco.2019.03.011
@@ -286,9 +291,9 @@ family-wide discovery can enter the Alpha-validated primary record or authorize 
   hashes, records an unavailable SEC cross-check explicitly, and prohibits historical backfill.
 - `stock_live_data.py` excludes incomplete sessions, locks adjusted current-roster OHLCV, requires
   99% latest-close coverage, quantifies 252-session signal coverage, and binds the universe hash.
-- `stock_candidates.py` freezes all three consensus screens plus the exact share-turnover shortlist
-  and their feature-level explanations before the next open. The live 2026-10-06 consensus screen
-  produced 18 unique names rather than 30 because the families overlap.
+- `stock_candidates.py` freezes all three consensus screens, the simple 12-1 momentum control, and
+  the exact share-turnover shortlist with feature-level explanations before the next open. The live
+  2026-10-06 consensus screen produced 18 unique names rather than 30 because the families overlap.
 - `stock_shares.py` locks one latest Yahoo shares value per current-roster name, discards provider
   history, applies the 99% coverage and 130-day age gates, and permits use only from capture forward.
 - `stock_turnover.py` implements the independent top-quintile return and share-turnover intersection
@@ -298,10 +303,11 @@ family-wide discovery can enter the Alpha-validated primary record or authorize 
   an artifact.
 - `stock_shadow_state.py` advances one immediately consecutive close-to-next-open paper state,
   recomputes adjustment-safe entry bases and high-water marks, records every exit reason, and
-  rejects session gaps. The consensus arm is primary; the guarded arm and preregistered 5/10/21
-  short-volume proxy and exact share-turnover holding arms are diagnostic comparators. An intact
-  but failed share-data gate cannot interrupt the primary sequence: exact arms prohibit entries,
-  schedule held names for next-open exit, and become ineligible for signal inference.
+  rejects session gaps. The consensus arm is primary; the guarded arm, simple 12-1 control, and
+  preregistered 5/10/21 short-volume proxy and exact share-turnover holding arms are diagnostic
+  comparators. An intact but failed share-data gate cannot interrupt the primary sequence: exact
+  arms prohibit entries, schedule held names for next-open exit, and become ineligible for signal
+  inference.
 - `stock_daily.py` restores a hash-linked decision-policy/config lineage, refreshes the public roster
   and adjusted OHLCV, avoids free-provider calls on holidays, records optional-provider failures,
   and advances the state even when validation is unavailable so failed gates remain observable.
@@ -351,7 +357,7 @@ family-wide discovery can enter the Alpha-validated primary record or authorize 
 
 The remaining critical path is accumulating immediately consecutive prospective stock states and
 independently validating every primary candidate or holding within the free quota across enough
-exits and both market regimes. The evaluator and dashboard are implemented, but the exact
-share-turnover lineage has no realized transition yet. Historical stock performance remains
-unreported where the open panel fails its coverage gate; synthetic integration tests prove
-mechanics, not edge.
+exits and both market regimes. The evaluator and dashboard are implemented, but the current
+diagnostic lineage has no realized transition yet. Historical stock performance remains unreported
+where the open panel fails its coverage gate; synthetic integration tests prove mechanics, not
+edge.

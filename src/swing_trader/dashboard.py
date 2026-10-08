@@ -34,6 +34,8 @@ def _percentage(value: object) -> str:
 
 
 def _stock_signal_label(value: object) -> str:
+    if value == "classic_12_1":
+        return "simple 12-1 cross-sectional individual-stock momentum control"
     if value == "short_volume":
         return (
             "short-horizon price plus relative-volume proxy "
@@ -50,10 +52,12 @@ def _stock_signal_label(value: object) -> str:
 
 
 def _stock_arm_sort_key(name: str) -> tuple[int, int]:
+    if name.startswith("classic_12_1_hold"):
+        return (0, int(name.removeprefix("classic_12_1_hold")))
     if name.startswith("short_volume_hold"):
-        return (0, int(name.removeprefix("short_volume_hold")))
+        return (1, int(name.removeprefix("short_volume_hold")))
     if name.startswith("share_turnover_hold"):
-        return (1, int(name.removeprefix("share_turnover_hold")))
+        return (2, int(name.removeprefix("share_turnover_hold")))
     return (-1, 0)
 
 
@@ -217,6 +221,15 @@ with stock:
             ("consensus", "Primary consensus"),
             ("consensus_market_guard", "Diagnostic market guard"),
         ]
+        arm_labels.extend(
+            (
+                arm_name,
+                "Diagnostic classic 12-1 stock momentum control · "
+                f"maximum hold {stock_state['arms'][arm_name]['maximum_holding_sessions']} sessions",
+            )
+            for arm_name in sorted(stock_state["arms"], key=_stock_arm_sort_key)
+            if arm_name.startswith("classic_12_1_hold")
+        )
         arm_labels.extend(
             (
                 arm_name,

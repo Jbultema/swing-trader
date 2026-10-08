@@ -54,6 +54,12 @@ Official references:
   terms rather than open data. They are not dependencies or planned fallbacks for the operating
   path; their documentation is useful only for evaluating whether an optional manual cross-check
   would add information.
+- Nasdaq's current historical-price pages are visible without a paid terminal, but Nasdaq's terms
+  prohibit automated or manual capture for data-analysis use. Scraping them would not be a durable
+  or permissioned research feed: <https://www.nasdaq.com/legal>.
+- Financial Modeling Prep and Twelve Data advertise limited free account tiers, but they are
+  proprietary keyed services, not open datasets. They add another quota and terms dependency
+  without solving survivor-free historical membership, so they are not adopted as fallbacks.
 - GitHub or Kaggle price dumps with unclear provenance, licenses, adjustment rules, or update
   processes are not accepted merely because they are downloadable.
 
@@ -67,6 +73,8 @@ Official references:
    as a diagnostic comparator, not a second independently optimized portfolio that can exhaust the
    free validation budget. Multiple-testing and family-wide uncertainty still apply to historical
    research.
+   Register a simple 12-1 current-roster stock-momentum arm as a Yahoo-only control so the composite
+   and shorter-horizon rules must demonstrate incremental value under identical portfolio rules.
 3. Start every stock strategy from cash. Each later paper state must follow the immediately prior
    recorded session. Gaps do not get reconstructed using today's roster. Full-package and config
    provenance remain explicit, while the decision-policy and config hashes define separate
@@ -90,11 +98,11 @@ Official references:
    timestamp as the causal boundary, preserve each response hash, and treat form/item counts as
    neutral event context. Never infer filing sentiment from metadata alone.
 
-Operationally, full-universe Yahoo downloads use batches for speed, then retry incomplete symbols
-twice as single-name requests. The 99% current-close gate remains unchanged; retries recover
-transient timeouts and rate limits but do not conceal persistent absences. The live 2026-10-07 dry
-run recovered a rate-limited SYF request and passed at 503 of 504 latest closes, with WBD retained as
-the sole missing symbol.
+Operationally, full-universe Yahoo downloads use one batch for speed, retry the incomplete subset
+collectively, and then allow at most ten residual single-name requests. The 99% current-close gate
+remains unchanged; bounded retries recover transient timeouts and rate limits without turning a
+bad cross-section into hundreds of serial provider calls. The latest hosted 2026-10-07 run passed
+at 501 of 504 current closes (99.40%) and retained every absence explicitly.
 
 Yahoo can also publish logically inconsistent daily bars, including a high below a positive open or
 a nonpositive field. The prospective loader applies only a conservative, manifest-enumerated repair:
@@ -117,12 +125,13 @@ mature before 126 eligible sessions, 30 completed exits, and 10 eligible risk-of
 stationary-bootstrap uncertainty begins only after 21 eligible sessions, uses the same gated dates
 for the primary arm and SPY, and remains a diagnostic rather than trading authority.
 
-The primary consensus remains the only Alpha-validated arm. Separate short-volume proxy and exact
-share-turnover arms with 5, 10, and 21-session maximum holds use identical next-open accounting,
-exit rules, and 50 bp round-trip costs, but only the locked Yahoo snapshots. Their all-session
-metrics are visible as unvalidated diagnostics and cannot contribute to the primary evidence
-threshold. This preserves the free quota while testing the shorter-holding hypothesis prospectively
-instead of selecting a recent winner.
+The primary consensus remains the only Alpha-validated arm. A simple 12-1 stock-momentum control
+with a 21-session maximum hold, plus separate short-volume proxy and exact share-turnover arms with
+5, 10, and 21-session maximum holds, use identical next-open accounting, exit rules, sector caps,
+and 50 bp round-trip costs but only the locked Yahoo snapshots. Their all-session metrics are
+visible as unvalidated diagnostics and cannot contribute to the primary evidence threshold. This
+preserves the free quota while testing both complexity and the shorter-holding hypothesis
+prospectively instead of selecting a recent winner.
 The evaluator separates overnight, explicit execution-cost, and intraday performance for every arm,
 then starts paired inference after 21 sessions and family-wide multiple-testing control after 63.
 Those additions require no new provider and do not alter the frozen decision lineage.
@@ -214,9 +223,13 @@ then locks only tracked filings accepted at or before capture. The snapshot pres
 hashes, diagnostic form/item counts, market-phase timing, and exact candidate/universe/price
 bindings. Its manifest disables sentiment, direction, ranking, portfolio-state, and action use.
 
-The official endpoint returned HTTP 403 from this execution environment on 2026-10-07 even with a
-declared research user agent. The module and daily nonblocking recovery path are implemented and
-tested, but live availability is not claimed until the dedicated GitHub-hosted access probe passes.
-That probe is a weekly/manual diagnostic: a well-formed provider-access failure is retained and
-warned without generating a red run, while a missing or malformed report fails the workflow. The
-bot does not silently substitute an unofficial filing mirror.
+The official submissions API returned HTTP 403 from this execution environment on 2026-10-07 even
+with a declared research user agent. A hosted probe also received 403 from all four official routes
+tested: submissions JSON, latest-filings RSS, the daily master index, and the nightly submissions
+bulk archive. SEC documents the APIs and bulk archives as public and keyless, but its automated-tool
+policy permits traffic controls, so availability from this network is not claimed:
+<https://www.sec.gov/search-filings/edgar-application-programming-interfaces> and
+<https://www.sec.gov/files/privacy.htm>. The module and daily nonblocking recovery path remain
+implemented and tested. A well-formed provider-access failure is retained and warned without a red
+run, while a missing or malformed report fails the workflow. The bot does not silently substitute
+an unofficial filing mirror.

@@ -14,7 +14,11 @@ import pandas as pd
 from swing_trader.alpha_validation import verify_alpha_candidate_validation
 from swing_trader.events import build_earnings_event_flags
 from swing_trader.provenance import file_sha256, implementation_sha256, stock_policy_sha256
-from swing_trader.stock_candidates import verify_candidate_snapshot
+from swing_trader.stock_candidates import (
+    CLASSIC_MOMENTUM_METHOD,
+    CLASSIC_MOMENTUM_SIGNAL_FAMILY,
+    verify_candidate_snapshot,
+)
 from swing_trader.stock_live_data import (
     audit_current_stock_price_snapshot,
     load_locked_current_universe,
@@ -47,6 +51,7 @@ class StockShadowConfig:
     volatility_sessions: int
     maximum_annualized_volatility: float
     arms: tuple[str, ...]
+    classic_momentum_holding_sessions: int
     short_volume_holding_sessions: tuple[int, ...]
     share_turnover_holding_sessions: tuple[int, ...]
     earnings_lead_sessions: int
@@ -84,6 +89,9 @@ def load_stock_shadow_config(path: Path) -> tuple[StockShadowConfig, dict[str, o
             raw["market_guard"]["maximum_annualized_volatility"]
         ),
         arms=tuple(str(value) for value in raw["market_guard"]["arms"]),
+        classic_momentum_holding_sessions=int(
+            raw["experiments"]["classic_momentum_holding_sessions"]
+        ),
         short_volume_holding_sessions=tuple(
             int(value) for value in raw["experiments"]["short_volume_holding_sessions"]
         ),
@@ -200,6 +208,11 @@ def record_stock_shadow_state(
         "signal": {
             "families": list(SCORE_COLUMNS),
             "consensus": candidate.get("consensus_method"),
+            "experimental_classic_momentum": {
+                "family": CLASSIC_MOMENTUM_SIGNAL_FAMILY,
+                "method": CLASSIC_MOMENTUM_METHOD,
+                "holding_sessions": config.classic_momentum_holding_sessions,
+            },
             "experimental_share_turnover": {
                 "family": SHARE_TURNOVER_SIGNAL_FAMILY,
                 "method": SHARE_TURNOVER_METHOD,
@@ -260,6 +273,18 @@ def record_stock_shadow_state(
         )
     consensus_rank = _consensus_rank(day)
     candidates = _consensus_tickers(candidate, config.maximum_positions)
+    classic_momentum_rank = pd.to_numeric(
+        day["return_12_1"],
+        errors="coerce",
+    ).where(day["eligible"].fillna(False).astype(bool)).rank(
+        ascending=False,
+        method="average",
+    )
+    classic_momentum_candidates = _experimental_tickers(
+        candidate,
+        CLASSIC_MOMENTUM_SIGNAL_FAMILY,
+        config.maximum_positions,
+    )
     short_volume_rank = _family_rank(day, "short_volume")
     short_volume_candidates = _family_tickers(
         candidate,
@@ -333,6 +358,23 @@ def record_stock_shadow_state(
             )
             independently_validated = arm_name == "consensus"
             signal_family = "consensus"
+            signal_available = True
+        elif arm_name == (
+            f"classic_12_1_hold{config.classic_momentum_holding_sessions}"
+        ):
+            holding = config.classic_momentum_holding_sessions
+            arm_rank = classic_momentum_rank
+            arm_candidates = classic_momentum_candidates
+            arm_policy = ExitPolicy(
+                hard_stop_fraction=config.hard_stop_fraction,
+                atr_multiple=config.atr_multiple,
+                maximum_holding_sessions=holding,
+                rank_exit_multiple=config.rank_exit_multiple,
+            )
+            entry_reason = "top_classic_12_1_momentum_entry"
+            prospective_role = "diagnostic_simple_classic_12_1_momentum_control"
+            independently_validated = False
+            signal_family = CLASSIC_MOMENTUM_SIGNAL_FAMILY
             signal_available = True
         elif arm_name.startswith("short_volume_hold"):
             holding = _short_volume_holding_from_arm(arm_name, config)
@@ -1262,6 +1304,8 @@ def _validate_config(config: StockShadowConfig) -> None:
         )
     if config.maximum_positions * config.maximum_position_weight > 1.0:
         raise ValueError("Stock shadow maximum weights exceed 100% gross exposure.")
+    if config.classic_momentum_holding_sessions != 21:
+        raise ValueError("Classic-momentum control must retain its 21-session reference hold.")
     if not config.short_volume_holding_sessions:
         raise ValueError("Stock shadow must register short-volume holding experiments.")
     if any(value < 1 for value in config.short_volume_holding_sessions):
@@ -1270,6 +1314,8 @@ def _validate_config(config: StockShadowConfig) -> None:
         config.short_volume_holding_sessions
     ):
         raise ValueError("Short-volume holding sessions must be unique.")
+    if 21 not in config.short_volume_holding_sessions:
+        raise ValueError("Short-volume experiments must retain a 21-session reference arm.")
     if not config.share_turnover_holding_sessions:
         raise ValueError("Stock shadow must register share-turnover holding experiments.")
     if any(value < 1 for value in config.share_turnover_holding_sessions):
@@ -1278,9 +1324,12 @@ def _validate_config(config: StockShadowConfig) -> None:
         config.share_turnover_holding_sessions
     ):
         raise ValueError("Share-turnover holding sessions must be unique.")
+    if 21 not in config.share_turnover_holding_sessions:
+        raise ValueError("Share-turnover experiments must retain a 21-session reference arm.")
     expected_arms = {
         "consensus",
         "consensus_market_guard",
+        f"classic_12_1_hold{config.classic_momentum_holding_sessions}",
         *(f"short_volume_hold{value}" for value in config.short_volume_holding_sessions),
         *(
             f"share_turnover_hold{value}"
