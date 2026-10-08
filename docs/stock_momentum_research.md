@@ -64,6 +64,38 @@ exits. The 21-session arm is the academic holding-period reference. The 5- and 1
 explicit falsification tests for the faster-trading hypothesis, and a favorable result must survive
 their higher realized turnover and the same 50 bp round-trip assumption.
 
+### Preregistered market-breadth guard
+
+Index strength can conceal weak participation, particularly when a few large momentum winners
+dominate. The breadth comparator holds the same consensus candidates but permits exposure only when
+both the existing SPY trend/volatility guard and a current-roster participation gate are risk-on.
+For each of the latest 20 completed sessions, it measures the fraction of observable captured-roster
+stocks with a positive close-to-close return, requires at least 95% coverage every day, and labels
+the breadth state risk-on after the 20-session mean reaches 55%. Once on, it remains on until the
+mean falls to 45% or lower. A failed coverage gate prohibits entries and schedules any held names
+for a next-open fail-safe exit.
+
+The symmetric 45%/55% hysteresis band is a turnover control, not a fitted return optimum. A raw
+50% threshold flipped 42 times in the latest 504-session behavior diagnostic; hysteresis reduced
+that to four, comparable to the benchmark guard's three. Zaremba, Szyszka,
+Karathanasopoulos, and Mikutowski report broad cross-country return predictability from
+advance/decline breadth, while Qi and Zhao find that predictive power weakened or disappeared in
+their more recent decade and that apparent strategy profits relied heavily on frequent trading in
+small stocks. The arm is therefore a prospective drawdown-control hypothesis, not an asserted
+alpha source:
+
+- Zaremba et al., *Herding for Profits: Market Breadth and the Cross-Section of Global Equity
+  Returns*: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3444882
+- Qi and Zhao, *Market Breadth, Trin Statistic, and Market Returns*:
+  https://doi.org/10.3905/joi.2008.701962
+
+On the latest public panel, a deliberately non-performance diagnostic found the SPY guard risk-on
+while breadth was risk-off in 81 of the latest 504 sessions (16.1%); both were risk-on in 258. The
+2026-10-07 20-session mean advancing fraction was 46.24%, so the new breadth arm initialized
+risk-off while SPY alone remained risk-on. Those historical counts use today's captured roster and
+cannot support a return claim. They only establish that the comparator is not mechanically
+redundant; its evidence starts with locked future transitions.
+
 This distinction also controls concentration. The first uncapped exact shortlist contained six
 Information Technology names out of ten. The sector entry cap was frozen before any prospective
 return existed: the fourth same-sector name is explained as `SKIP`, no lower-ranked replacement is
@@ -276,6 +308,8 @@ the same decomposition and its modeled entry cost.
 The simple 12-1 individual-stock momentum arm is the stock-level control the complex rules must
 beat. It selects the current-roster top ten by t-252-to-t-21 return without the consensus trend or
 volume confirmations, then uses the same sector cap, exits, next-open execution, and 50 bp cost.
+The market-breadth guard is a separate consensus drawdown-control comparator rather than an entry
+signal or a replacement for SPY.
 The 5/10/21-session short-volume proxy and exact share-turnover arms receive paired
 stationary-bootstrap comparisons against SPY, the primary consensus, and their own signal family's
 21-session reference after 21 complete sessions. A common stationary bootstrap across the entire
@@ -303,11 +337,11 @@ primary record or authorize a trade.
   an artifact.
 - `stock_shadow_state.py` advances one immediately consecutive close-to-next-open paper state,
   recomputes adjustment-safe entry bases and high-water marks, records every exit reason, and
-  rejects session gaps. The consensus arm is primary; the guarded arm, simple 12-1 control, and
-  preregistered 5/10/21 short-volume proxy and exact share-turnover holding arms are diagnostic
-  comparators. An intact but failed share-data gate cannot interrupt the primary sequence: exact
-  arms prohibit entries, schedule held names for next-open exit, and become ineligible for signal
-  inference.
+  rejects session gaps. The consensus arm is primary; the benchmark guard, coverage-gated breadth
+  guard, simple 12-1 control, and preregistered 5/10/21 short-volume proxy and exact share-turnover
+  holding arms are diagnostic comparators. An intact but failed share-data gate cannot interrupt
+  the primary sequence: exact arms prohibit entries, schedule held names for next-open exit, and
+  become ineligible for signal inference.
 - `stock_daily.py` restores a hash-linked decision-policy/config lineage, refreshes the public roster
   and adjusted OHLCV, avoids free-provider calls on holidays, records optional-provider failures,
   and advances the state even when validation is unavailable so failed gates remain observable.

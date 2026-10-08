@@ -18,6 +18,7 @@ from swing_trader.stock_shadow_state import (
     StockShadowConfig,
     StockShadowStateError,
     _advance_arm,
+    _market_breadth_state,
     _rebase_adjusted_shares,
     _validate_state_transition,
     held_tickers_from_payload,
@@ -142,6 +143,105 @@ def test_market_guard_blocks_entries_and_explains_the_skip() -> None:
     assert result["target_for_next_open"] == {}
     assert result["decisions"][0]["action"] == "SKIP"
     assert result["decisions"][0]["reasons"] == ["market_regime_risk_off"]
+
+
+def test_market_breadth_guard_uses_distinct_explainable_skip_reason() -> None:
+    session = pd.Timestamp("2026-10-06")
+    result = _advance_arm(
+        "consensus_breadth_guard",
+        None,
+        session,
+        _small_prices(pd.DatetimeIndex([session])).iloc[[0]],
+        _day(100.0),
+        pd.Series({"A": 1.0}),
+        ["A"],
+        {"A"},
+        set(),
+        guarded=True,
+        market_risk_on=False,
+        config=_config(),
+        policy=ExitPolicy(),
+        guard_reason="market_breadth_guard_risk_off",
+    )
+
+    assert result["target_for_next_open"] == {}
+    assert result["decisions"][0]["reasons"] == ["market_breadth_guard_risk_off"]
+
+
+def test_market_breadth_state_requires_coverage_and_majority_participation() -> None:
+    sessions = pd.bdate_range("2026-09-01", periods=21)
+    close = pd.DataFrame(
+        {
+            "A": range(100, 121),
+            "B": range(200, 221),
+            "C": range(300, 279, -1),
+        },
+        index=sessions,
+        dtype=float,
+    )
+    config = _config()
+
+    state = _market_breadth_state(
+        close,
+        {"A", "B", "C"},
+        sessions[-1],
+        config,
+        benchmark_risk_on=True,
+        previous_breadth_risk_on=None,
+    )
+
+    assert state["data_gate_passed"] is True
+    assert state["mean_advancing_fraction"] == pytest.approx(2 / 3)
+    assert state["combined_risk_on"] is True
+
+    failed = _market_breadth_state(
+        close[["A", "B"]],
+        {"A", "B", "C"},
+        sessions[-1],
+        config,
+        benchmark_risk_on=True,
+        previous_breadth_risk_on=None,
+    )
+    assert failed["data_gate_passed"] is False
+    assert failed["combined_risk_on"] is False
+
+
+def test_market_breadth_hysteresis_holds_state_inside_turnover_band() -> None:
+    sessions = pd.bdate_range("2026-09-01", periods=21)
+    close = pd.DataFrame(
+        {
+            "A": range(100, 121),
+            "B": range(200, 221),
+            "C": range(300, 279, -1),
+            "D": range(400, 379, -1),
+        },
+        index=sessions,
+        dtype=float,
+    )
+    config = _config()
+
+    stays_on = _market_breadth_state(
+        close,
+        set(close.columns),
+        sessions[-1],
+        config,
+        benchmark_risk_on=True,
+        previous_breadth_risk_on=True,
+    )
+    stays_off = _market_breadth_state(
+        close,
+        set(close.columns),
+        sessions[-1],
+        config,
+        benchmark_risk_on=True,
+        previous_breadth_risk_on=False,
+    )
+
+    assert stays_on["mean_advancing_fraction"] == pytest.approx(0.5)
+    assert stays_on["breadth_risk_on"] is True
+    assert stays_on["breadth_state_transition"] == "unchanged"
+    assert stays_off["breadth_risk_on"] is False
+    assert stays_off["breadth_state_transition"] == "unchanged"
 
 
 def test_sector_entry_cap_leaves_excess_weight_in_cash_and_explains_skip() -> None:
@@ -332,6 +432,7 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
     assert result.targets == {
         "consensus": 10,
         "consensus_market_guard": 10,
+        "consensus_breadth_guard": 10,
         "classic_12_1_hold21": 10,
         "short_volume_hold5": 10,
         "short_volume_hold10": 10,
@@ -349,6 +450,10 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
     assert payload["arms"]["consensus"]["paper_account_at_close"]["shares"] == {}
     assert payload["arms"]["consensus_market_guard"]["prospective_role"] == (
         "diagnostic_market_guard_comparator"
+    )
+    assert payload["market_breadth"]["data_gate_passed"] is True
+    assert payload["arms"]["consensus_breadth_guard"]["prospective_role"] == (
+        "diagnostic_market_breadth_guard_comparator"
     )
     assert payload["arms"]["short_volume_hold5"]["prospective_role"] == (
         "diagnostic_short_volume_max_hold_5_sessions"
@@ -491,9 +596,14 @@ def _config() -> StockShadowConfig:
         moving_average_sessions=200,
         volatility_sessions=20,
         maximum_annualized_volatility=0.35,
+        breadth_lookback_sessions=20,
+        minimum_breadth_coverage_fraction=0.95,
+        breadth_risk_on_entry_fraction=0.55,
+        breadth_risk_off_exit_fraction=0.45,
         arms=(
             "consensus",
             "consensus_market_guard",
+            "consensus_breadth_guard",
             "classic_12_1_hold21",
             "short_volume_hold5",
             "short_volume_hold10",

@@ -280,6 +280,7 @@ def _diagnostic_arm_comparisons(
     arm_names = tuple(diagnostic_returns)
     per_arm: dict[str, object] = {}
     reference_arms = {
+        "breadth_guard": "consensus_breadth_guard",
         "classic_12_1": "classic_12_1_hold21",
         "short_volume": "short_volume_hold21",
         "share_turnover": "share_turnover_hold21",
@@ -792,10 +793,7 @@ def _diagnostic_arm_names(
     diagnostic = tuple(
         sorted(
             set(first_arms) - base,
-            key=lambda name: (
-                _diagnostic_arm_family(name),
-                int(name.rsplit("hold", maxsplit=1)[1]),
-            ),
+            key=_diagnostic_arm_sort_key,
         )
     )
     expected = base | set(diagnostic)
@@ -807,6 +805,8 @@ def _diagnostic_arm_names(
 
 
 def _diagnostic_arm_family(arm_name: str) -> str:
+    if arm_name == "consensus_breadth_guard":
+        return "breadth_guard"
     if arm_name.startswith("classic_12_1_hold"):
         return "classic_12_1"
     if arm_name.startswith("short_volume_hold"):
@@ -814,6 +814,14 @@ def _diagnostic_arm_family(arm_name: str) -> str:
     if arm_name.startswith("share_turnover_hold"):
         return "share_turnover"
     raise StockProspectiveEvaluationError(f"State contains an unknown diagnostic arm: {arm_name}")
+
+
+def _diagnostic_arm_sort_key(arm_name: str) -> tuple[str, int]:
+    family = _diagnostic_arm_family(arm_name)
+    holding = 21 if arm_name == "consensus_breadth_guard" else int(
+        arm_name.rsplit("hold", maxsplit=1)[1]
+    )
+    return family, holding
 
 
 def _spy_equity(states: list[tuple[Path, dict[str, object]]]) -> list[float]:

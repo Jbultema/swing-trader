@@ -163,6 +163,7 @@ def test_diagnostic_comparisons_use_a_hold21_reference_per_signal_family(
         spy_open=100.0,
         spy_close=100.0,
         diagnostic_equities={
+            "consensus_breadth_guard": 1.0,
             "classic_12_1_hold21": 1.0,
             "short_volume_hold5": 1.0,
             "short_volume_hold21": 1.0,
@@ -183,6 +184,7 @@ def test_diagnostic_comparisons_use_a_hold21_reference_per_signal_family(
         spy_open=100.0,
         spy_close=101.0,
         diagnostic_equities={
+            "consensus_breadth_guard": 1.005,
             "classic_12_1_hold21": 1.015,
             "short_volume_hold5": 1.01,
             "short_volume_hold21": 1.02,
@@ -194,6 +196,7 @@ def test_diagnostic_comparisons_use_a_hold21_reference_per_signal_family(
     comparisons = evaluate_stock_shadow_lineage(states)["diagnostic_arm_comparisons"]
 
     assert comparisons["same_signal_reference_arms"] == {
+        "breadth_guard": "consensus_breadth_guard",
         "classic_12_1": "classic_12_1_hold21",
         "short_volume": "short_volume_hold21",
         "share_turnover": "share_turnover_hold21",
@@ -205,6 +208,9 @@ def test_diagnostic_comparisons_use_a_hold21_reference_per_signal_family(
         "versus_same_signal_hold21"
     ]["reference"] == "share_turnover_hold21"
     assert comparisons["per_arm"]["classic_12_1_hold21"][
+        "versus_same_signal_hold21"
+    ]["status"] == "reference_arm"
+    assert comparisons["per_arm"]["consensus_breadth_guard"][
         "versus_same_signal_hold21"
     ]["status"] == "reference_arm"
 

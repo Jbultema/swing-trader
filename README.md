@@ -76,8 +76,12 @@ non-authoritative `pitindex` comparison. The adjusted price panel comes from Yah
 `yfinance`, excludes a still-open market session, and requires at least 99% current-close coverage.
 The candidate screen forms one top-ten consensus from the three frozen signal families. Alpha
 Vantage's free quota checks only the primary consensus portfolio's existing holdings, its new
-candidates, and SPY: at most 21 daily-price requests. The market-guard arm is retained as a
-diagnostic comparator rather than consuming enough calls to make the primary workflow unreliable.
+candidates, and SPY: at most 21 daily-price requests. The benchmark-only market guard and a
+capture-forward market-breadth guard are retained as diagnostic comparators rather than consuming
+enough calls to make the primary workflow unreliable. The breadth guard requires the existing SPY
+trend/volatility state plus 20-session mean advancing participation, with at least 95%
+current-roster return coverage in every session. A 45%/55% hysteresis band prevents a noisy
+majority threshold from repeatedly liquidating and repurchasing the portfolio.
 A preregistered simple 12-1 individual-stock momentum control holds the ten highest current-roster
 returns from t-252 through t-21 for at most 21 sessions, deliberately omitting the composite
 confirmation rules. Short-volume proxy and exact share-turnover arms hold each signal's top-ten
@@ -182,8 +186,8 @@ is retained as a warning, while a missing or malformed report remains a real wor
 The dashboard's stock tab shows the latest state gate, decision-policy lineage status, market regime,
 next-open targets, cash/equity/cost accounting, captured shares, share turnover, independent return
 and turnover percentiles, per-arm signal availability, and every BUY/HOLD/SELL/SKIP reason. It
-hides no failed gate and labels the market-guard, classic 12-1 stock-momentum, short-volume, and
-exact share-turnover arms as diagnostic comparators.
+hides no failed gate and labels the benchmark guard, market-breadth guard, classic 12-1
+stock-momentum, short-volume, and exact share-turnover arms as diagnostic comparators.
 
 These current-universe snapshots may never be projected backward as historical membership. Before
 any retrospective individual-stock experiment, normalized prices and point-in-time membership must

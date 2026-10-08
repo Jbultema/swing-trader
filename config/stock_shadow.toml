@@ -14,7 +14,11 @@ benchmark = "SPY"
 moving_average_sessions = 200
 volatility_sessions = 20
 maximum_annualized_volatility = 0.35
-arms = ["consensus", "consensus_market_guard", "classic_12_1_hold21", "short_volume_hold5", "short_volume_hold10", "short_volume_hold21", "share_turnover_hold5", "share_turnover_hold10", "share_turnover_hold21"]
+breadth_lookback_sessions = 20
+minimum_breadth_coverage_fraction = 0.95
+breadth_risk_on_entry_fraction = 0.55
+breadth_risk_off_exit_fraction = 0.45
+arms = ["consensus", "consensus_market_guard", "consensus_breadth_guard", "classic_12_1_hold21", "short_volume_hold5", "short_volume_hold10", "short_volume_hold21", "share_turnover_hold5", "share_turnover_hold10", "share_turnover_hold21"]
 
 [experiments]
 classic_momentum_holding_sessions = 21

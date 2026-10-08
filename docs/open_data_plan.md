@@ -75,6 +75,10 @@ Official references:
    research.
    Register a simple 12-1 current-roster stock-momentum arm as a Yahoo-only control so the composite
    and shorter-horizon rules must demonstrate incremental value under identical portfolio rules.
+   Register a second consensus comparator that combines the benchmark guard with 20-session
+   advance/decline breadth. It uses the already locked full cross-section, requires 95% coverage,
+   applies a symmetric 45%/55% exit/re-entry hysteresis band to control churn, and starts only from
+   capture-forward evidence rather than projecting today's roster backward.
 3. Start every stock strategy from cash. Each later paper state must follow the immediately prior
    recorded session. Gaps do not get reconstructed using today's roster. Full-package and config
    provenance remain explicit, while the decision-policy and config hashes define separate
@@ -125,13 +129,13 @@ mature before 126 eligible sessions, 30 completed exits, and 10 eligible risk-of
 stationary-bootstrap uncertainty begins only after 21 eligible sessions, uses the same gated dates
 for the primary arm and SPY, and remains a diagnostic rather than trading authority.
 
-The primary consensus remains the only Alpha-validated arm. A simple 12-1 stock-momentum control
-with a 21-session maximum hold, plus separate short-volume proxy and exact share-turnover arms with
-5, 10, and 21-session maximum holds, use identical next-open accounting, exit rules, sector caps,
-and 50 bp round-trip costs but only the locked Yahoo snapshots. Their all-session metrics are
-visible as unvalidated diagnostics and cannot contribute to the primary evidence threshold. This
-preserves the free quota while testing both complexity and the shorter-holding hypothesis
-prospectively instead of selecting a recent winner.
+The primary consensus remains the only Alpha-validated arm. A coverage-gated market-breadth guard,
+a simple 12-1 stock-momentum control with a 21-session maximum hold, plus separate short-volume
+proxy and exact share-turnover arms with 5, 10, and 21-session maximum holds, use identical
+next-open accounting, exit rules, sector caps, and 50 bp round-trip costs but only the locked Yahoo
+snapshots. Their all-session metrics are visible as unvalidated diagnostics and cannot contribute
+to the primary evidence threshold. This preserves the free quota while testing drawdown control,
+complexity, and the shorter-holding hypothesis prospectively instead of selecting a recent winner.
 The evaluator separates overnight, explicit execution-cost, and intraday performance for every arm,
 then starts paired inference after 21 sessions and family-wide multiple-testing control after 63.
 Those additions require no new provider and do not alter the frozen decision lineage.
@@ -213,6 +217,19 @@ inference and carries a regression test. This is operational evidence for the fe
 predictive edge. The nightly workflow records retrieval failure as a nonblocking experimental
 diagnostic, and the manifest sets `candidate_ranking_input`, `portfolio_state_input`, and
 `action_authorized` to false.
+
+The feed remains context-only after literature review. FINRA explains that the daily file covers
+publicly disseminated off-exchange transactions, omits some offsetting activity, is not consolidated
+with exchange data, and is not short interest. Diether, Lee, and Werner find daily short flow can
+predict negative abnormal returns, while Daske, Richardson, and Tuna find no reliable daily lead.
+That combination does not justify assigning a bullish or bearish label to this partial feed:
+
+- FINRA Information Notice 5/10/19:
+  https://www.finra.org/sites/default/files/2019-07/information-notice-051019.pdf
+- Diether, Lee, and Werner, *Can Short-Sellers Predict Returns? Daily Evidence*:
+  https://papers.ssrn.com/sol3/papers.cfm?abstract_id=761724
+- Daske, Richardson, and Tuna, *Do Short Sale Transactions Precede Bad News Events?*:
+  https://papers.ssrn.com/sol3/papers.cfm?abstract_id=722242
 
 ## Implemented SEC workaround
 

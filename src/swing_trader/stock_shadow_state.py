@@ -50,6 +50,10 @@ class StockShadowConfig:
     moving_average_sessions: int
     volatility_sessions: int
     maximum_annualized_volatility: float
+    breadth_lookback_sessions: int
+    minimum_breadth_coverage_fraction: float
+    breadth_risk_on_entry_fraction: float
+    breadth_risk_off_exit_fraction: float
     arms: tuple[str, ...]
     classic_momentum_holding_sessions: int
     short_volume_holding_sessions: tuple[int, ...]
@@ -87,6 +91,16 @@ def load_stock_shadow_config(path: Path) -> tuple[StockShadowConfig, dict[str, o
         volatility_sessions=int(raw["market_guard"]["volatility_sessions"]),
         maximum_annualized_volatility=float(
             raw["market_guard"]["maximum_annualized_volatility"]
+        ),
+        breadth_lookback_sessions=int(raw["market_guard"]["breadth_lookback_sessions"]),
+        minimum_breadth_coverage_fraction=float(
+            raw["market_guard"]["minimum_breadth_coverage_fraction"]
+        ),
+        breadth_risk_on_entry_fraction=float(
+            raw["market_guard"]["breadth_risk_on_entry_fraction"]
+        ),
+        breadth_risk_off_exit_fraction=float(
+            raw["market_guard"]["breadth_risk_off_exit_fraction"]
         ),
         arms=tuple(str(value) for value in raw["market_guard"]["arms"]),
         classic_momentum_holding_sessions=int(
@@ -213,6 +227,19 @@ def record_stock_shadow_state(
                 "method": CLASSIC_MOMENTUM_METHOD,
                 "holding_sessions": config.classic_momentum_holding_sessions,
             },
+            "experimental_market_breadth_guard": {
+                "family": "consensus_breadth_guard",
+                "method": (
+                    "mean daily fraction of the captured current roster with positive "
+                    "close-to-close returns"
+                ),
+                "lookback_sessions": config.breadth_lookback_sessions,
+                "minimum_coverage_fraction": (
+                    config.minimum_breadth_coverage_fraction
+                ),
+                "risk_on_entry_fraction": config.breadth_risk_on_entry_fraction,
+                "risk_off_exit_fraction": config.breadth_risk_off_exit_fraction,
+            },
             "experimental_share_turnover": {
                 "family": SHARE_TURNOVER_SIGNAL_FAMILY,
                 "method": SHARE_TURNOVER_METHOD,
@@ -311,6 +338,14 @@ def record_stock_shadow_state(
             "benchmark open",
         ),
     )
+    market_breadth = _market_breadth_state(
+        prices["Close"],
+        current_tickers,
+        current_session,
+        config,
+        benchmark_risk_on=bool(market_state["risk_on"]),
+        previous_breadth_risk_on=_prior_breadth_risk_on(previous),
+    )
     candidate_market_state = candidate.get("market_state")
     if not isinstance(candidate_market_state, dict):
         raise StockShadowStateError("Candidate snapshot is missing its market state.")
@@ -345,20 +380,42 @@ def record_stock_shadow_state(
     arm_payloads: dict[str, object] = {}
     target_counts: dict[str, int] = {}
     for arm_name in config.arms:
-        guarded = arm_name == "consensus_market_guard"
-        if arm_name in {"consensus", "consensus_market_guard"}:
+        guarded = arm_name in {"consensus_market_guard", "consensus_breadth_guard"}
+        guard_risk_on = bool(market_state["risk_on"])
+        guard_reason = "market_regime_risk_off"
+        signal_unavailable_reason: str | None = None
+        if arm_name in {
+            "consensus",
+            "consensus_market_guard",
+            "consensus_breadth_guard",
+        }:
             arm_rank = consensus_rank
             arm_candidates = candidates
             arm_policy = policy
             entry_reason = "top_consensus_entry"
-            prospective_role = (
-                "primary_consensus"
-                if arm_name == "consensus"
-                else "diagnostic_market_guard_comparator"
-            )
+            if arm_name == "consensus":
+                prospective_role = "primary_consensus"
+            elif arm_name == "consensus_market_guard":
+                prospective_role = "diagnostic_market_guard_comparator"
+            else:
+                prospective_role = "diagnostic_market_breadth_guard_comparator"
+                guard_risk_on = bool(market_breadth["combined_risk_on"])
+                guard_reason = "market_breadth_guard_risk_off"
             independently_validated = arm_name == "consensus"
-            signal_family = "consensus"
-            signal_available = True
+            signal_family = (
+                "consensus_breadth_guard"
+                if arm_name == "consensus_breadth_guard"
+                else "consensus"
+            )
+            signal_available = (
+                bool(market_breadth["data_gate_passed"])
+                if arm_name == "consensus_breadth_guard"
+                else True
+            )
+            if not signal_available:
+                signal_unavailable_reason = (
+                    "market_breadth_data_gate_failed_fail_safe_exit"
+                )
         elif arm_name == (
             f"classic_12_1_hold{config.classic_momentum_holding_sessions}"
         ):
@@ -409,6 +466,10 @@ def record_stock_shadow_state(
             independently_validated = False
             signal_family = SHARE_TURNOVER_SIGNAL_FAMILY
             signal_available = share_gate_passed
+            if not signal_available:
+                signal_unavailable_reason = (
+                    "share_turnover_data_gate_failed_fail_safe_exit"
+                )
         prior_arm = None
         if previous is not None:
             previous_arms = previous.get("arms")
@@ -428,17 +489,14 @@ def record_stock_shadow_state(
             current_tickers,
             blackout,
             guarded=guarded,
-            market_risk_on=bool(market_state["risk_on"]),
+            market_risk_on=guard_risk_on,
             config=config,
             policy=arm_policy,
             entry_reason=entry_reason,
             sector_by_ticker=sector_by_ticker,
             signal_available=signal_available,
-            signal_unavailable_reason=(
-                None
-                if signal_available
-                else "share_turnover_data_gate_failed_fail_safe_exit"
-            ),
+            signal_unavailable_reason=signal_unavailable_reason,
+            guard_reason=guard_reason,
         )
         primary_arm = arm_name == "consensus"
         account = arm.get("paper_account_at_close")
@@ -450,11 +508,7 @@ def record_stock_shadow_state(
         arm["maximum_holding_sessions"] = arm_policy.maximum_holding_sessions
         arm["independent_price_validation_applies"] = independently_validated
         arm["signal_data_available_at_close"] = signal_available
-        arm["signal_data_unavailable_reason"] = (
-            None
-            if signal_available
-            else "share_turnover_data_gate_failed_fail_safe_exit"
-        )
+        arm["signal_data_unavailable_reason"] = signal_unavailable_reason
         arm["eligible_for_diagnostic_prospective_performance"] = bool(
             not primary_arm and valuation_complete and signal_available
         )
@@ -472,7 +526,7 @@ def record_stock_shadow_state(
     assert isinstance(primary_arm, dict)
     primary_eligible = bool(primary_arm["eligible_for_primary_prospective_performance"])
     payload: dict[str, object] = {
-        "schema_version": 6,
+        "schema_version": 7,
         "record_type": "prospective_stock_shadow_state",
         "research_status": "paper_only_human_execution_required",
         "data_cost_policy": "no_paid_sources",
@@ -488,6 +542,7 @@ def record_stock_shadow_state(
         "stock_policy_sha256": policy_hash,
         "implementation_sha256": package_implementation_hash,
         "market_state": market_state,
+        "market_breadth": market_breadth,
         "independent_price_validation": alpha_gate,
         "earnings_risk_validation": earnings_gate,
         "share_turnover_data_validation": {
@@ -638,6 +693,7 @@ def _advance_arm(
     sector_by_ticker: dict[str, str] | None = None,
     signal_available: bool = True,
     signal_unavailable_reason: str | None = None,
+    guard_reason: str = "market_regime_risk_off",
 ) -> dict[str, object]:
     if not signal_available and not signal_unavailable_reason:
         raise StockShadowStateError("An unavailable signal must have an explicit fail-safe reason.")
@@ -756,7 +812,7 @@ def _advance_arm(
                 if reasons:
                     exits[ticker] = reasons
         if guarded and not market_risk_on:
-            exits.setdefault(ticker, []).append("market_regime_risk_off")
+            exits.setdefault(ticker, []).append(guard_reason)
         enriched[ticker] = {
             "entry_session": entry_session.date().isoformat(),
             "entry_adjusted_open": entry_price,
@@ -786,7 +842,7 @@ def _advance_arm(
             skipped[ticker] = ["scheduled_earnings_entry_blackout"]
             continue
         if not allow_entries and ticker not in positions:
-            skipped[ticker] = ["market_regime_risk_off"]
+            skipped[ticker] = [guard_reason]
             continue
         if ticker not in positions and sector_by_ticker is not None:
             sector = sector_by_ticker.get(ticker)
@@ -1064,6 +1120,80 @@ def _market_state(
     }
 
 
+def _market_breadth_state(
+    close: pd.DataFrame,
+    current_tickers: set[str],
+    current_session: pd.Timestamp,
+    config: StockShadowConfig,
+    *,
+    benchmark_risk_on: bool,
+    previous_breadth_risk_on: bool | None,
+) -> dict[str, object]:
+    """Measure broad participation using only the current capture-forward roster."""
+    roster_count = len(current_tickers)
+    available = sorted(current_tickers & set(close.columns))
+    returns = close[available].loc[:current_session].pct_change(fill_method=None)
+    window = returns.tail(config.breadth_lookback_sessions)
+    observations = window.notna().sum(axis=1)
+    coverage = observations.div(roster_count) if roster_count else pd.Series(dtype=float)
+    advancing = window.gt(0.0).sum(axis=1).div(observations.replace(0, np.nan))
+    minimum_coverage = float(coverage.min()) if not coverage.empty else 0.0
+    mean_advancing = float(advancing.mean()) if not advancing.empty else float("nan")
+    latest_advancing = float(advancing.iloc[-1]) if not advancing.empty else float("nan")
+    data_gate_passed = bool(
+        roster_count > 0
+        and len(window) == config.breadth_lookback_sessions
+        and np.isfinite(mean_advancing)
+        and np.isfinite(latest_advancing)
+        and minimum_coverage >= config.minimum_breadth_coverage_fraction
+    )
+    if not data_gate_passed:
+        breadth_risk_on = False
+    elif previous_breadth_risk_on is True:
+        breadth_risk_on = mean_advancing > config.breadth_risk_off_exit_fraction
+    else:
+        breadth_risk_on = mean_advancing >= config.breadth_risk_on_entry_fraction
+    return {
+        "method": "mean_daily_fraction_of_current_roster_with_positive_close_return",
+        "universe_assumption": "current_capture_roster_forward_only_not_historical_backfill",
+        "lookback_sessions": config.breadth_lookback_sessions,
+        "roster_tickers": roster_count,
+        "available_tickers": len(available),
+        "observed_sessions": len(window),
+        "minimum_session_coverage_fraction": minimum_coverage,
+        "required_minimum_session_coverage_fraction": (
+            config.minimum_breadth_coverage_fraction
+        ),
+        "latest_advancing_fraction": latest_advancing if data_gate_passed else None,
+        "mean_advancing_fraction": mean_advancing if data_gate_passed else None,
+        "risk_on_entry_fraction": config.breadth_risk_on_entry_fraction,
+        "risk_off_exit_fraction": config.breadth_risk_off_exit_fraction,
+        "previous_breadth_risk_on": previous_breadth_risk_on,
+        "breadth_state_transition": (
+            "initialization"
+            if previous_breadth_risk_on is None
+            else "unchanged"
+            if breadth_risk_on is previous_breadth_risk_on
+            else "risk_on"
+            if breadth_risk_on
+            else "risk_off"
+        ),
+        "data_gate_passed": data_gate_passed,
+        "breadth_risk_on": breadth_risk_on,
+        "benchmark_risk_on": benchmark_risk_on,
+        "combined_risk_on": bool(benchmark_risk_on and breadth_risk_on),
+    }
+
+
+def _prior_breadth_risk_on(previous: dict[str, object] | None) -> bool | None:
+    if previous is None:
+        return None
+    breadth = previous.get("market_breadth")
+    if not isinstance(breadth, dict) or not isinstance(breadth.get("breadth_risk_on"), bool):
+        raise StockShadowStateError("Previous state is missing its market-breadth regime.")
+    return bool(breadth["breadth_risk_on"])
+
+
 def _prior_paper_account(
     prior_arm: dict[str, object] | None,
     positions: dict[str, dict[str, str]],
@@ -1304,6 +1434,19 @@ def _validate_config(config: StockShadowConfig) -> None:
         )
     if config.maximum_positions * config.maximum_position_weight > 1.0:
         raise ValueError("Stock shadow maximum weights exceed 100% gross exposure.")
+    if config.breadth_lookback_sessions < 2:
+        raise ValueError("Market-breadth lookback must be at least two sessions.")
+    if not 0.0 < config.minimum_breadth_coverage_fraction <= 1.0:
+        raise ValueError("Market-breadth coverage threshold must be in (0, 1].")
+    if not (
+        0.0
+        <= config.breadth_risk_off_exit_fraction
+        < config.breadth_risk_on_entry_fraction
+        <= 1.0
+    ):
+        raise ValueError(
+            "Market-breadth exit and entry thresholds must satisfy 0 <= exit < entry <= 1."
+        )
     if config.classic_momentum_holding_sessions != 21:
         raise ValueError("Classic-momentum control must retain its 21-session reference hold.")
     if not config.short_volume_holding_sessions:
@@ -1329,6 +1472,7 @@ def _validate_config(config: StockShadowConfig) -> None:
     expected_arms = {
         "consensus",
         "consensus_market_guard",
+        "consensus_breadth_guard",
         f"classic_12_1_hold{config.classic_momentum_holding_sessions}",
         *(f"short_volume_hold{value}" for value in config.short_volume_holding_sessions),
         *(

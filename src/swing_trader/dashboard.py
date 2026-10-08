@@ -34,6 +34,8 @@ def _percentage(value: object) -> str:
 
 
 def _stock_signal_label(value: object) -> str:
+    if value == "consensus_breadth_guard":
+        return "consensus plus benchmark trend, volatility, and market-breadth guard"
     if value == "classic_12_1":
         return "simple 12-1 cross-sectional individual-stock momentum control"
     if value == "short_volume":
@@ -200,6 +202,7 @@ with stock:
                 "current. A changed trading policy must start a new paper sequence from cash."
             )
         market = stock_state["market_state"]
+        market_breadth = stock_state.get("market_breadth", {})
         primary = stock_state["arms"]["consensus"]
         account = primary.get("paper_account_at_close", {})
         summary_cols = st.columns(6)
@@ -216,11 +219,23 @@ with stock:
             f"Lineage `{stock_state['lineage_id']}` · state `{latest_stock_state.name}` · "
             "signals observed at the close and effective no earlier than the next regular open."
         )
+        if isinstance(market_breadth, dict):
+            st.caption(
+                "Market breadth: "
+                f"{_percentage(market_breadth.get('mean_advancing_fraction'))} mean advancing "
+                f"over {market_breadth.get('lookback_sessions')} sessions; breadth regime "
+                f"{'RISK ON' if market_breadth.get('breadth_risk_on') else 'RISK OFF'}; "
+                f"data gate {'passed' if market_breadth.get('data_gate_passed') else 'failed'}."
+            )
         st.subheader("Why each prospective action occurred")
         arm_labels = [
             ("consensus", "Primary consensus"),
             ("consensus_market_guard", "Diagnostic market guard"),
         ]
+        if "consensus_breadth_guard" in stock_state["arms"]:
+            arm_labels.append(
+                ("consensus_breadth_guard", "Diagnostic market-breadth guard")
+            )
         arm_labels.extend(
             (
                 arm_name,
