@@ -80,6 +80,10 @@ from swing_trader.stock_universe import (
     latest_current_sp500_manifest,
 )
 from swing_trader.ticket import write_trade_preview
+from swing_trader.tiingo_catalog import (
+    download_tiingo_supported_catalog,
+    write_tiingo_catalog_audit,
+)
 
 app = typer.Typer(no_args_is_help=True)
 data_app = typer.Typer(no_args_is_help=True)
@@ -138,6 +142,39 @@ def data_audit_stocks(
     )
     if result.status != "passed":
         raise typer.Exit(code=2)
+
+
+@data_app.command("audit-tiingo-catalog")
+def data_audit_tiingo_catalog(
+    membership_path: Annotated[Path, typer.Option("--membership")] = Path(
+        "imports/sp500-data/membership_intervals.parquet"
+    ),
+    prices_path: Annotated[Path, typer.Option("--prices")] = Path(
+        "imports/sp500-data/prices.parquet"
+    ),
+    catalog_path: Annotated[Path, typer.Option("--catalog")] = Path(
+        "data/raw/tiingo/supported_tickers.zip"
+    ),
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "reports/private/tiingo_catalog_audit.json"
+    ),
+    refresh: Annotated[bool, typer.Option("--refresh/--no-refresh")] = False,
+) -> None:
+    """Measure a research-only Tiingo catalog upper bound; never infer price access."""
+    if refresh or not catalog_path.exists():
+        download_tiingo_supported_catalog(catalog_path)
+    result = write_tiingo_catalog_audit(
+        membership_path,
+        prices_path,
+        catalog_path,
+        output,
+    )
+    latest = result.dates[-1]
+    typer.echo(
+        f"Tiingo catalog audit={result.status}; latest existing range coverage "
+        f"{latest.existing_price_range_coverage:.2%}; catalog-only upper bound "
+        f"{latest.catalog_upper_bound_coverage:.2%}; report={output}."
+    )
 
 
 @data_app.command("update-cash")

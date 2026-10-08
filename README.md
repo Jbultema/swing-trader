@@ -199,6 +199,18 @@ still pass `poetry run swing-trader data audit-stocks`. If open sources cannot r
 99% member-date and corporate-action coverage for a period, that period receives no performance
 claim. The workaround is locked prospective evidence, not a survivor-only backtest.
 
+An optional local-only feasibility audit can compare a long-format PIT membership/price release
+with Tiingo's public supported-ticker catalog:
+
+```bash
+poetry run swing-trader data audit-tiingo-catalog --refresh
+```
+
+Inputs default to ignored `imports/sp500-data/` paths and the report to ignored
+`reports/private/`. The result is only a catalog upper bound: Tiingo says the catalog includes
+reserved symbols, and ticker reuse can map an old company to a different current security. The
+command therefore never marks the history backtest-ready or action-authorized.
+
 Official published portfolios provide a separate gross sanity check that does not bypass that gate:
 
 ```bash

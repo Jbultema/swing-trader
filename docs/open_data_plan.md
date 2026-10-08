@@ -24,6 +24,7 @@ backtest whose missing failures would mechanically flatter performance.
 | Fama-French Data Library | Public, keyless aggregate CRSP portfolios | Broad, large-half, and largest-size-quintile prior-return comparators | Gross aggregate returns cannot reveal constituents, turnover, costs, exits, or account-level implementability |
 | FINRA Reg SHO | Public, keyless daily file; license not assumed open | Implemented candidate-bound off-exchange activity diagnostic | Covers FINRA-reported off-exchange activity, not exchange volume, short interest, or a directional signal |
 | Nasdaq Data Link WIKI Prices | Public-domain archive, free account key | Pre-April-2018 replication/cross-check only | Provider discontinued support and explicitly does not recommend it for investment analysis |
+| Tiingo supported-ticker catalog | Public, keyless catalog; historical API needs a zero-dollar account | Implemented feasibility diagnostic for missing PIT labels | Proprietary/internal-use data; catalog includes reserved symbols and does not prove API access or security identity |
 
 Official references:
 
@@ -39,6 +40,9 @@ Official references:
 - `pitindex`: <https://github.com/arielNacamulli/pitindex>
 - Fama-French daily prior-return portfolios and construction details:
   <https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html>
+- Tiingo EOD documentation and zero-dollar Starter limits:
+  <https://www.tiingo.com/documentation/end-of-day> and
+  <https://www.tiingo.com/about/pricing>
 
 ## Rejected or conditional sources
 
@@ -54,9 +58,9 @@ Official references:
   code license, has no established adoption, and its own README reports only 76% historical-member
   price coverage in 2015. It is research input, not imported data.
 - Alpaca and Tiingo both offer zero-dollar accounts, but they are proprietary services with account
-  terms rather than open data. They are not dependencies or planned fallbacks for the operating
-  path; their documentation is useful only for evaluating whether an optional manual cross-check
-  would add information.
+  terms rather than open data. They are not dependencies for the operating path. Tiingo's public
+  catalog is now an implemented research-only feasibility diagnostic, while authenticated history
+  remains an optional manual cross-check that must stay local and pass security-identity tests.
 - Nasdaq's current historical-price pages are visible without a paid terminal, but Nasdaq's terms
   prohibit automated or manual capture for data-analysis use. Scraping them would not be a durable
   or permissioned research feed: <https://www.nasdaq.com/legal>.
@@ -104,6 +108,39 @@ Official references:
 8. Fetch SEC submissions only for CIKs in the exact candidate-bound universe. Use the acceptance
    timestamp as the causal boundary, preserve each response hash, and treat form/item counts as
    neutral event context. Never infer filing sentiment from metadata alone.
+9. Use `swing-trader data audit-tiingo-catalog` only to bound a possible free-account recovery.
+   The audit excludes provider rows whose documented date bounds are null, uses end-exclusive PIT
+   membership, quarantines recycled labels whose stored prices begin after index exit, and records
+   exact-label and anti-recycling-suffix matches separately. It always emits
+   `historical_backtest_ready=false` and `action_authorized=false`: Tiingo states that its public
+   catalog includes reserved symbols, so only authenticated metadata and historical bars can prove
+   availability, and neither can prove that a recycled ticker refers to the intended security.
+
+### Tiingo catalog feasibility result
+
+The 2026-10-08 diagnostic used the public Tiingo catalog and the locally held October 2026
+`Johnbrick123/sp500-data` release as research input. The latter remains unadopted because it has no
+clear license and explicitly reports incomplete old-history coverage. The audit reproduced its
+published PIT denominator and price-range coverage after quarantining 14 recycled ticker labels.
+The locked input hashes were `8b0537814ea8685af4832d07934a87fdae7c94f27e6812477ce326e9dcc9ecb3`
+(membership), `2662a45c8f74144f17da208f3db45e7cd0efefd5c87cf9f95f166b90960ab94f`
+(prices), and `8f871fe2a5914a581b4bc2ded4d9f757fc1ac5a53bcfd9ad8b4cf8092e8858ff`
+(catalog ZIP).
+
+| PIT date | Existing range coverage | Catalog-only upper bound | Catalog hints using suffixed labels |
+| --- | ---: | ---: | ---: |
+| 1996-01-02 | 43.9% | 49.8% | 28 of 29 |
+| 2005-01-03 | 64.8% | 70.9% | 28 of 30 |
+| 2010-01-04 | 82.2% | 90.3% | 35 of 40 |
+| 2015-01-05 | 91.9% | 96.4% | 18 of 22 |
+| 2019-01-11 | 98.0% | 98.2% | 0 of 1 |
+| 2024-09-23 | 99.6% | 99.8% | 0 of 1 |
+
+This rejects the optimistic hypothesis that the public catalog alone unlocks a long, survivor-safe
+stock backtest. Before 2019 it leaves material gaps, and most apparent additions reuse a base ticker
+that may now identify a different company. Even the upper bound says nothing about returned bars,
+corporate-action completeness, terminal returns, or API eligibility. A free token could test the
+remaining post-2014 candidates locally, but it cannot make the pre-2014 sample rigorous by itself.
 
 Operationally, full-universe Yahoo downloads use one batch for speed, retry the incomplete subset
 collectively, and then allow at most ten residual single-name requests. The 99% current-close gate
