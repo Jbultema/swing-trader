@@ -28,9 +28,36 @@ This diagnostic was added after the champion had been selected, so it cannot be 
 
 Removing every sector ETF produced 11.08% CAGR, 0.78 Sharpe, 23.65% maximum drawdown, and 4.65 times annual turnover. The narrower broad-asset-class universe produced 8.58% CAGR. Across 17 leave-one-asset-out variants, CAGR ranged from 10.91% to 12.76%. The result is therefore not dependent on any single current fund, but the all-asset champion's incremental return is partly compensation for sector overlap and concentration. The simpler no-sector variant is a prospective challenger, not a retrospectively promoted replacement.
 
-## Exact share-turnover forward test — initialized, no performance yet
+## Simple 12-1 stock-momentum control — hosted initialization, no performance yet
 
-After the 2026-10-07 close, the current policy lineage
+Commit `43133d9` preregistered a transparent individual-stock comparator before the first realized
+stock transition. Hosted run `37726298791` initialized lineage
+`policy-15b6cbe11385-config-e3ec4e243d9c` from cash after the 2026-10-07 close and durably archived
+the hash-valid candidate, state, evaluation, and run records. The public-price gate passed with all
+504 requested symbols current and 499 with at least 252 observations. The separate shares gate
+passed with 501 of 503 current constituents usable (99.60%); ERIE and WAT were stale.
+
+The control ranks eligible current constituents solely by t-252-to-t-21 return, without the
+consensus trend or volume-confirmation entry filters. Its raw top ten were SNDK, LITE, MU, MRNA,
+WDC, STX, DELL, BE, INTC, and COHR. Eight were Information Technology names. The frozen three-name
+sector entry cap therefore retained SNDK, LITE, MU, MRNA, and BE, explicitly skipped the other five
+technology names, and left 50% in cash. This is the intended anti-concentration behavior and a
+direct warning that even a simple momentum control can become an AI/semiconductor-era bet.
+
+The primary consensus recorded nine next-open targets and 10% cash. Each exact share-turnover arm
+recorded seven targets and 30% cash. Alpha Vantage and earnings checks were absent because the
+repository secret is not configured, so the primary record is ineligible; the Yahoo-only classic
+control and other available experimental arms remain diagnostic only. FINRA context passed and the
+SEC sidecar retained its nonblocking 403 failure. No order was placed.
+
+This lineage has one initialized state and zero realized transitions. CAGR, Sharpe, drawdown, hit
+rate, and excess return are undefined. The first scientifically useful result begins with the next
+completed session, paired intervals wait for 21 sessions, family-wide inference waits for 63, and
+readiness still requires 126 eligible sessions, 30 completed exits, and 10 risk-off sessions.
+
+## Superseded exact share-turnover initialization — retained for audit
+
+Before the simple stock-momentum control was preregistered, policy lineage
 `policy-fab869db5397-config-3c8429efbbec` initialized from cash. The Yahoo price gate passed with
 501 of 504 requested symbols current (99.40%) and 499 with at least 252 observations (99.01%). The
 separate shares-outstanding gate passed for 500 of 503 current constituents (99.40%); ERIE, WAT,
