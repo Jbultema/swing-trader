@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "record_type": "stock_shadow_automation_run",
+  "recorded_at_utc": "2026-10-08T13:49:14.622852+00:00",
+  "status": "no_new_completed_session",
+  "lineage_id": "policy-37e58024ab8a-config-0d6519db8fde",
+  "session": "2026-10-07",
+  "previous_state": "state-20261007-20261008T044108286670Z-d6021d275eae.json",
+  "finra_status": "failed_nonblocking_experimental",
+  "finra_activity": null,
+  "finra_activity_file_sha256": null,
+  "sec_status": "failed_nonblocking_experimental",
+  "sec_events": null,
+  "sec_events_file_sha256": null,
+  "diagnostics": [
+    {
+      "step": "finra_activity",
+      "error": "[Errno 2] No such file or directory: '/home/runner/work/swing-trader/swing-trader/reports/stock-shadow/lineages/policy-37e58024ab8a-config-0d6519db8fde/candidates/candidates-20261008T044108286670Z-f9824c589dbf.json'"
+    },
+    {
+      "step": "sec_filing_events",
+      "error": "[Errno 2] No such file or directory: '/home/runner/work/swing-trader/swing-trader/reports/stock-shadow/lineages/policy-37e58024ab8a-config-0d6519db8fde/candidates/candidates-20261008T044108286670Z-f9824c589dbf.json'"
+    }
+  ],
+  "data_cost_policy": "no_paid_sources",
+  "action_authorized": false,
+  "record_sha256": "d9acade762fdef21b377e5c30d3e13b9570dc757d5ea1fa5ec4bac8812d33383"
+}
