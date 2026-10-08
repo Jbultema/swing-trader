@@ -269,10 +269,22 @@ requires dated point-in-time classifications, not today's company narrative.
 ### Published open benchmark readout
 
 The command `swing-trader research published-momentum` locks the official Fama-French daily
-value-weighted prior-return deciles, size-by-prior-return portfolios, and daily market/risk-free
-series. These portfolios are constructed daily from the CRSP universe and currently run through
-2026-08-31. They are an open, published gross comparator rather than a reconstruction from the
-project's incomplete historical stock panel.
+value-weighted prior-return deciles, 2-by-3 and 5-by-5 size/prior-return portfolios, and daily
+market/risk-free series. The largest-size quintile is a materially closer public comparator for
+this project's liquid large-cap universe than the previous above-median-size bucket. These
+portfolios are constructed daily from the CRSP universe and currently run through 2026-08-31. They
+are an open, published gross comparator rather than a reconstruction from the project's incomplete
+historical stock panel.
+
+The report now measures the winner-minus-loser return directly and attaches a 21-lag Newey-West
+t-statistic. This avoids mistaking a high winner-portfolio CAGR during a strong equity market for a
+strong prior-return characteristic. In the largest-size quintile, prior-month winners minus losers
+earned an annualized arithmetic 2.56% gross since 2020 (t=0.25) and 0.43% since 2022 (t=0.04).
+Those estimates provide no robust evidence for unconditional short-horizon large-cap winner
+chasing before turnover costs. The analogous 12-to-2-month spreads were 8.27% (t=0.71) and 14.75%
+(t=1.24): directionally stronger, but still not a promotion result. The evidence supports keeping
+the share-turnover and volume-conditioned fast arms as falsifiable prospective diagnostics rather
+than assuming shorter holding periods create an edge.
 
 The 2026-10-07 snapshot produced the following gross CAGRs:
 

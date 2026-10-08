@@ -78,8 +78,32 @@ unavailable. Historical and prospective ledgers now expose the entry basis, high
 adjusted-price units, hard-loss trigger, and ATR trigger. This correction changes the decision-policy
 hash and therefore starts a new prospective lineage; it does not splice revised exit rules into the
 existing record. The prior lineage had one initialization and zero realized transitions, so no
-observed return was discarded and no result was selected. Retrospective stock metrics must be rerun
-under the corrected arithmetic before they are quoted again.
+observed return was discarded and no result was selected. No historical stock panel currently
+passes the preregistered coverage gate; if one later does, all retrospective stock metrics must be
+generated under the corrected arithmetic before they are quoted.
+
+## Published largest-stock momentum comparator — gross evidence, not a backtest
+
+The official Fama-French comparison was expanded from broad deciles and the largest half of the
+market to the largest NYSE-size quintile crossed with prior-return quintiles. The locked report
+contains 26,182 daily observations through 2026-08-31, hashes all seven official source archives,
+and computes direct winner-minus-loser spreads with 21-lag Newey-West statistics. This is materially
+closer to the liquid large-cap target universe, but it remains an aggregate CRSP portfolio with
+unknown constituent turnover and no swing-trader exits or execution costs.
+
+The key result is less exciting than the standalone winner CAGRs. From 2020, the largest-quintile
+prior-month winner portfolio compounded at 21.56%, but the direct winner-minus-loser characteristic
+spread was only 2.56% annualized gross with t=0.25. From 2022, winner CAGR was 18.48%, while the
+spread fell to 0.43% with t=0.04. The large-half short-horizon spreads were negative over both
+windows. By comparison, largest-quintile 12-to-2-month winner-minus-loser spreads were 8.27% with
+t=0.71 since 2020 and 14.75% with t=1.24 since 2022. None is a costed or statistically decisive
+implementation result.
+
+This rejects the naive claim that trading recent large-cap winners faster is itself a dependable
+edge. It does not falsify the narrower Medhat-Schmeling hypothesis, which conditions short-term
+continuation on unusually high share turnover. The frozen 5/10/21-session share-turnover arms and
+volume proxy therefore remain prospective diagnostics; they are not promoted or retuned from this
+published aggregate comparison.
 
 ## Superseded simple 12-1 stock-momentum initialization — retained for audit
 

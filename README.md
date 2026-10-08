@@ -205,10 +205,12 @@ Official published portfolios provide a separate gross sanity check that does no
 poetry run swing-trader research published-momentum
 ```
 
-This locks and scores the Fama-French daily broad and size-by-prior-return portfolios plus the
-market/risk-free series. The report is explicitly a published CRSP-decile comparator: daily
-reconstitution, constituent turnover, execution costs, and swing-trader exits cannot be inferred
-from the aggregate returns, so it never authorizes a trade or substitutes for the prospective bot.
+This locks and scores the Fama-French daily broad, large-half, and largest-size-quintile
+prior-return portfolios plus the market/risk-free series. It reports direct gross
+winner-minus-loser characteristic spreads with 21-lag Newey-West statistics, rather than inferring
+an effect from two standalone CAGRs. The report remains a published CRSP aggregate comparator:
+constituent turnover, execution costs, and swing-trader exits cannot be inferred from the returns,
+so it never authorizes a trade or substitutes for the prospective bot.
 
 The stock report also writes the complete variant registry, expanding walk-forward path,
 stationary-bootstrap uncertainty, family-wide and false-discovery-adjusted tests, approximate PBO,

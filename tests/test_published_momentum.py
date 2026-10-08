@@ -15,6 +15,8 @@ from swing_trader.published_momentum import (
     MOMENTUM_URL,
     SHORT_REVERSAL_URL,
     SIZE_MOMENTUM_URL,
+    SIZE_QUINTILE_MOMENTUM_URL,
+    SIZE_QUINTILE_SHORT_REVERSAL_URL,
     SIZE_SHORT_REVERSAL_URL,
     PublishedDocument,
     PublishedMomentumError,
@@ -22,6 +24,7 @@ from swing_trader.published_momentum import (
     parse_daily_factors,
     parse_daily_portfolios,
     parse_daily_size_portfolios,
+    published_characteristic_spreads,
     write_published_momentum_report,
 )
 
@@ -42,6 +45,8 @@ def test_published_daily_parsers_align_and_normalize_percent_returns() -> None:
         reversal,
         size_momentum,
         size_reversal,
+        size_momentum,
+        size_reversal,
         factors,
     )
 
@@ -49,8 +54,17 @@ def test_published_daily_parsers_align_and_normalize_percent_returns() -> None:
     assert result.loc["2026-08-27", "momentum_winner_12_2"] == pytest.approx(0.02)
     assert result.loc["2026-08-27", "short_term_loser_1_0"] == pytest.approx(0.02)
     assert result.loc["2026-08-27", "large_momentum_winner_12_2"] == pytest.approx(0.02)
+    assert result.loc["2026-08-27", "largest_momentum_winner_12_2"] == pytest.approx(0.02)
     assert result.loc["2026-08-27", "market"] == pytest.approx(0.0051)
     assert result.loc["2026-08-27", "risk_free"] == pytest.approx(0.0001)
+
+    spreads = published_characteristic_spreads(result)
+    largest = spreads.query(
+        "period == 'full_history' and "
+        "characteristic == 'largest_quintile_short_term_1_0'"
+    ).iloc[0]
+    assert largest["annualized_arithmetic_winner_minus_loser"] == pytest.approx(-4.2)
+    assert largest["gross_direction"] == "reversal"
 
 
 def test_published_parser_rejects_missing_value_weighted_section() -> None:
@@ -82,6 +96,16 @@ def test_published_report_locks_sources_and_labels_gross_limitations(tmp_path: P
             _size_portfolio_zip((2.0, -1.0), (1.0, 0.0), (0.5, -0.5)),
             "2026-10-07T20:00:00+00:00",
         ),
+        SIZE_QUINTILE_MOMENTUM_URL: PublishedDocument(
+            SIZE_QUINTILE_MOMENTUM_URL,
+            _size_portfolio_zip((1.0, 2.0), (1.5, 2.5), (-1.0, 0.5)),
+            "2026-10-07T20:00:00+00:00",
+        ),
+        SIZE_QUINTILE_SHORT_REVERSAL_URL: PublishedDocument(
+            SIZE_QUINTILE_SHORT_REVERSAL_URL,
+            _size_portfolio_zip((2.0, -1.0), (1.0, 0.0), (0.5, -0.5)),
+            "2026-10-07T20:00:00+00:00",
+        ),
         FACTORS_URL: PublishedDocument(
             FACTORS_URL,
             _factor_zip((0.5, 0.01), (0.4, 0.01), (-0.2, 0.01)),
@@ -101,8 +125,9 @@ def test_published_report_locks_sources_and_labels_gross_limitations(tmp_path: P
     assert manifest["action_authorized"] is False
     assert manifest["daily_return_rows"] == 3
     assert "gross" in manifest["research_status"]
-    assert len(manifest["sources"]) == 5
+    assert len(manifest["sources"]) == 7
     assert manifest["artifacts"][result.metrics_path.name] == file_sha256(result.metrics_path)
+    assert manifest["artifacts"][result.spreads_path.name] == file_sha256(result.spreads_path)
     metrics = pd.read_csv(result.metrics_path)
     assert set(metrics["strategy"]) == {
         "market",
@@ -110,6 +135,10 @@ def test_published_report_locks_sources_and_labels_gross_limitations(tmp_path: P
         "large_momentum_winner_12_2",
         "large_short_term_loser_1_0",
         "large_short_term_winner_1_0",
+        "largest_momentum_loser_12_2",
+        "largest_momentum_winner_12_2",
+        "largest_short_term_loser_1_0",
+        "largest_short_term_winner_1_0",
         "momentum_loser_12_2",
         "momentum_winner_12_2",
         "short_term_loser_1_0",

@@ -21,6 +21,7 @@ backtest whose missing failures would mechanically flatter performance.
 | Alpha Vantage free tier | Free personal key, 25 calls/day | Candidate/holding-only independent daily checks and one bulk earnings calendar call | Cannot validate all 500 names every day; adjusted daily history is not on the free endpoint |
 | SEC EDGAR | Public, keyless, authoritative filings | Implemented candidate-bound acceptance-time 8-K/10-Q/10-K/Form 4/6-K/ownership event sidecar | This execution environment currently receives SEC HTTP 403; GitHub-hosted access is tested separately and failure never changes ranks/state |
 | FRED | Public, keyless CSV | Cash return and macro-regime series | Macro data are not stock-specific catalysts |
+| Fama-French Data Library | Public, keyless aggregate CRSP portfolios | Broad, large-half, and largest-size-quintile prior-return comparators | Gross aggregate returns cannot reveal constituents, turnover, costs, exits, or account-level implementability |
 | FINRA Reg SHO | Public, keyless daily file; license not assumed open | Implemented candidate-bound off-exchange activity diagnostic | Covers FINRA-reported off-exchange activity, not exchange volume, short interest, or a directional signal |
 | Nasdaq Data Link WIKI Prices | Public-domain archive, free account key | Pre-April-2018 replication/cross-check only | Provider discontinued support and explicitly does not recommend it for investment analysis |
 
@@ -36,6 +37,8 @@ Official references:
   <https://www.finra.org/investors/insights/short-interest>
 - Public-domain WIKI archive status: <https://data.nasdaq.com/databases/WIKIP>
 - `pitindex`: <https://github.com/arielNacamulli/pitindex>
+- Fama-French daily prior-return portfolios and construction details:
+  <https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html>
 
 ## Rejected or conditional sources
 

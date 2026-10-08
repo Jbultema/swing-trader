@@ -144,7 +144,7 @@ def stationary_bootstrap_family_validation(
     observed_mean = values.mean(axis=0)
     standard_errors = np.asarray(
         [
-            _newey_west_mean_standard_error(values[:, column], mean_block_sessions)
+            newey_west_mean_standard_error(values[:, column], mean_block_sessions)
             for column in range(values.shape[1])
         ]
     )
@@ -423,7 +423,8 @@ def _stationary_bootstrap_indices(
     return np.concatenate(chunks).astype(int, copy=False)
 
 
-def _newey_west_mean_standard_error(values: np.ndarray, maximum_lag: int) -> float:
+def newey_west_mean_standard_error(values: np.ndarray, maximum_lag: int) -> float:
+    """Estimate the standard error of a mean with Bartlett-weighted HAC lags."""
     clean = np.asarray(values, dtype=float)
     observations = len(clean)
     centered = clean - clean.mean()

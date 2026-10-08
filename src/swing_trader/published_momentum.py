@@ -15,6 +15,7 @@ import pandas as pd
 import requests
 
 from swing_trader.provenance import file_sha256, implementation_sha256, tabular_sha256
+from swing_trader.stock_validation import newey_west_mean_standard_error
 
 MOMENTUM_URL = (
     "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
@@ -31,6 +32,14 @@ SIZE_MOMENTUM_URL = (
 SIZE_SHORT_REVERSAL_URL = (
     "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
     "6_Portfolios_ME_Prior_1_0_Daily_CSV.zip"
+)
+SIZE_QUINTILE_MOMENTUM_URL = (
+    "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
+    "25_Portfolios_ME_Prior_12_2_Daily_CSV.zip"
+)
+SIZE_QUINTILE_SHORT_REVERSAL_URL = (
+    "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
+    "25_Portfolios_ME_Prior_1_0_Daily_CSV.zip"
 )
 FACTORS_URL = (
     "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
@@ -60,6 +69,7 @@ class PublishedMomentumResult:
     report_dir: Path
     manifest_path: Path
     metrics_path: Path
+    spreads_path: Path
     returns_path: Path
     source_status: str
     latest_session: str
@@ -116,6 +126,8 @@ def build_published_momentum_returns(
     short_reversal: pd.DataFrame,
     size_momentum: pd.DataFrame,
     size_short_reversal: pd.DataFrame,
+    size_quintile_momentum: pd.DataFrame,
+    size_quintile_short_reversal: pd.DataFrame,
     factors: pd.DataFrame,
 ) -> pd.DataFrame:
     aligned = pd.concat(
@@ -128,6 +140,14 @@ def build_published_momentum_returns(
             "large_momentum_winner_12_2": size_momentum["BIG HiPRIOR"],
             "large_short_term_loser_1_0": size_short_reversal["BIG LoPRIOR"],
             "large_short_term_winner_1_0": size_short_reversal["BIG HiPRIOR"],
+            "largest_momentum_loser_12_2": size_quintile_momentum["BIG LoPRIOR"],
+            "largest_momentum_winner_12_2": size_quintile_momentum["BIG HiPRIOR"],
+            "largest_short_term_loser_1_0": size_quintile_short_reversal[
+                "BIG LoPRIOR"
+            ],
+            "largest_short_term_winner_1_0": size_quintile_short_reversal[
+                "BIG HiPRIOR"
+            ],
             "market": factors["Mkt-RF"] + factors["RF"],
             "risk_free": factors["RF"],
         },
@@ -156,6 +176,8 @@ def write_published_momentum_report(
         "short_term_1_0": fetcher(SHORT_REVERSAL_URL),
         "size_momentum_12_2": fetcher(SIZE_MOMENTUM_URL),
         "size_short_term_1_0": fetcher(SIZE_SHORT_REVERSAL_URL),
+        "size_quintile_momentum_12_2": fetcher(SIZE_QUINTILE_MOMENTUM_URL),
+        "size_quintile_short_term_1_0": fetcher(SIZE_QUINTILE_SHORT_REVERSAL_URL),
         "daily_factors": fetcher(FACTORS_URL),
     }
     for name, document in documents.items():
@@ -169,12 +191,20 @@ def write_published_momentum_report(
     size_short_reversal = parse_daily_size_portfolios(
         documents["size_short_term_1_0"].content
     )
+    size_quintile_momentum = parse_daily_size_portfolios(
+        documents["size_quintile_momentum_12_2"].content
+    )
+    size_quintile_short_reversal = parse_daily_size_portfolios(
+        documents["size_quintile_short_term_1_0"].content
+    )
     factors = parse_daily_factors(documents["daily_factors"].content)
     returns = build_published_momentum_returns(
         momentum,
         short_reversal,
         size_momentum,
         size_short_reversal,
+        size_quintile_momentum,
+        size_quintile_short_reversal,
         factors,
     )
     latest_session = pd.Timestamp(returns.index.max())
@@ -209,19 +239,28 @@ def write_published_momentum_report(
     report_dir.mkdir(parents=True, exist_ok=False)
     returns_path = report_dir / "daily_returns.parquet"
     metrics_path = report_dir / "gross_metrics.csv"
+    spreads_path = report_dir / "gross_characteristic_spreads.csv"
     regime_path = report_dir / "gross_regime_metrics.csv"
     interpretation_path = report_dir / "interpretation.json"
     returns.to_parquet(returns_path)
     metrics = published_momentum_metrics(returns)
     metrics.to_csv(metrics_path, index=False)
+    spreads = published_characteristic_spreads(returns)
+    spreads.to_csv(spreads_path, index=False)
     regimes = published_momentum_regimes(returns)
     regimes.to_csv(regime_path, index=False)
-    interpretation = _interpretation(metrics, source_status)
+    interpretation = _interpretation(metrics, spreads, source_status)
     interpretation_path.write_text(
         json.dumps(interpretation, indent=2) + "\n",
         encoding="utf-8",
     )
-    artifact_paths = (returns_path, metrics_path, regime_path, interpretation_path)
+    artifact_paths = (
+        returns_path,
+        metrics_path,
+        spreads_path,
+        regime_path,
+        interpretation_path,
+    )
     manifest = {
         "schema_version": 1,
         "record_type": "published_daily_momentum_comparator",
@@ -235,12 +274,14 @@ def write_published_momentum_report(
         "maximum_source_age_days": MAXIMUM_SOURCE_AGE_DAYS,
         "source_status": source_status,
         "method": (
-            "Official Fama-French daily value-weighted decile portfolios. PRIOR 12-2 and "
-            "PRIOR 1-0 portfolios are constructed daily; market is Mkt-RF plus RF. Returns "
-            "are gross because constituent turnover and implementation costs are unavailable."
+            "Official Fama-French daily value-weighted prior-return portfolios, including "
+            "2x3 and 5x5 size intersections. PRIOR 12-2 and PRIOR 1-0 portfolios are "
+            "constructed daily; market is Mkt-RF plus RF. Returns are gross because "
+            "constituent turnover and implementation costs are unavailable."
         ),
         "limitations": [
             "These are broad published CRSP deciles, not the swing-trader ten-stock portfolio.",
+            "The largest-size quintile is closer to large caps but is not an S&P 500 portfolio.",
             "No transaction cost or slippage deduction is possible from portfolio returns alone.",
             "The data cannot validate swing-trader exits, capacity, or account-specific execution.",
             "Short-term winners and losers are unconditional on share turnover.",
@@ -257,6 +298,7 @@ def write_published_momentum_report(
         report_dir,
         manifest_path,
         metrics_path,
+        spreads_path,
         returns_path,
         source_status,
         latest_session.date().isoformat(),
@@ -301,6 +343,73 @@ def published_momentum_regimes(returns: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def published_characteristic_spreads(returns: pd.DataFrame) -> pd.DataFrame:
+    """Measure gross winner-minus-loser spreads without claiming implementability."""
+    periods = {
+        "full_history": None,
+        "since_2000": "2000-01-01",
+        "since_2010": "2010-01-01",
+        "since_2020": "2020-01-01",
+        "since_2022": "2022-01-01",
+    }
+    pairs = {
+        "all_stocks_momentum_12_2": (
+            "momentum_winner_12_2",
+            "momentum_loser_12_2",
+        ),
+        "all_stocks_short_term_1_0": (
+            "short_term_winner_1_0",
+            "short_term_loser_1_0",
+        ),
+        "large_half_momentum_12_2": (
+            "large_momentum_winner_12_2",
+            "large_momentum_loser_12_2",
+        ),
+        "large_half_short_term_1_0": (
+            "large_short_term_winner_1_0",
+            "large_short_term_loser_1_0",
+        ),
+        "largest_quintile_momentum_12_2": (
+            "largest_momentum_winner_12_2",
+            "largest_momentum_loser_12_2",
+        ),
+        "largest_quintile_short_term_1_0": (
+            "largest_short_term_winner_1_0",
+            "largest_short_term_loser_1_0",
+        ),
+    }
+    rows: list[dict[str, object]] = []
+    for period, start in periods.items():
+        sample = returns if start is None else returns.loc[start:]
+        for characteristic, (winner, loser) in pairs.items():
+            spread = sample[winner].sub(sample[loser]).dropna()
+            values = spread.to_numpy(dtype=float)
+            standard_error = newey_west_mean_standard_error(values, maximum_lag=21)
+            observed_mean = float(values.mean())
+            rows.append(
+                {
+                    "period": period,
+                    "characteristic": characteristic,
+                    "winner_portfolio": winner,
+                    "loser_portfolio": loser,
+                    "start": spread.index[0].date().isoformat(),
+                    "end": spread.index[-1].date().isoformat(),
+                    "sessions": len(spread),
+                    "annualized_arithmetic_winner_minus_loser": observed_mean * 252.0,
+                    "annualized_spread_volatility": float(spread.std(ddof=1))
+                    * math.sqrt(252.0),
+                    "newey_west_t_statistic": (
+                        0.0 if standard_error <= 0.0 else observed_mean / standard_error
+                    ),
+                    "gross_direction": "momentum" if observed_mean > 0.0 else "reversal",
+                    "performance_basis": (
+                        "gross_published_winner_minus_loser_no_cost_deduction"
+                    ),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
 def _metrics(returns: pd.Series, risk_free: pd.Series) -> dict[str, object]:
     aligned = pd.concat([returns.rename("return"), risk_free.rename("risk_free")], axis=1).dropna()
     if len(aligned) < 2:
@@ -333,7 +442,11 @@ def _metrics(returns: pd.Series, risk_free: pd.Series) -> dict[str, object]:
     }
 
 
-def _interpretation(metrics: pd.DataFrame, source_status: str) -> dict[str, object]:
+def _interpretation(
+    metrics: pd.DataFrame,
+    spreads: pd.DataFrame,
+    source_status: str,
+) -> dict[str, object]:
     rows: list[dict[str, object]] = []
     for period in metrics["period"].unique():
         sample = metrics.loc[metrics["period"] == period].set_index("strategy")
@@ -346,21 +459,28 @@ def _interpretation(metrics: pd.DataFrame, source_status: str) -> dict[str, obje
             "large_momentum_winner_12_2",
             "large_short_term_winner_1_0",
             "large_short_term_loser_1_0",
+            "largest_momentum_winner_12_2",
+            "largest_short_term_winner_1_0",
+            "largest_short_term_loser_1_0",
         ):
             row[f"{strategy}_cagr"] = float(sample.loc[strategy, "cagr"])
             row[f"{strategy}_cagr_minus_market"] = float(sample.loc[strategy, "cagr"]) - market_cagr
-        row["prior_month_gross_direction"] = (
-            "reversal"
-            if float(sample.loc["short_term_loser_1_0", "cagr"])
-            > float(sample.loc["short_term_winner_1_0", "cagr"])
-            else "momentum"
+        period_spreads = spreads.loc[spreads["period"].eq(period)].set_index(
+            "characteristic"
         )
-        row["large_prior_month_gross_direction"] = (
-            "reversal"
-            if float(sample.loc["large_short_term_loser_1_0", "cagr"])
-            > float(sample.loc["large_short_term_winner_1_0", "cagr"])
-            else "momentum"
-        )
+        for label, characteristic in (
+            ("prior_month", "all_stocks_short_term_1_0"),
+            ("large_prior_month", "large_half_short_term_1_0"),
+            ("largest_prior_month", "largest_quintile_short_term_1_0"),
+        ):
+            spread_row = period_spreads.loc[characteristic]
+            row[f"{label}_gross_direction"] = str(spread_row["gross_direction"])
+            row[f"{label}_annualized_arithmetic_spread"] = float(
+                spread_row["annualized_arithmetic_winner_minus_loser"]
+            )
+            row[f"{label}_newey_west_t_statistic"] = float(
+                spread_row["newey_west_t_statistic"]
+            )
         rows.append(row)
     return {
         "source_status": source_status,
@@ -449,6 +569,8 @@ def _source_url(name: str) -> str:
         "short_term_1_0": SHORT_REVERSAL_URL,
         "size_momentum_12_2": SIZE_MOMENTUM_URL,
         "size_short_term_1_0": SIZE_SHORT_REVERSAL_URL,
+        "size_quintile_momentum_12_2": SIZE_QUINTILE_MOMENTUM_URL,
+        "size_quintile_short_term_1_0": SIZE_QUINTILE_SHORT_REVERSAL_URL,
         "daily_factors": FACTORS_URL,
     }[name]
 
