@@ -11,6 +11,8 @@ from swing_trader.stock_daily import (
     StockDailyError,
     _record_or_reuse_finra_activity,
     _record_or_reuse_sec_events,
+    _recover_finra_for_existing_state,
+    _recover_sec_for_existing_state,
     _require_consecutive_session,
     _stage_archived_states,
 )
@@ -45,6 +47,36 @@ def test_missing_sec_retry_inputs_remain_nonblocking(tmp_path: Path) -> None:
     assert path is None
     assert diagnostic is not None
     assert diagnostic["step"] == "sec_filing_events"
+
+
+def test_same_session_optional_context_is_not_retried_without_bound_inputs(
+    tmp_path: Path,
+) -> None:
+    state = {
+        "inputs": {
+            "candidate_snapshot": "candidate.json",
+            "universe_manifest": "universe.json",
+            "price_manifest": "prices.json",
+        }
+    }
+    recorded_at = pd.Timestamp("2026-10-08T13:49:00Z").to_pydatetime()
+
+    finra = _recover_finra_for_existing_state(
+        tmp_path,
+        tmp_path / "lineage",
+        state,
+        recorded_at,
+    )
+    sec = _recover_sec_for_existing_state(
+        tmp_path,
+        tmp_path / "lineage",
+        state,
+        recorded_at,
+        "swing-trader contact https://github.com/Jbultema/swing-trader",
+    )
+
+    assert finra == ("not_retried_missing_bound_inputs", None, None)
+    assert sec == ("not_retried_missing_bound_inputs", None, None)
 
 
 def test_archived_state_staging_verifies_hashes_and_prior_chain(tmp_path: Path) -> None:

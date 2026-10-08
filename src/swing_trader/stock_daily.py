@@ -386,6 +386,8 @@ def _recover_finra_for_existing_state(
             None,
             {"step": "finra_activity", "error": f"Existing state input is missing: {exc}"},
         )
+    if not all(path.is_file() for path in (candidate_path, universe_path, price_path)):
+        return "not_retried_missing_bound_inputs", None, None
     return _record_or_reuse_finra_activity(
         candidate_path,
         universe_path,
@@ -450,6 +452,8 @@ def _recover_sec_for_existing_state(
             None,
             {"step": "sec_filing_events", "error": f"Existing state input is missing: {exc}"},
         )
+    if not all(path.is_file() for path in (candidate_path, universe_path, price_path)):
+        return "not_retried_missing_bound_inputs", None, None
     return _record_or_reuse_sec_events(
         candidate_path,
         universe_path,
