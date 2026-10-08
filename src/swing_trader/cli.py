@@ -33,6 +33,11 @@ from swing_trader.finra_activity import (
     download_candidate_finra_activity,
     latest_finra_activity_manifest,
 )
+from swing_trader.historical_identity import (
+    latest_yahoo_identity_recovery_manifest,
+    verify_yahoo_identity_recovery,
+    write_yahoo_identity_recovery,
+)
 from swing_trader.nasdaq_wiki import (
     download_nasdaq_wiki_archive,
     probe_nasdaq_wiki_access,
@@ -180,6 +185,57 @@ def data_audit_tiingo_catalog(
         f"{latest.existing_price_range_coverage:.2%}; catalog-only upper bound "
         f"{latest.catalog_upper_bound_coverage:.2%}; report={output}."
     )
+
+
+@data_app.command("snapshot-historical-identities")
+def data_snapshot_historical_identities(
+    membership_path: Annotated[Path, typer.Option("--membership")] = Path(
+        "imports/sp500-data/membership_intervals.parquet"
+    ),
+    prices_path: Annotated[Path, typer.Option("--prices")] = Path(
+        "imports/sp500-data/prices.parquet"
+    ),
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "data/raw/historical-identities"
+    ),
+    audit_start: Annotated[str, typer.Option("--audit-start")] = "2014-01-02",
+) -> None:
+    """Lock time-bounded Yahoo alias recoveries; never infer identity from ticker text."""
+    result = write_yahoo_identity_recovery(
+        membership_path,
+        prices_path,
+        output,
+        audit_start=audit_start,
+    )
+    typer.echo(
+        f"Recovered explicit historical identities {', '.join(result.recovered_tickers)}; "
+        f"remaining completely missing labels={len(result.remaining_missing_tickers)}; "
+        f"manifest={result.manifest_path}. Historical backtest ready=false."
+    )
+
+
+@data_app.command("verify-historical-identities")
+def data_verify_historical_identities(
+    root: Annotated[Path, typer.Option("--root")] = Path(
+        "data/raw/historical-identities"
+    ),
+    manifest: Annotated[Path | None, typer.Option("--manifest")] = None,
+) -> None:
+    """Verify one local identity-recovery table and its fail-closed manifest."""
+    selected = manifest or latest_yahoo_identity_recovery_manifest(root)
+    passed = selected is not None and verify_yahoo_identity_recovery(selected)
+    typer.echo(
+        json.dumps(
+            {
+                "manifest": str(selected) if selected is not None else None,
+                "integrity_passed": passed,
+                "historical_backtest_ready": False,
+            },
+            indent=2,
+        )
+    )
+    if not passed:
+        raise typer.Exit(code=2)
 
 
 @data_app.command("update-cash")

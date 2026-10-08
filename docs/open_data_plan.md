@@ -142,6 +142,45 @@ archive cannot close every post-2018 failure hole. A historical performance clai
 until every missing identity, corporate action, and terminal return is resolved or the tested period
 is prospectively bounded without selecting it from performance.
 
+### Explicit identity-recovery result
+
+The two post-2018 holes are recoverable from Yahoo only through explicit, reviewed mappings—not by
+stripping suffixes or joining on ticker text:
+
+- `FRC -> FRCB`: OTC Markets identifies FRCB as First Republic Bank common stock, while the FDIC
+  records the bank's May 1, 2023 closure and receivership. Yahoo's FRCB backfill covers every
+  reviewed FRC membership session, 252 prior sessions, and the 2023-05-04 removal-session exit.
+  Official identity evidence: <https://www.otcmarkets.com/stock/FRCB/overview> and
+  <https://www.fdic.gov/resources/resolutions/bank-failures/failed-bank-list/first-republic.html>.
+- `HFC -> DINO`: HF Sinclair states that DINO replaced HollyFrontier and that each existing HFC
+  share converted one-for-one. Yahoo's DINO backfill covers every reviewed HFC membership session,
+  252 prior sessions, and the 2021-06-04 removal-session exit. Official identity evidence:
+  <https://www.hfsinclair.com/investor-relations/press-releases/Press-Release-Details/2022/HollyFrontier-and-Holly-Energy-Partners-Announce-Completion-of-Transactions-with-The-Sinclair-Companies-and-Establishment-of-New-Parent-Company-HF-Sinclair-Corporation/default.aspx>.
+
+The live 2026-10-08 audit locked 2,344 local rows. FRCB contained one internally inconsistent
+2021-05-05 range: its high failed to enclose another positive OHLC value by 0.5094% of close. The
+same conservative policy used by the prospective feed expanded only that high/low envelope, below
+the frozen 1% limit, and recorded the affected session and magnitude. HFC required no repair.
+Against the base research panel from 2014, the two mappings raised member-date coverage from 96.94%
+to 97.06%, warm-up coverage from 96.53% to 96.64%, and reduced completely missing labels from 47
+to 45. More importantly, they remove FRC and HFC from the four-label remainder of the earlier WIKI
+feasibility merge; `BTUUQ-201704` and `LIFE-201402` remain.
+
+Those final two labels require different treatment. Peabody's SEC-filed release says old BTUUQ
+common stock was extinguished for no value on 2017-04-03 and the new BTU was new equity, so a modern
+BTU series must never be spliced onto the predecessor. Only time-bounded pre-removal WIKI rows can
+be considered: <https://www.sec.gov/Archives/edgar/data/1064728/000119312517108650/d368865dex991.htm>.
+Thermo Fisher states that Life Technologies closed as a $76.13-per-share cash acquisition on
+2014-02-03, providing an official terminal-action fact but not the missing daily path:
+<https://ir.thermofisher.com/investors/news-events/news/news-details/2014/Thermo-Fisher-Scientific-Completes-Acquisition-of-Life-Technologies-Corporation-2014-2-3/default.aspx/1000/>.
+
+`snapshot-historical-identities` writes the recovered rows and a hash-bound manifest only under an
+ignored local directory. The verifier proves bytes, schema, reviewed membership intervals, coverage,
+warm-up, exit-session availability, and bounded repairs. It deliberately leaves
+`historical_backtest_ready=false`: Yahoo is unofficial, the surrounding downloaded panel remains
+unlicensed research input, and price-level cross-source reconciliation, corporate actions, and
+terminal returns still require separate acceptance.
+
 ### Tiingo catalog feasibility result
 
 The 2026-10-08 diagnostic used the public Tiingo catalog and the locally held October 2026

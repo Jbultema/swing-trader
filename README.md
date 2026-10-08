@@ -225,6 +225,20 @@ header, never writes it to evidence, and stores the raw archive under ignored `d
 the archive verifier proves only bytes and schema; ticker identity, terminal returns, PIT coverage,
 and the post-2018 gap remain separate mandatory gates.
 
+Two later-history holes have explicit, time-bounded public-endpoint recovery candidates rather than
+guessed ticker aliases:
+
+```bash
+poetry run swing-trader data snapshot-historical-identities
+poetry run swing-trader data verify-historical-identities
+```
+
+The audit maps Yahoo's `FRCB` backfill only to the reviewed FRC membership interval and `DINO` only
+to the reviewed HFC interval, requires 252 prior observations plus the removal-session exit price,
+and hashes the local rows. It records every bounded OHLC repair and remains
+`historical_backtest_ready=false`; it does not accept the surrounding unlicensed research panel or
+infer any other alias from ticker text.
+
 Official published portfolios provide a separate gross sanity check that does not bypass that gate:
 
 ```bash

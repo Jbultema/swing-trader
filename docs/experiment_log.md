@@ -160,3 +160,19 @@ made hundreds of serial requests. A later full-roster collection passed with 501
 residual single-name calls, and runs after both UTC and U.S. Eastern midnight; it never relaxes the
 coverage gate. Because none of the superseded lineages observed a return, these changes did not
 discard or select on performance.
+
+## Time-bounded historical identity recovery — feasibility only
+
+The 2026-10-08 audit rejected loose suffix stripping and tested two reviewed mappings against the
+exact PIT membership intervals. Yahoo's FRCB history covered 100% of FRC's 2019-01-02 through
+2023-05-04 end-exclusive membership sessions, 252 prior signal sessions, and the removal-session
+exit. Yahoo's DINO history did the same for HFC's 2018-06-18 through 2021-06-04 interval. One FRCB
+row required a recorded 0.5094% high/low envelope expansion under the frozen 1% conservative repair
+limit; DINO required no repair.
+
+The 2,344 recovered local rows raised the unlicensed base panel's post-2014 member-date coverage
+from 96.94% to 97.06%, warm-up coverage from 96.53% to 96.64%, and reduced completely missing labels
+from 47 to 45. In the separate WIKI feasibility merge they remove FRC and HFC from the four-label
+remainder, leaving BTUUQ-201704 and LIFE-201402. The result is data-feasibility evidence, not a
+strategy result: the manifest remains `historical_backtest_ready=false`, no return was observed or
+selected, and no prospective policy lineage changed.

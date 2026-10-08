@@ -171,6 +171,14 @@ acceptable workaround because its terms prohibit automated extraction for data a
 inform replication checks, not become hidden sources of truth. Full findings and the prospective
 workaround are documented in `docs/open_data_plan.md`.
 
+A later identity audit recovered the two post-2018 gaps without guessing from ticker strings. The
+FRCB backfill covers FRC's complete reviewed membership path, including the collapse and removal
+exit; DINO backfills the complete HFC interval. Both have 252-session signal warm-up. The local
+artifacts are hash-verified and time-bounded, but remain feasibility inputs until their prices and
+corporate actions are reconciled independently. Pre-removal Peabody and Life Technologies histories
+still require the official WIKI archive, and modern BTU is explicitly prohibited as a substitute
+because the prior BTUUQ equity was extinguished in bankruptcy.
+
 ### Forward-looking information
 
 Price and volume are continuation indicators, not literally forward-looking information. The
