@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "record_type": "stock_shadow_automation_run",
+  "recorded_at_utc": "2026-10-08T01:55:34.392543+00:00",
+  "status": "state_recorded",
+  "lineage_id": "policy-fab869db5397-config-3c8429efbbec",
+  "session": "2026-10-07",
+  "state": "state-20261007-20261008T015534392543Z-7641cdfb0e37.json",
+  "state_record_sha256": "7641cdfb0e37c153efaade96aceef344826491a9ff6e113437c90932f075c891",
+  "evaluation": "evaluation-20261008T015534392543Z-3ff343cab694.json",
+  "evaluation_file_sha256": "210b6cf63798fca8e16c8f5933b3931482252c68a0816639a68ba61efff847fb",
+  "candidate": "candidates-20261008T015534392543Z-e3982b71d601.json",
+  "candidate_record_sha256": "e3982b71d60166a6f5539784fef5eb12ea94bdcaf42a591e18723fe618d02a86",
+  "share_manifest": "shares-outstanding-20261008T015534392543Z-5800f196e10b.manifest.json",
+  "share_manifest_file_sha256": "227f722365a35b057593646ae89df5df9cdcb58f0fe17e473e0de2cfd5a02701",
+  "share_status": "passed_experimental_signal",
+  "alpha_status": "key_not_configured",
+  "earnings_status": "key_not_configured",
+  "finra_status": "passed_experimental_context_only",
+  "finra_activity": "finra-activity-20261007-20261008T015534392543Z-e554607a84d3.manifest.json",
+  "finra_activity_file_sha256": "ea292fb06b03f49ed73f884e0c0abef9a031ae41a9a750bc060059d0fff32a3f",
+  "sec_status": "failed_nonblocking_experimental",
+  "sec_events": null,
+  "sec_events_file_sha256": null,
+  "diagnostics": [
+    {
+      "step": "sec_filing_events",
+      "error": "SEC submissions are unavailable for CIK 0000031791: 403 Client Error: Forbidden for url: https://data.sec.gov/submissions/CIK0000031791.json"
+    }
+  ],
+  "data_cost_policy": "no_paid_sources",
+  "action_authorized": false,
+  "record_sha256": "6af9ed1e1e2f3e81b5720973a20bea4af7bbb3f385460aef814f449def4db4c0"
+}
