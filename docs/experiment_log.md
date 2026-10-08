@@ -28,7 +28,41 @@ This diagnostic was added after the champion had been selected, so it cannot be 
 
 Removing every sector ETF produced 11.08% CAGR, 0.78 Sharpe, 23.65% maximum drawdown, and 4.65 times annual turnover. The narrower broad-asset-class universe produced 8.58% CAGR. Across 17 leave-one-asset-out variants, CAGR ranged from 10.91% to 12.76%. The result is therefore not dependent on any single current fund, but the all-asset champion's incremental return is partly compensation for sector overlap and concentration. The simpler no-sector variant is a prospective challenger, not a retrospectively promoted replacement.
 
-## Simple 12-1 stock-momentum control — hosted initialization, no performance yet
+## Market-breadth guard — hosted initialization, no performance yet
+
+Commit `07af924` preregistered a coverage-gated market-participation comparator before any stock
+lineage observed a return. Hosted run `37727637608` initialized lineage
+`policy-6aead590b58c-config-0d6519db8fde` from cash after the 2026-10-07 close and durably archived
+the hash-valid candidate, state, evaluation, and run records. The public-price gate passed with all
+504 requested symbols current and 499 with at least 252 observations. The separate shares gate
+passed with 501 of 503 current constituents usable (99.60%); ERIE and WAT were stale.
+
+The existing benchmark guard was risk-on: SPY remained above its 200-session moving average and
+below the volatility ceiling. Market breadth disagreed. The current-roster return panel had 99.60%
+or better coverage in each of the 20 measured sessions, but only 46.24% of observable constituents
+advanced on an average day and only 27.44% advanced on the latest day. Because a new breadth-on
+regime requires 55% participation, the diagnostic arm explained all ten consensus candidates as
+`market_breadth_guard_risk_off` and retained 100% cash. The primary consensus still recorded nine
+targets and 10% cash, while the classic 12-1 arm retained five targets and 50% cash after its sector
+cap.
+
+A raw 50% participation threshold would have flipped 42 times in a deliberately non-performance
+504-session current-roster behavior diagnostic. The frozen 45% exit / 55% re-entry hysteresis band
+reduced that to four, compared with three flips for the benchmark guard. The diagnostic used
+today's roster and was used only to reject an operationally costly rule, not to score returns or
+select a historical winner.
+
+Alpha Vantage and earnings checks were absent because the repository secret is not configured, so
+the primary record remains ineligible. The breadth arm passed its own public-data gate and remains
+diagnostic only. FINRA context passed, the SEC sidecar retained its nonblocking 403 failure, and no
+order was placed.
+
+This lineage has one initialized state and zero realized transitions. CAGR, Sharpe, drawdown, hit
+rate, and excess return are undefined. The next completed session is the first possible return
+observation; paired intervals wait for 21 sessions, family-wide inference waits for 63, and
+readiness still requires 126 eligible sessions, 30 completed exits, and 10 risk-off sessions.
+
+## Superseded simple 12-1 stock-momentum initialization — retained for audit
 
 Commit `43133d9` preregistered a transparent individual-stock comparator before the first realized
 stock transition. Hosted run `37726298791` initialized lineage
