@@ -176,3 +176,51 @@ from 47 to 45. In the separate WIKI feasibility merge they remove FRC and HFC fr
 remainder, leaving BTUUQ-201704 and LIFE-201402. The result is data-feasibility evidence, not a
 strategy result: the manifest remains `historical_backtest_ready=false`, no return was observed or
 selected, and no prospective policy lineage changed.
+
+## Launch consensus failure and turnover-controlled challenger
+
+The intact `policy-37e58024ab8a-config-0d6519db8fde` lineage contains 11 close states from
+2026-10-07 through 2026-10-21 and 10 realized next-open-to-close transitions. Its diagnostic
+all-session consensus account returned -0.7429% after 45 executions and 1.1188% of starting equity
+in modeled costs. Only four of 18 completed campaigns were profitable. These are operational
+diagnostics, not eligible primary evidence: every session failed the independent decision-data
+gate.
+
+After inspecting that failure, a top-10 entry / top-30 hold challenger was specified. It retains the
+same risk exits, 21-session maximum hold, sector cap, and cost model. This follows the published
+buy/hold-spread or banding approach and directly targets the observed rank churn.
+
+A content-hashed replay over the exact frozen daily candidate records reproduced the canonical
+primary equity and costs with zero numerical error. Over this inspected window the 10/30 challenger
+returned +0.0718%, used 33 rather than 45 executions, and incurred 0.8168% rather than 1.1188% in
+modeled costs: 12 fewer executions and a 26.99% cost reduction. The return difference was +0.8147
+percentage points.
+
+Those figures do not establish an edge. The rule was chosen after observing the lineage, uses the
+terminal adjusted-price panel and terminal current roster to recalculate features, spans only ten
+realized transitions, and has no independent holdout. The result is therefore retained only as a
+behavioral check that the proposed mechanism reduces the diagnosed churn. Promotion depends on a
+new consecutive prospective lineage and the pre-existing maturity thresholds; the original lineage
+and result remain unchanged.
+
+The complete rank-retention sensitivity was then inspected rather than hiding nearby alternatives.
+Holding through ranks 20, 25, 30, 35, 40, and 50 produced net returns of -0.7429%, -0.7067%,
++0.0718%, +0.4614%, +0.7247%, and +1.0550%, respectively. Execution counts fell monotonically from
+45 to 43, 33, 29, 24, and 16. Disabling rank decay matched the rank-50 endpoint in this short window:
++1.0550% after 16 executions and 0.3806% of starting equity in modeled costs. Relative to primary,
+that is +1.7979 percentage points, 29 fewer executions, and a 65.98% modeled-cost reduction.
+
+These endpoints were all inspected after the launch outcome and cannot be used as independent
+evidence or as a parameter-selection contest. Their monotonic pattern supports one narrower causal
+question: whether daily cross-sectional rank decay adds any net value once the fixed hard-loss, ATR
+trail, trend break, non-positive 21-day momentum, and 21-session maximum hold already control exits.
+The `consensus_no_rank_exit` arm therefore joins the already specified 10/30 arm in a new lineage
+from cash. No prior state or return is discarded, and neither arm can authorize a trade.
+
+The first 10/30-only initialization, `policy-8627aeb6f68e-config-44c423b99cf4`, was superseded on
+the same 2026-10-21 close before it accrued a transition or return; its immutable state remains on
+disk. The joint challenger specification initialized as
+`policy-deea44a43c11-config-a357503eb7ba`, also from cash, with equity 1.0 and zero modeled cost in
+the primary, 10/30, and no-rank-exit accounts. The independent price-validation result was missing,
+so the primary gate failed closed and no action was authorized. Prospective comparisons begin only
+with the next realized transition in this final joint lineage.

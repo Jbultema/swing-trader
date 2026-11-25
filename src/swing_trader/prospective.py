@@ -107,9 +107,26 @@ def _load_unique_records(
         if payload.get("schema_version") != 3 or not isinstance(payload.get("specification"), dict):
             excluded.append({"file": path.name, "reason": "not_self_contained_schema_v3"})
             continue
+        if not _recorded_after_completed_session(payload):
+            excluded.append({"file": path.name, "reason": "as_of_session_not_completed_at_record_time"})
+            continue
         key = _decision_key(payload)
         unique.setdefault(key, payload)
     return list(unique.values()), excluded
+
+
+def _recorded_after_completed_session(record: dict[str, object]) -> bool:
+    from swing_trader.scheduling import completed_session_at
+
+    try:
+        decision = record["decision"]
+        if not isinstance(decision, dict):
+            return False
+        return completed_session_at(
+            str(decision["as_of_close"]), str(record["recorded_from_manifest_utc"])
+        )
+    except (KeyError, TypeError, ValueError):
+        return False
 
 
 def _decision_key(record: dict[str, object]) -> str:

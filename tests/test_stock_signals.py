@@ -147,6 +147,61 @@ def test_missing_atr_feature_fails_closed_when_trailing_exit_is_enabled() -> Non
     assert reasons == ["missing_risk_feature"]
 
 
+def test_wider_buy_hold_band_suppresses_only_rank_churn() -> None:
+    healthy = pd.Series(
+        {
+            "close": 105.0,
+            "atr_fraction_14d": 0.02,
+            "trend_positive": True,
+            "return_21d": 0.05,
+        }
+    )
+
+    primary = exit_reasons(
+        healthy,
+        entry_price=100.0,
+        high_watermark=105.0,
+        holding_sessions=5,
+        cross_section_rank=25,
+        entry_top_n=10,
+        policy=ExitPolicy(rank_exit_multiple=2.0),
+    )
+    turnover_controlled = exit_reasons(
+        healthy,
+        entry_price=100.0,
+        high_watermark=105.0,
+        holding_sessions=5,
+        cross_section_rank=25,
+        entry_top_n=10,
+        policy=ExitPolicy(rank_exit_multiple=3.0),
+    )
+    rank_exit_ablation = exit_reasons(
+        healthy,
+        entry_price=100.0,
+        high_watermark=105.0,
+        holding_sessions=5,
+        cross_section_rank=100,
+        entry_top_n=10,
+        policy=ExitPolicy(use_rank_decay=False),
+    )
+    broken_trend = healthy.copy()
+    broken_trend["trend_positive"] = False
+    emergency = exit_reasons(
+        broken_trend,
+        entry_price=100.0,
+        high_watermark=105.0,
+        holding_sessions=5,
+        cross_section_rank=25,
+        entry_top_n=10,
+        policy=ExitPolicy(rank_exit_multiple=3.0),
+    )
+
+    assert primary == ["rank_decay"]
+    assert turnover_controlled == []
+    assert rank_exit_ablation == []
+    assert emergency == ["trend_broken"]
+
+
 def _panel() -> tuple[pd.DataFrame, pd.DataFrame]:
     dates = pd.bdate_range("2024-01-02", periods=320)
     close = pd.DataFrame(

@@ -438,6 +438,8 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
         "consensus": 10,
         "consensus_market_guard": 10,
         "consensus_breadth_guard": 10,
+        "consensus_band_3x": 10,
+        "consensus_no_rank_exit": 10,
         "classic_12_1_hold21": 10,
         "short_volume_hold5": 10,
         "short_volume_hold10": 10,
@@ -460,6 +462,18 @@ def test_full_initial_state_is_immutable_and_ineligible_without_free_cross_check
     assert payload["arms"]["consensus_breadth_guard"]["prospective_role"] == (
         "diagnostic_market_breadth_guard_comparator"
     )
+    assert payload["arms"]["consensus_band_3x"]["prospective_role"] == (
+        "diagnostic_turnover_controlled_consensus_10_30_band"
+    )
+    assert payload["arms"]["consensus_band_3x"]["entry_rank_threshold"] == 10
+    assert payload["arms"]["consensus_band_3x"]["hold_rank_threshold"] == 30.0
+    assert payload["arms"]["consensus_band_3x"]["rank_exit_multiple"] == 3.0
+    assert payload["arms"]["consensus_band_3x"]["rank_exit_enabled"] is True
+    assert payload["arms"]["consensus_no_rank_exit"]["prospective_role"] == (
+        "diagnostic_consensus_no_rank_decay_21_session_max"
+    )
+    assert payload["arms"]["consensus_no_rank_exit"]["rank_exit_enabled"] is False
+    assert payload["arms"]["consensus_no_rank_exit"]["hold_rank_threshold"] is None
     assert payload["arms"]["short_volume_hold5"]["prospective_role"] == (
         "diagnostic_short_volume_max_hold_5_sessions"
     )
@@ -609,6 +623,8 @@ def _config() -> StockShadowConfig:
             "consensus",
             "consensus_market_guard",
             "consensus_breadth_guard",
+            "consensus_band_3x",
+            "consensus_no_rank_exit",
             "classic_12_1_hold21",
             "short_volume_hold5",
             "short_volume_hold10",
@@ -617,6 +633,7 @@ def _config() -> StockShadowConfig:
             "share_turnover_hold10",
             "share_turnover_hold21",
         ),
+        turnover_controlled_rank_exit_multiple=3.0,
         classic_momentum_holding_sessions=21,
         short_volume_holding_sessions=(5, 10, 21),
         share_turnover_holding_sessions=(5, 10, 21),

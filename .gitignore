@@ -11,6 +11,8 @@ data/events/
 data/pitindex-cache/
 data/stock-shadow/
 data/published/
+data/forward-journal/
+data/job-control/
 imports/
 reports/latest/
 reports/runs/
@@ -22,3 +24,6 @@ reports/published/
 config/portfolio.toml
 .streamlit/secrets.toml
 .env
+.env.*
+!.env.example
+reports/schedule_validation_*/

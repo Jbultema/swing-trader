@@ -61,6 +61,7 @@ class StockShadowConfig:
     breadth_risk_on_entry_fraction: float
     breadth_risk_off_exit_fraction: float
     arms: tuple[str, ...]
+    turnover_controlled_rank_exit_multiple: float
     classic_momentum_holding_sessions: int
     short_volume_holding_sessions: tuple[int, ...]
     share_turnover_holding_sessions: tuple[int, ...]
@@ -109,6 +110,9 @@ def load_stock_shadow_config(path: Path) -> tuple[StockShadowConfig, dict[str, o
             raw["market_guard"]["breadth_risk_off_exit_fraction"]
         ),
         arms=tuple(str(value) for value in raw["market_guard"]["arms"]),
+        turnover_controlled_rank_exit_multiple=float(
+            raw["experiments"]["turnover_controlled_rank_exit_multiple"]
+        ),
         classic_momentum_holding_sessions=int(
             raw["experiments"]["classic_momentum_holding_sessions"]
         ),
@@ -245,6 +249,29 @@ def record_stock_shadow_state(
                 ),
                 "risk_on_entry_fraction": config.breadth_risk_on_entry_fraction,
                 "risk_off_exit_fraction": config.breadth_risk_off_exit_fraction,
+            },
+            "experimental_turnover_controlled_consensus": {
+                "family": "consensus_buy_hold_band",
+                "method": (
+                    "buy at the top-N consensus threshold and retain until rank exceeds "
+                    "the wider hold threshold; emergency exits remain unchanged"
+                ),
+                "entry_rank_threshold": config.maximum_positions,
+                "hold_rank_threshold": (
+                    config.maximum_positions
+                    * config.turnover_controlled_rank_exit_multiple
+                ),
+                "rank_exit_multiple": config.turnover_controlled_rank_exit_multiple,
+            },
+            "experimental_consensus_rank_exit_ablation": {
+                "family": "consensus_no_rank_exit",
+                "method": (
+                    "same consensus entries and damage-control exits with daily "
+                    "cross-sectional rank decay disabled; maximum hold remains 21 sessions"
+                ),
+                "entry_rank_threshold": config.maximum_positions,
+                "rank_exit_enabled": False,
+                "maximum_holding_sessions": config.maximum_holding_sessions,
             },
             "experimental_share_turnover": {
                 "family": SHARE_TURNOVER_SIGNAL_FAMILY,
@@ -394,25 +421,55 @@ def record_stock_shadow_state(
             "consensus",
             "consensus_market_guard",
             "consensus_breadth_guard",
+            "consensus_band_3x",
+            "consensus_no_rank_exit",
         }:
             arm_rank = consensus_rank
             arm_candidates = candidates
-            arm_policy = policy
             entry_reason = "top_consensus_entry"
             if arm_name == "consensus":
+                arm_policy = policy
                 prospective_role = "primary_consensus"
             elif arm_name == "consensus_market_guard":
+                arm_policy = policy
                 prospective_role = "diagnostic_market_guard_comparator"
-            else:
+            elif arm_name == "consensus_breadth_guard":
+                arm_policy = policy
                 prospective_role = "diagnostic_market_breadth_guard_comparator"
                 guard_risk_on = bool(market_breadth["combined_risk_on"])
                 guard_reason = "market_breadth_guard_risk_off"
+            elif arm_name == "consensus_band_3x":
+                arm_policy = ExitPolicy(
+                    hard_stop_fraction=config.hard_stop_fraction,
+                    atr_multiple=config.atr_multiple,
+                    maximum_holding_sessions=config.maximum_holding_sessions,
+                    rank_exit_multiple=(
+                        config.turnover_controlled_rank_exit_multiple
+                    ),
+                )
+                prospective_role = (
+                    "diagnostic_turnover_controlled_consensus_10_30_band"
+                )
+            else:
+                arm_policy = ExitPolicy(
+                    hard_stop_fraction=config.hard_stop_fraction,
+                    atr_multiple=config.atr_multiple,
+                    maximum_holding_sessions=config.maximum_holding_sessions,
+                    rank_exit_multiple=config.rank_exit_multiple,
+                    use_rank_decay=False,
+                )
+                prospective_role = (
+                    "diagnostic_consensus_no_rank_decay_21_session_max"
+                )
             independently_validated = arm_name == "consensus"
-            signal_family = (
-                "consensus_breadth_guard"
-                if arm_name == "consensus_breadth_guard"
-                else "consensus"
-            )
+            if arm_name == "consensus_breadth_guard":
+                signal_family = "consensus_breadth_guard"
+            elif arm_name == "consensus_band_3x":
+                signal_family = "consensus_buy_hold_band"
+            elif arm_name == "consensus_no_rank_exit":
+                signal_family = "consensus_rank_exit_ablation"
+            else:
+                signal_family = "consensus"
             signal_available = (
                 bool(market_breadth["data_gate_passed"])
                 if arm_name == "consensus_breadth_guard"
@@ -512,6 +569,14 @@ def record_stock_shadow_state(
         arm["prospective_role"] = prospective_role
         arm["signal_family"] = signal_family
         arm["maximum_holding_sessions"] = arm_policy.maximum_holding_sessions
+        arm["entry_rank_threshold"] = config.maximum_positions
+        arm["rank_exit_enabled"] = arm_policy.use_rank_decay
+        arm["hold_rank_threshold"] = (
+            config.maximum_positions * arm_policy.rank_exit_multiple
+            if arm_policy.use_rank_decay
+            else None
+        )
+        arm["rank_exit_multiple"] = arm_policy.rank_exit_multiple
         arm["independent_price_validation_applies"] = independently_validated
         arm["signal_data_available_at_close"] = signal_available
         arm["signal_data_unavailable_reason"] = signal_unavailable_reason
@@ -1473,6 +1538,14 @@ def _validate_config(config: StockShadowConfig) -> None:
         )
     if config.classic_momentum_holding_sessions != 21:
         raise ValueError("Classic-momentum control must retain its 21-session reference hold.")
+    if config.turnover_controlled_rank_exit_multiple != 3.0:
+        raise ValueError(
+            "Turnover-controlled consensus must retain its preregistered 3x hold band."
+        )
+    if config.turnover_controlled_rank_exit_multiple <= config.rank_exit_multiple:
+        raise ValueError(
+            "Turnover-controlled consensus must have a wider hold band than primary consensus."
+        )
     if not config.short_volume_holding_sessions:
         raise ValueError("Stock shadow must register short-volume holding experiments.")
     if any(value < 1 for value in config.short_volume_holding_sessions):
@@ -1497,6 +1570,8 @@ def _validate_config(config: StockShadowConfig) -> None:
         "consensus",
         "consensus_market_guard",
         "consensus_breadth_guard",
+        "consensus_band_3x",
+        "consensus_no_rank_exit",
         f"classic_12_1_hold{config.classic_momentum_holding_sessions}",
         *(f"short_volume_hold{value}" for value in config.short_volume_holding_sessions),
         *(

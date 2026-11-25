@@ -14,7 +14,9 @@ This is research software, not investment advice. It never connects to a broker 
 - A close-derived signal is modeled at the next adjusted open; performance accrues open-to-open. One-way turnover costs 10 basis points.
 - Cash is an intentional position. The system does not short, use options, use derivatives, or borrow.
 - Unallocated capital accrues the adjusted return of the configured Treasury-bill ETF; holdings drift between actual rebalance events instead of receiving free daily rebalancing.
-- The dashboard shows the recommendation, the evidence behind it, risk-off reasons, historical comparisons, and methodology status.
+- Dashboard V2 leads with today's action, plain-language reasons and exit levels, model-vs-human
+  alignment, evidence maturity, and benchmarked performance. Machine-readable records remain
+  downloadable instead of occupying the main interface.
 - Individual-stock research is a separate track with causal momentum features, explicit exit
   reasons, point-in-time coverage gates, and immutable prospective screens. It uses no paid data
   and is not yet an actionable model.
@@ -29,6 +31,11 @@ python -m venv .venv
 .venv/bin/swing-trader dashboard
 ```
 
+The dashboard command defaults to <http://localhost:8503>, leaving Trade Bot's 8501/8502
+development ports separate. It performs a port preflight and exits with a clear message instead of
+starting on an occupied port. Override it when needed with
+`poetry run swing-trader dashboard --port 8510`.
+
 Run the complete daily research snapshot with:
 
 ```bash
@@ -42,6 +49,22 @@ Each hosted run also scores previously locked, unique monthly decisions at 5-, 2
 Each run also binds the exact downloaded price-file SHA-256 into the quality report and locked shadow. Stable strategy/configuration and full implementation-code hashes are recorded separately, so an audit can distinguish a new data date from an actual model change. The audit checks that provenance chain, cross-file gate consistency, research-only authority, and every shadow-record hash. The result—including the gate state, hypothetical holdings, and capital-preservation comparator—is written to the GitHub Actions run summary. Run the same check locally with `poetry run swing-trader audit`; integrity failures return a nonzero exit code, while an unavailable independent feed is clearly reported as `FAIL CLOSED`. Hosted runs classify that exact intact-but-unavailable state as a yellow warning so recurring provider limits do not create failure email, but any missing, malformed, tampered, or implementation-mismatched artifact remains a failed workflow. Either state authorizes no action, and `if: always()` still preserves the forensic artifact.
 
 ## Evidence boundaries
+
+Before a new external source can unlock a signal or historical result, run the source gate:
+
+```bash
+poetry run swing-trader data probe-sec-access \
+  --cik 0000320193 --ticker AAPL \
+  --output reports/private/provider-capabilities/sec-access-$(date -u +%Y%m%d).json
+poetry run swing-trader data qualify-sources
+```
+
+`qualify-sources` emits a hash-verifiable, redacted report and returns exit code 2 when no broader
+experiment is authorized. A source must pass free use, reliable access, historical backtest
+coverage, operational timeliness, point-in-time reproducibility, and the project's open-data
+policy. A fundamental-only pass can unlock its point-in-time collector, but historical strategy
+work still requires a qualified stock-price/identity source. Cash or context sources cannot unlock
+a stock strategy. The command never changes the active policy/config lineage or authorizes a trade.
 
 The primary market-data connector uses the open-source `yfinance` client and an unofficial public endpoint. Every download is cached with a timestamp and SHA-256 hash. The action layer independently reconciles the latest 12 completed monthly total returns against Alpha Vantage's documented adjusted-monthly API and fails closed when the key is absent, the endpoint errors, history is stale, or any ticker differs by more than 50 basis points.
 
@@ -152,6 +175,14 @@ fails closed. The dashboard displays the entry basis, high-water mark, and both 
 trigger prices for every held-name decision. These are next-open decision thresholds, not guaranteed
 fill prices. No command places an order.
 
+The primary consensus retains its frozen top-10 entry / rank-20 exit band for audit. Two diagnostic
+arms isolate its daily rank-churn mechanism. `consensus_band_3x` holds a healthy name through rank
+30; `consensus_no_rank_exit` removes only the rank-decay exit and relies on the unchanged hard-loss,
+ATR trail, trend break, non-positive 21-day momentum, and 21-session maximum hold. Both use the same
+candidates, position limits, sector caps, and costs as the primary. They are never substituted into
+the historical primary record and begin prospective tracking together in a new policy/config
+lineage from cash.
+
 Each arm carries a self-financing fractional-share paper account. New positions use available cash,
 surviving positions are not resized for free, and the frozen 50 bp round-trip assumption is charged
 as 25 bp at entry and 25 bp at exit. If Yahoo revises adjusted history after a distribution or
@@ -179,7 +210,10 @@ stock decision-policy hash and frozen config; a signal, gate, execution, or conf
 new paper sequence from cash rather than joining incomparable rules. The full package hash and a
 separate evaluation-method hash remain recorded for forensic reproducibility, but dashboard and
 diagnostic-collector changes no longer erase portfolio continuity. A holiday is a recorded no-op,
-while a genuinely missed trading session fails closed for manual reconciliation.
+while missed completed sessions are bridged fail-closed: observed OHLCV preserves paper accounting,
+only a target frozen before the gap may execute, the next bridge target is cash, and no backdated
+signal or entry is created. Bridge transitions are excluded from prospective evidence before the
+latest completed close resumes the normal decision workflow.
 
 The optional weekly Alpha Vantage cache is skipped with a visible warning when its repository
 secret is absent; a configured provider call that fails still fails the workflow. The SEC access
@@ -187,11 +221,51 @@ check is a weekly/manual diagnostic because the official endpoint may reject Git
 traffic even though the parser and evidence path are healthy. A structured `failed` provider result
 is retained as a warning, while a missing or malformed report remains a real workflow failure.
 
-The dashboard's stock tab shows the latest state gate, decision-policy lineage status, market regime,
-next-open targets, cash/equity/cost accounting, captured shares, share turnover, independent return
-and turnover percentiles, per-arm signal availability, and every BUY/HOLD/SELL/SKIP reason. It
-hides no failed gate and labels the benchmark guard, market-breadth guard, classic 12-1
-stock-momentum, short-volume, and exact share-turnover arms as diagnostic comparators.
+Dashboard V2 separates five operating questions: `Today`, `Forward Test`, `Performance`, `Risk`,
+and `Research & Evidence`. `Today` turns the immutable stock state into an action ledger, human
+reasons, exit thresholds, target portfolio, and readable gate map. `Forward Test` keeps two ledgers
+separate: the automatic frozen-policy paper shadow and a local human-execution book. The latter
+stores recommendation tickets, manually recorded paper/live fills, skipped tickets, closing marks,
+P&L, SPY comparisons, and an append-oriented audit trail in the ignored local SQLite file
+`data/forward-journal/swing-trader.sqlite`. "Live" is a recordkeeping label only; the application
+has no brokerage connection and cannot place an order. Raw JSON evidence is available as a
+download under `Research & Evidence`, not rendered as the product interface.
+
+Once that local journal exists, `swing-trader stock-daily` automatically records an idempotent
+close valuation for every tracked book from the exact price snapshot bound to the immutable state.
+It records failed-gate/current-policy context with the valuation and fails visibly if an existing
+local journal cannot be marked. The dashboard also exposes the same operation for explicit replay
+or recovery; executions themselves always remain human-entered.
+
+The V2 sidebar is the local refresh control plane. It queues whitelisted commands in a background
+worker, prevents concurrent refreshes and duplicate launches, displays recent status and log tails,
+and reloads the dashboard once a watched job terminates. `Run stock daily refresh` advances the
+no-paid stock shadow and local valuations; `Re-evaluate forward evidence` reads only already locked
+states; `Refresh historical ETF research` rebuilds the separate long-horizon bundle. Network jobs
+require an explicit free-provider-quota acknowledgement, and the UI warns against running both in
+one provider day because their combined independent-validation calls can exceed the free allowance.
+Local job state and logs live under the ignored `data/job-control/` directory. A completed job means
+the workflow finished—not that a recommendation passed its gates or that a trade is authorized.
+
+The dashboard hides no failed gate and labels the benchmark guard, market-breadth guard, classic
+12-1 stock momentum, 10/30 turnover-controlled consensus, rank-exit ablation, short-volume, and exact
+share-turnover arms as diagnostic comparators. A
+recommendation can be locked into the human book only when the source state is intact, belongs to
+the current frozen policy, and passed its original primary data gate.
+
+An already observed lineage can be replayed only as a post-selection behavior diagnostic. The
+command requires explicit, content-hashed source paths and first reproduces the canonical primary
+paper equity exactly; any mismatch fails the replay instead of publishing a comparison:
+
+```bash
+poetry run swing-trader shadow replay-turnover-band \
+  --lineage-dir reports/stock-shadow/lineages/<source-lineage> \
+  --price-manifest data/stock-shadow/prices/<terminal-price-manifest>.json \
+  --universe-manifest data/stock-shadow/universe/<terminal-universe-manifest>.json
+```
+
+The ignored JSON output is labeled `diagnostic_post_selection_not_prospective`; it cannot satisfy
+readiness thresholds or authorize a trade.
 
 These current-universe snapshots may never be projected backward as historical membership. Before
 any retrospective individual-stock experiment, normalized prices and point-in-time membership must

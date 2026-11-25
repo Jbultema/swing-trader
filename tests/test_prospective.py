@@ -65,6 +65,49 @@ def test_prospective_evaluation_deduplicates_and_excludes_failed_gates(
     assert first["horizons"]["5"]["model_net_return"] == pytest.approx(expected)
 
 
+def test_prospective_evaluation_excludes_intraday_record_for_same_day_close(
+    tmp_path: Path,
+) -> None:
+    dates = pd.bdate_range("2026-11-20", periods=10)
+    prices = pd.DataFrame(
+        {
+            ("Open", "A"): range(100, 110),
+            ("Open", "SPY"): range(200, 210),
+        },
+        index=dates,
+    )
+    prices.columns = pd.MultiIndex.from_tuples(prices.columns, names=["field", "ticker"])
+    reports = tmp_path / "latest"
+    records = tmp_path / "records"
+    reports.mkdir()
+
+    _record(
+        reports,
+        records,
+        created_at="2026-11-20T15:30:00+00:00",
+        as_of="2026-11-20",
+        monthly_decision="2026-10-30",
+        gate=True,
+    )
+    _record(
+        reports,
+        records,
+        created_at="2026-11-20T22:00:00+00:00",
+        as_of="2026-11-20",
+        monthly_decision="2026-10-30",
+        gate=True,
+    )
+
+    result = evaluate_prospective_records(records, prices)
+
+    assert result["unique_schema_v3_decisions"] == 1
+    assert result["outcomes"][0]["recorded_at_utc"] == "2026-11-20T22:00:00+00:00"
+    assert len(result["excluded_records"]) == 1
+    assert result["excluded_records"][0]["reason"] == (
+        "as_of_session_not_completed_at_record_time"
+    )
+
+
 def _record(
     reports: Path,
     records: Path,

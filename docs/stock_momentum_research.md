@@ -367,7 +367,10 @@ primary record or authorize a trade.
   an artifact.
 - `stock_shadow_state.py` advances one immediately consecutive close-to-next-open paper state,
   recomputes adjustment-safe entry bases and high-water marks, records every exit reason, and
-  rejects session gaps. The consensus arm is primary; the benchmark guard, coverage-gated breadth
+  rejects direct session gaps. `stock_gap_recovery.py` may insert explicit ineligible bridge states
+  using observed prices only: it executes at most the already-frozen prior target, targets cash at
+  the following open, and prohibits reconstructed historical signals or entries. The consensus arm
+  is primary; the benchmark guard, coverage-gated breadth
   guard, simple 12-1 control, and preregistered 5/10/21 short-volume proxy and exact share-turnover
   holding arms are diagnostic comparators. An intact but failed share-data gate cannot interrupt
   the primary sequence: exact arms prohibit entries, schedule held names for next-open exit, and
@@ -425,3 +428,38 @@ exits and both market regimes. The evaluator and dashboard are implemented, but 
 diagnostic lineage has no realized transition yet. Historical stock performance remains unreported
 where the open panel fails its coverage gate; synthetic integration tests prove mechanics, not
 edge.
+
+## Rank-churn challengers after launch-window failure
+
+The first realized consensus lineage showed that the implementation could select large winners but
+could not retain their edge after frequent rank exits, next-open replacements, and modeled trading
+costs. That is a policy failure, not permission to search an unrestricted parameter grid.
+
+The first follow-up challenger uses a top-10 entry / top-30 hold band. This is the buy/hold-spread
+construction studied by Novy-Marx and Velikov: a new position must clear a stricter hurdle than an
+existing position must clear to remain held. Their work finds that banding reduces transaction
+costs while preserving more signal exposure than simply rebalancing less often. Frazzini, Israel,
+and Moskowitz likewise show that portfolio construction designed around trading costs can improve
+net anomaly returns and capacity. Gârleanu and Pedersen's dynamic-trading result provides the
+broader principle: with predictable returns and costs, a portfolio should trade partially toward a
+moving target instead of jumping to it mechanically.
+
+The post-launch sensitivity replay then showed a monotonic relationship rather than a narrow
+top-30 optimum: widening the hold boundary from rank 20 to 25, 30, 35, 40, and 50 progressively
+reduced executions and improved the inspected-window net result. Rank 50 produced the same result
+as disabling rank decay because no held name crossed that boundary before another exit fired. This
+does not license choosing rank 50 after the fact. It motivates one interpretable mechanism
+ablation: `consensus_no_rank_exit` asks prospectively whether daily cross-sectional rank exits add
+net value at all.
+
+Only rank decay is disabled in that arm. The fixed loss limit, ATR trail, trend break, non-positive
+21-day momentum, 21-session maximum hold, sector cap, next-open execution, and 50 bp round-trip cost
+remain identical. The primary top-10/top-20 arm and the preregistered top-10/top-30 arm are
+preserved. Both challengers are diagnostic and start together in a clean prospective lineage; the
+inspected launch-window replay and its full sensitivity table are labeled post-selection and cannot
+be promotion evidence.
+
+- https://www.nber.org/papers/w20721
+- https://doi.org/10.1080/0015198X.2018.1547057
+- https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2294498
+- https://www.nber.org/papers/w15205

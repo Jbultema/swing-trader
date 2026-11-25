@@ -197,6 +197,8 @@ def test_diagnostic_comparisons_use_a_hold21_reference_per_signal_family(
 
     assert comparisons["same_signal_reference_arms"] == {
         "breadth_guard": "consensus_breadth_guard",
+        "consensus_banding": "consensus_band_3x",
+        "consensus_rank_exit_ablation": "consensus_no_rank_exit",
         "classic_12_1": "classic_12_1_hold21",
         "short_volume": "short_volume_hold21",
         "share_turnover": "share_turnover_hold21",

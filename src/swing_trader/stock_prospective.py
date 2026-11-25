@@ -281,6 +281,8 @@ def _diagnostic_arm_comparisons(
     per_arm: dict[str, object] = {}
     reference_arms = {
         "breadth_guard": "consensus_breadth_guard",
+        "consensus_banding": "consensus_band_3x",
+        "consensus_rank_exit_ablation": "consensus_no_rank_exit",
         "classic_12_1": "classic_12_1_hold21",
         "short_volume": "short_volume_hold21",
         "share_turnover": "share_turnover_hold21",
@@ -807,6 +809,10 @@ def _diagnostic_arm_names(
 def _diagnostic_arm_family(arm_name: str) -> str:
     if arm_name == "consensus_breadth_guard":
         return "breadth_guard"
+    if arm_name == "consensus_band_3x":
+        return "consensus_banding"
+    if arm_name == "consensus_no_rank_exit":
+        return "consensus_rank_exit_ablation"
     if arm_name.startswith("classic_12_1_hold"):
         return "classic_12_1"
     if arm_name.startswith("short_volume_hold"):
@@ -818,9 +824,11 @@ def _diagnostic_arm_family(arm_name: str) -> str:
 
 def _diagnostic_arm_sort_key(arm_name: str) -> tuple[str, int]:
     family = _diagnostic_arm_family(arm_name)
-    holding = 21 if arm_name == "consensus_breadth_guard" else int(
-        arm_name.rsplit("hold", maxsplit=1)[1]
-    )
+    holding = 21 if arm_name in {
+        "consensus_breadth_guard",
+        "consensus_band_3x",
+        "consensus_no_rank_exit",
+    } else int(arm_name.rsplit("hold", maxsplit=1)[1])
     return family, holding
 
 

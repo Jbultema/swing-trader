@@ -9,7 +9,10 @@ public daily OHLCV -> validation + immutable snapshot
        -> explainable dashboard + human-executed ticket
 ```
 
-The core is intentionally small. Research code creates immutable artifacts; the dashboard only reads them. This prevents a UI refresh from silently changing historical results or a research score from becoming an order.
+The core is intentionally small. Research code creates immutable artifacts; the dashboard reads
+them and may write only to a separate local execution journal. That journal records what a human
+did; it cannot modify the frozen model record or become an order. This prevents a UI refresh from
+silently changing historical results or a research score from becoming an execution.
 
 ## No-paid individual-stock path
 
@@ -25,7 +28,24 @@ public current roster + stale-reference diagnostic
        -> free-quota independent checks for primary candidates/holdings only
        -> next-open primary targets + diagnostic market-guard comparator + explicit exits
        -> immutable prospective outcomes; human remains the only executor
+       -> local recommendation/execution/valuation journal; no broker connection
 ```
+
+The immutable policy shadow and the human execution book are deliberately different backends. The
+policy shadow answers how the frozen model behaved with its cost assumptions. The local SQLite
+journal answers what was recommended, what the user actually filled or skipped, how the real/paper
+book diverged from target, and how recorded close equity compared with SPY. Every ticket binds the
+source state, lineage, and policy hashes; every valuation binds its source state and gate status.
+Long-only funding and position checks reject unfunded purchases and oversells. When the local
+journal file exists, `stock-daily` marks every book automatically from the state-bound, integrity-
+checked close panel; order placement and execution entry remain outside automation.
+
+Dashboard refreshes run through a local SQLite-backed control plane rather than inside the
+Streamlit request. Only three command families are allowed: stock daily refresh, locked-stock-state
+evaluation, and historical ETF daily research. A detached worker records queued/running/completed/
+failed state and writes a local log; the UI suppresses duplicates, prevents concurrent writers, and
+polls the ledger. Job completion never bypasses the underlying state integrity, policy-lineage,
+independent-data, prospective-maturity, or human-execution gates.
 
 Every artifact is labeled `data_cost_policy=no_paid_sources`. Current membership is never projected
 backward. A historical interval is eligible for performance reporting only if its point-in-time
@@ -40,7 +60,10 @@ in the explanation ledger as `SKIP` rows and their allocations remain cash; lowe
 not promoted merely to fill the portfolio.
 The 5/10/21-session short-volume proxy and exact share-turnover arms are Yahoo-only diagnostics;
 they cannot expand the free quota or qualify the primary record. All arms start from cash and must
-advance through immediately consecutive recorded sessions.
+advance through immediately consecutive recorded sessions. If scheduled closes were missed, the
+daily runner inserts auditable, performance-ineligible bridge states from locked observed OHLCV;
+only the prior frozen target may execute and every bridge close targets cash, so recovery cannot
+manufacture historical signal decisions.
 A failed but intact share-data gate cannot stop that sequence: the primary and proxy arms advance,
 the exact arms prohibit entries and schedule next-open fail-safe exits, and the evaluator excludes
 the affected exact-signal transition from inference. An unauditable or mismatched share artifact

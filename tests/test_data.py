@@ -12,11 +12,20 @@ import pytest
 from swing_trader.data import (
     MarketDataError,
     _parse_alpha_vantage_monthly,
+    _safe_yahoo_end_date,
     download_alpha_vantage_monthly,
     load_cached_alpha_vantage_monthly,
     reconcile_monthly_adjusted,
     validate_prices,
 )
+
+
+def test_safe_download_end_excludes_an_in_progress_session() -> None:
+    during_market = datetime(2026, 11, 23, 15, 30, tzinfo=UTC)
+    after_market = datetime(2026, 11, 23, 22, tzinfo=UTC)
+
+    assert _safe_yahoo_end_date(during_market).isoformat() == "2026-11-23"
+    assert _safe_yahoo_end_date(after_market).isoformat() == "2026-11-24"
 
 
 def test_alpha_vantage_requests_are_paced(tmp_path: Path) -> None:

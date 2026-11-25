@@ -236,11 +236,9 @@ def panic_guarded_dual_momentum_weights(
 
 
 def month_end_mask(index: pd.DatetimeIndex) -> np.ndarray:
-    """Identify completed-month final observations without treating a partial tail as month-end."""
+    """Use planned exchange month ends, not the final row of a partial capture."""
+    from swing_trader.scheduling import planned_month_ends
+
     if not len(index):
         return np.array([], dtype=bool)
-    periods = index.to_period("M")
-    mask = np.r_[np.asarray(periods[:-1] != periods[1:]), True]
-    if (index[-1] + pd.offsets.BDay(1)).to_period("M") == periods[-1]:
-        mask[-1] = False
-    return mask
+    return index.isin(planned_month_ends(index.min().year, index.max().year))

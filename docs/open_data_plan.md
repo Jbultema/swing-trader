@@ -11,6 +11,36 @@ This boundary makes a complete long-history, survivor-free U.S. equity panel dif
 will not hide that limitation. It substitutes strict coverage gates and prospective evidence for a
 backtest whose missing failures would mechanically flatter performance.
 
+## Machine-readable qualification gate
+
+`poetry run swing-trader data qualify-sources` evaluates each proposed source against six mandatory
+criteria: free use, reliable access, historical backtest coverage, operational timeliness,
+point-in-time reproducibility, and compatibility with the project's public/open-data policy. It
+writes a content-hashed report under ignored `reports/private/source-qualification/` and exits 2
+unless a fully qualified stock-price/identity source permits at least the residual-momentum
+experiment. A fundamental-only pass can unlock its point-in-time collector, but cannot authorize a
+historical strategy without qualified prices and security identity. Ancillary sources can pass for
+their narrow role without authorizing broader strategy work.
+
+The 2026-10-22 live gate produced this result:
+
+| Source | Classification | What passed | Blocking issue |
+| --- | --- | --- | --- |
+| SEC EDGAR as-filed XBRL | Blocked | Official free history from 2009; acceptance-time operational contract | This runtime's live submissions probe returned HTTP 403, so reliable access was not proven |
+| Yahoo via `yfinance` | Prospective only | Latest immutable full-roster snapshot passed its current-data gate | No open-data license or survivor-free historical identity/action guarantee |
+| Alpha Vantage free tier | Context only | Configured for finite current-candidate reconciliation | Full daily output and adjusted daily history are premium; free daily output is only 100 points |
+| Alpaca Basic SIP | Failed policy | Documented history since 2016, 15-minute-delayed SIP, symbol mapping, and corporate actions | Proprietary account service, no configured credential, and therefore incompatible with the current open-data rule |
+| FINRA Reg SHO daily volume | Context only | Free, timely, point-in-time daily activity | Rolling API history and off-exchange-only scope cannot support a long multi-regime stock selector |
+| FRED DGS3MO | Passed ancillary | Free, historical, timely, reproducible cash/macro series | Not stock-specific and explicitly prohibited from unlocking stock selection |
+
+Consequently the gate reported no eligible new stock-selection source and did not start the planned
+residual/fundamental/intersection lineage. That is the intended failure behavior. Source
+documentation alone is insufficient; the exact runtime and role must pass. If access is later
+repaired, rerun both the live probe and qualification command. An SEC pass would permit the
+point-in-time fundamental collector; broader residual/fundamental strategy work still needs a
+qualified price/identity source. Any permitted experiment starts as a fresh prospective
+registration, never retrospective promotion of an already observed result.
+
 ## Accepted sources
 
 | Source | Cost/access | Role | Hard limitation |

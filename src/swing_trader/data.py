@@ -3,11 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from time import sleep
 from urllib.parse import urlencode
 from urllib.request import urlopen
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import yfinance as yf
@@ -26,16 +27,19 @@ def download_prices(
     output_path: Path,
     *,
     end: str | None = None,
+    now: datetime | None = None,
 ) -> pd.DataFrame:
     """Download split/dividend-adjusted OHLCV and persist an immutable snapshot.
 
     The provider is suitable for research, not a broker-grade live market feed. Raw
     snapshots and hashes make later revisions detectable.
     """
+    captured_at = (now or datetime.now(UTC)).astimezone(UTC)
+    end_exclusive = end or _safe_yahoo_end_date(captured_at).isoformat()
     raw = yf.download(
         list(tickers),
         start=start,
-        end=end,
+        end=end_exclusive,
         auto_adjust=True,
         actions=False,
         group_by="column",
@@ -52,7 +56,8 @@ def download_prices(
     manifest = {
         "provider": "Yahoo Finance via yfinance",
         "provider_role": "research_only_unofficial_endpoint",
-        "downloaded_at_utc": datetime.now(UTC).isoformat(),
+        "downloaded_at_utc": captured_at.isoformat(),
+        "requested_end_exclusive": end_exclusive,
         "start": str(frame.index.min().date()),
         "end": str(frame.index.max().date()),
         "rows": len(frame),
@@ -280,6 +285,13 @@ def _normalize_download(raw: pd.DataFrame, tickers: tuple[str, ...]) -> pd.DataF
     frame = raw.reindex(columns=wanted).copy()
     frame.index = pd.DatetimeIndex(pd.to_datetime(frame.index)).tz_localize(None)
     return frame.sort_index().dropna(how="all")
+
+
+def _safe_yahoo_end_date(captured_at: datetime) -> date:
+    eastern = captured_at.astimezone(ZoneInfo("America/New_York"))
+    if eastern.weekday() < 5 and eastern.time() < time(16, 15):
+        return eastern.date()
+    return eastern.date() + timedelta(days=1)
 
 
 def _parse_alpha_vantage_monthly(payload: object, ticker: str) -> pd.Series:

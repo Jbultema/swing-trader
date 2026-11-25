@@ -29,10 +29,13 @@ from swing_trader.sec_filing_events import (
     sec_events_for_candidate,
 )
 from swing_trader.stock_candidates import record_current_stock_candidates
+from swing_trader.stock_gap_recovery import (
+    record_fail_closed_gap_states,
+    tracked_tickers_from_state,
+)
 from swing_trader.stock_live_data import download_current_stock_prices
 from swing_trader.stock_prospective import write_stock_shadow_evaluation
 from swing_trader.stock_shadow_state import (
-    held_tickers_from_latest_state,
     latest_stock_shadow_state,
     load_stock_shadow_config,
     record_stock_shadow_state,
@@ -86,7 +89,12 @@ def run_stock_shadow_daily(
             archive_root / "lineages" / lineage_id / "states",
             state_dir,
         )
-    held = held_tickers_from_latest_state(state_dir)
+    previous_path = latest_stock_shadow_state(state_dir)
+    tracked = tracked_tickers_from_state(previous_path)
+    validation_tracked = tracked_tickers_from_state(
+        previous_path,
+        arm_names=("consensus",),
+    )
 
     universe = download_current_sp500_snapshot(
         root / "data/stock-shadow/universe",
@@ -95,13 +103,13 @@ def run_stock_shadow_daily(
     prices = download_current_stock_prices(
         universe.manifest_path,
         root / "data/stock-shadow/prices",
-        extra_tickers=held,
+        extra_tickers=tracked,
         now=recorded_at,
     )
     if prices.validation.latest_session is None:
         raise StockDailyError("Current price snapshot has no completed session.")
     session = prices.validation.latest_session
-    previous_path = latest_stock_shadow_state(state_dir)
+    gap_recovery_paths: tuple[Path, ...] = ()
     if previous_path is not None:
         previous = _read_json(previous_path)
         prior_session = str(previous.get("as_of_session"))
@@ -137,9 +145,7 @@ def run_stock_shadow_daily(
                     ),
                     "sec_status": sec_status,
                     "sec_events": None if sec_path is None else sec_path.name,
-                    "sec_events_file_sha256": (
-                        None if sec_path is None else file_sha256(sec_path)
-                    ),
+                    "sec_events_file_sha256": (None if sec_path is None else file_sha256(sec_path)),
                     "diagnostics": diagnostics,
                     "data_cost_policy": "no_paid_sources",
                     "action_authorized": False,
@@ -156,6 +162,41 @@ def run_stock_shadow_daily(
                 finra_status,
                 sec_status,
                 None,
+            )
+        gap_recovery_paths = record_fail_closed_gap_states(
+            previous_path,
+            prices.manifest_path,
+            config_path,
+            state_dir,
+            stop_before_session=session,
+            now=recorded_at,
+        )
+        if gap_recovery_paths:
+            previous_path = gap_recovery_paths[-1]
+            previous = _read_json(previous_path)
+            tracked = tracked_tickers_from_state(previous_path)
+            validation_tracked = tracked_tickers_from_state(
+                previous_path,
+                arm_names=("consensus",),
+            )
+            _write_run_record(
+                lineage_dir,
+                recorded_at,
+                {
+                    "status": "gap_recovered_fail_closed_pending_current_state",
+                    "lineage_id": lineage_id,
+                    "session": session,
+                    "gap_recovery_states": [path.name for path in gap_recovery_paths],
+                    "gap_recovery_sessions": [
+                        str(_read_json(path)["as_of_session"]) for path in gap_recovery_paths
+                    ],
+                    "gap_recovery_policy": (
+                        "observed_valuation_only_prior_frozen_target_then_fail_closed_cash"
+                    ),
+                    "historical_signal_generation_authorized": False,
+                    "action_authorized": False,
+                    "data_cost_policy": "no_paid_sources",
+                },
             )
         _require_consecutive_session(previous, prices.manifest_path, session)
 
@@ -180,7 +221,7 @@ def run_stock_shadow_daily(
         universe.manifest_path,
         prices.manifest_path,
         lineage_dir / "candidates",
-        required_validation_symbols=held,
+        required_validation_symbols=validation_tracked,
         share_manifest_path=shares.manifest_path,
         maximum_positions_per_sector=shadow_config.maximum_positions_per_sector,
         now=recorded_at,
@@ -279,13 +320,20 @@ def run_stock_shadow_daily(
             "earnings_status": earnings_status,
             "finra_status": finra_status,
             "finra_activity": None if finra_path is None else finra_path.name,
-            "finra_activity_file_sha256": (
-                None if finra_path is None else file_sha256(finra_path)
-            ),
+            "finra_activity_file_sha256": (None if finra_path is None else file_sha256(finra_path)),
             "sec_status": sec_status,
             "sec_events": None if sec_path is None else sec_path.name,
             "sec_events_file_sha256": None if sec_path is None else file_sha256(sec_path),
             "diagnostics": diagnostics,
+            "gap_recovery_states": [path.name for path in gap_recovery_paths],
+            "gap_recovery_sessions": [
+                str(_read_json(path)["as_of_session"]) for path in gap_recovery_paths
+            ],
+            "gap_recovery_policy": (
+                "observed_valuation_only_prior_frozen_target_then_fail_closed_cash"
+                if gap_recovery_paths
+                else None
+            ),
             "data_cost_policy": "no_paid_sources",
             "action_authorized": False,
         },
@@ -376,9 +424,7 @@ def _recover_finra_for_existing_state(
         )
     try:
         candidate_path = lineage_dir / "candidates" / str(inputs["candidate_snapshot"])
-        universe_path = (
-            root / "data/stock-shadow/universe" / str(inputs["universe_manifest"])
-        )
+        universe_path = root / "data/stock-shadow/universe" / str(inputs["universe_manifest"])
         price_path = root / "data/stock-shadow/prices" / str(inputs["price_manifest"])
     except KeyError as exc:
         return (
@@ -442,9 +488,7 @@ def _recover_sec_for_existing_state(
         )
     try:
         candidate_path = lineage_dir / "candidates" / str(inputs["candidate_snapshot"])
-        universe_path = (
-            root / "data/stock-shadow/universe" / str(inputs["universe_manifest"])
-        )
+        universe_path = root / "data/stock-shadow/universe" / str(inputs["universe_manifest"])
         price_path = root / "data/stock-shadow/prices" / str(inputs["price_manifest"])
     except KeyError as exc:
         return (

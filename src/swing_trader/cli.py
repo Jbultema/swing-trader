@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -33,6 +34,11 @@ from swing_trader.finra_activity import (
     download_candidate_finra_activity,
     latest_finra_activity_manifest,
 )
+from swing_trader.forward_journal import (
+    ForwardJournalError,
+    ValuationConflictError,
+    mark_local_books_from_state,
+)
 from swing_trader.historical_identity import (
     latest_yahoo_identity_recovery_manifest,
     verify_yahoo_identity_recovery,
@@ -60,8 +66,13 @@ from swing_trader.sec_filing_events import (
     parse_sec_submission,
 )
 from swing_trader.shadow import record_shadow_snapshot
+from swing_trader.source_qualification import (
+    latest_matching_file,
+    write_source_qualification_report,
+)
 from swing_trader.stock_audit import audit_stock_research_bundle
 from swing_trader.stock_candidates import latest_candidate_snapshot, record_current_stock_candidates
+from swing_trader.stock_challenger_replay import write_turnover_band_replay
 from swing_trader.stock_config import load_stock_experiment_config
 from swing_trader.stock_daily import run_stock_shadow_daily
 from swing_trader.stock_data import write_stock_coverage_audit
@@ -74,6 +85,7 @@ from swing_trader.stock_prospective import write_stock_shadow_evaluation
 from swing_trader.stock_research import run_stock_research
 from swing_trader.stock_shadow_state import (
     held_tickers_from_latest_state,
+    latest_stock_shadow_state,
     load_stock_shadow_config,
     record_stock_shadow_state,
     stock_shadow_lineage_dir,
@@ -630,6 +642,64 @@ def data_probe_sec_access(
         raise typer.Exit(code=2)
 
 
+@data_app.command("qualify-sources")
+def data_qualify_sources(
+    output: Annotated[Path, typer.Option("--output")] = Path(
+        "reports/private/source-qualification"
+    ),
+    sec_probes: Annotated[Path, typer.Option("--sec-probes")] = Path(
+        "reports/private/provider-capabilities"
+    ),
+    price_snapshots: Annotated[Path, typer.Option("--price-snapshots")] = Path(
+        "data/stock-shadow/prices"
+    ),
+    alpha_capabilities: Annotated[Path, typer.Option("--alpha-capabilities")] = Path(
+        "data/stock-shadow/provider-capabilities/alpha-vantage"
+    ),
+) -> None:
+    """Gate proposed sources before any new strategy or lineage may use them."""
+    _load_local_environment()
+    alpaca_key_configured = bool(
+        (
+            os.getenv("APCA_API_KEY_ID", "")
+            or os.getenv("ALPACA_API_KEY", "")
+            or os.getenv("ALPACA_API_KEY_ID", "")
+        ).strip()
+        and (
+            os.getenv("APCA_API_SECRET_KEY", "")
+            or os.getenv("ALPACA_API_SECRET", "")
+            or os.getenv("ALPACA_API_SECRET_KEY", "")
+        ).strip()
+    )
+    result = write_source_qualification_report(
+        output,
+        sec_probe_path=latest_matching_file(sec_probes, "sec-access-*.json"),
+        latest_price_manifest_path=latest_matching_file(
+            price_snapshots, "*.manifest.json"
+        ),
+        alpha_capability_path=latest_matching_file(alpha_capabilities, "*.json"),
+        alpha_key_configured=bool(os.getenv("ALPHA_VANTAGE_API_KEY", "").strip()),
+        alpaca_key_configured=alpaca_key_configured,
+    )
+    summary = {
+        "report": str(result.path),
+        "passed_source_ids": result.passed_source_ids,
+        "eligible_new_stock_selection_source_ids": (
+            result.eligible_new_stock_selection_source_ids
+        ),
+        "prospective_feature_work_authorized": (
+            result.prospective_feature_work_authorized
+        ),
+        "authorized_experiment_families": result.authorized_experiment_families,
+        "broader_strategy_work_authorized": result.broader_strategy_work_authorized,
+        "existing_lineage_changed": False,
+        "action_authorized": False,
+    }
+    typer.echo(json.dumps(summary, indent=2))
+    if not result.broader_strategy_work_authorized:
+        raise typer.Exit(code=2)
+
+
 @research_app.command("run")
 def research_run(
     config_path: Annotated[Path, typer.Option("--config")] = Path("config/default.toml"),
@@ -767,11 +837,83 @@ def stock_daily(
         f"Alpha={result.alpha_status}, earnings={result.earnings_status}, "
         f"FINRA={result.finra_status}, SEC={result.sec_status}; no order was placed."
     )
+    journal_path = root / "data/forward-journal/swing-trader.sqlite"
+    if journal_path.exists():
+        state_path = result.state_path or latest_stock_shadow_state(
+            root / "reports/stock-shadow/lineages" / result.lineage_id / "states"
+        )
+        if state_path is None:
+            typer.echo(
+                "Local forward journal was not valued because no intact stock state exists.",
+                err=True,
+            )
+            raise typer.Exit(code=3)
+        try:
+            valuation = mark_local_books_from_state(
+                root,
+                journal_path,
+                state_path,
+                source_policy_current=True,
+            )
+        except ValuationConflictError:
+            typer.echo(
+                "Forward journal already has an immutable valuation for this market "
+                "session from another policy record; preserved it and skipped revaluation."
+            )
+            return
+        except (ForwardJournalError, OSError, ValueError, json.JSONDecodeError) as exc:
+            typer.echo(f"Local forward-journal valuation failed: {exc}", err=True)
+            raise typer.Exit(code=3) from exc
+        typer.echo(
+            f"Forward journal marked {valuation.valuations_recorded} of "
+            f"{valuation.books_seen} books for {valuation.market_session}."
+        )
 
 
 @app.command("dashboard")
-def dashboard() -> None:
-    subprocess.run(["streamlit", "run", str(_root() / "src/swing_trader/dashboard.py")], check=True)
+def dashboard(
+    port: Annotated[
+        int,
+        typer.Option(
+            "--port",
+            min=1024,
+            max=65535,
+            help="Local dashboard port. Defaults away from Trade Bot's 8501/8502 ports.",
+        ),
+    ] = 8503,
+) -> None:
+    """Run Swing Trader V2 on a collision-checked dedicated port."""
+    if not _local_port_available(port):
+        typer.echo(
+            f"Port {port} is already in use. Swing Trader was not started; choose another "
+            f"port with --port (for example, --port {port + 1}).",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    subprocess.run(
+        [
+            "streamlit",
+            "run",
+            str(_root() / "src/swing_trader/dashboard.py"),
+            "--server.port",
+            str(port),
+            "--server.headless",
+            "true",
+            "--server.fileWatcherType",
+            "none",
+        ],
+        check=True,
+    )
+
+
+def _local_port_available(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as candidate:
+        candidate.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            candidate.bind(("", int(port)))
+        except OSError:
+            return False
+    return True
 
 
 @app.command("audit")
@@ -960,6 +1102,32 @@ def shadow_evaluate_stock_lineage(
         lineage / "evaluations",
     )
     typer.echo(f"Locked prospective stock evaluation {output.name}; no order was placed.")
+
+
+@shadow_app.command("replay-turnover-band")
+def shadow_replay_turnover_band(
+    lineage_dir: Annotated[Path, typer.Option("--lineage-dir")],
+    price_manifest: Annotated[Path, typer.Option("--price-manifest")],
+    universe_manifest: Annotated[Path, typer.Option("--universe-manifest")],
+    config_path: Annotated[Path, typer.Option("--config")] = Path(
+        "config/stock_shadow.toml"
+    ),
+    output_dir: Annotated[Path, typer.Option("--output")] = Path(
+        "reports/private/diagnostics"
+    ),
+) -> None:
+    """Reproduce a source lineage and replay the preregistered wider hold band."""
+    output = write_turnover_band_replay(
+        lineage_dir,
+        price_manifest_path=price_manifest,
+        universe_manifest_path=universe_manifest,
+        config_path=config_path,
+        output_dir=output_dir,
+    )
+    typer.echo(
+        f"Wrote diagnostic post-selection turnover-band replay to {output}; "
+        "this is not prospective evidence or trading authority."
+    )
 
 
 @shadow_app.command("evaluate")
