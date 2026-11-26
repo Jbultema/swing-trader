@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from time import sleep
+from time import monotonic, sleep
 
 import pandas as pd
 
@@ -184,6 +184,7 @@ def test_share_validation_rejects_inconsistent_source_accounting() -> None:
 
 
 def test_bounded_default_collection_preserves_results_and_marks_timeouts() -> None:
+    started = monotonic()
     rows = _collect_default_share_rows_bounded(
         ("A", "B"),
         ("A", "B"),
@@ -192,13 +193,15 @@ def test_bounded_default_collection_preserves_results_and_marks_timeouts() -> No
         max_workers=1,
         retry_attempts=2,
         retry_delay_seconds=0.0,
-        overall_timeout_seconds=3.0,
+        # Spawn imports the interpreter and pandas; allow startup under CI/browser load.
+        overall_timeout_seconds=10.0,
         worker_target=_partial_hanging_worker,
     )
 
     assert rows["A"]["source_status"] == "available"
     assert rows["B"]["source_status"] == "collection_timeout"
     assert rows["B"]["provider_request_attempts"] == 0
+    assert monotonic() - started < 18.0
 
 
 def test_share_validation_accepts_explicit_collection_timeout_as_failed_coverage() -> None:
