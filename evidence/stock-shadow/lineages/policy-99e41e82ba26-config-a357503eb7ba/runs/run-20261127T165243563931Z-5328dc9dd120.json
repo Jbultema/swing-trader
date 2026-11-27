@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "record_type": "stock_shadow_automation_run",
+  "recorded_at_utc": "2026-11-27T16:52:43.563931+00:00",
+  "status": "no_new_completed_session",
+  "lineage_id": "policy-99e41e82ba26-config-a357503eb7ba",
+  "session": "2026-11-25",
+  "previous_state": "state-20261125-20261126T171108851575Z-57ad9fcff44c.json",
+  "finra_status": "not_retried_missing_bound_inputs",
+  "finra_activity": null,
+  "finra_activity_file_sha256": null,
+  "sec_status": "not_retried_missing_bound_inputs",
+  "sec_events": null,
+  "sec_events_file_sha256": null,
+  "diagnostics": [],
+  "data_cost_policy": "no_paid_sources",
+  "action_authorized": false,
+  "record_sha256": "5328dc9dd1202532bf97c6d21608abfd699f21cd1f963d4801be357b6d6f89f0"
+}
