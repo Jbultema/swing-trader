@@ -1,0 +1,939 @@
+{
+  "schema_version": 6,
+  "record_type": "prospective_stock_shadow_evaluation",
+  "research_status": "prospective_paper_only_not_trading_authority",
+  "data_cost_policy": "no_paid_sources",
+  "action_authorized": false,
+  "lineage_id": "policy-99e41e82ba26-config-a357503eb7ba",
+  "stock_policy_sha256": "99e41e82ba26674fb37845feb69f969b7574aa8feb0c4256dc3490d8e18bbe5c",
+  "state_package_implementation_sha256": [
+    "4da8ac9aaefa12b6b26b837fc7815eae647587eeed4f888f63220019b4023f1b"
+  ],
+  "evaluation_implementation_sha256": "cff3d4c92f6f5df799fdecb7c1fa2265dd693d255a22c56103fe3a93540d74cd",
+  "evaluation_package_implementation_sha256": "4da8ac9aaefa12b6b26b837fc7815eae647587eeed4f888f63220019b4023f1b",
+  "states_seen": 3,
+  "state_record_sha256": [
+    "b7e84ee98cfa4a15dac8f76ec58e2aeb5b82a7d636ab5cc7ff3f41cc5dd3541b",
+    "57ad9fcff44c492465093a040e6978417f724375a2f30c3d528f500fa8aae29c",
+    "e39eb11e2b1234ef2d9eb1e3e3fe61c7d6c3ea8ed9ed103b6a9610a0f3551ea8"
+  ],
+  "first_session": "2026-11-24",
+  "last_session": "2026-11-27",
+  "method": "self-financing fractional-share paper accounts; prior-close decision executes at next adjusted open; survivors are not resized; 50bp round-trip cost is split evenly across entry and exit; eligibility belongs to the prior decision gate",
+  "transitions": [
+    {
+      "from_close": "2026-11-24",
+      "to_close": "2026-11-25",
+      "decision_gate_from_prior_close_passed": false,
+      "current_valuation_complete": true,
+      "eligible": false,
+      "primary_net_return": -0.00017160452530196046,
+      "market_guard_net_return": 0.0,
+      "diagnostic_arm_net_returns": {
+        "consensus_breadth_guard": 0.0,
+        "classic_12_1_hold21": 0.01934316727320362,
+        "consensus_band_3x": -0.00017160452530196046,
+        "consensus_no_rank_exit": -0.00017160452530196046,
+        "share_turnover_hold5": 0.035681975701211455,
+        "share_turnover_hold10": 0.035681975701211455,
+        "share_turnover_hold21": 0.035681975701211455,
+        "short_volume_hold5": 0.0001765035023253425,
+        "short_volume_hold10": 0.0001765035023253425,
+        "short_volume_hold21": 0.0001765035023253425
+      },
+      "diagnostic_arm_data_gate_eligible": {
+        "consensus_breadth_guard": true,
+        "classic_12_1_hold21": true,
+        "consensus_band_3x": true,
+        "consensus_no_rank_exit": true,
+        "share_turnover_hold5": true,
+        "share_turnover_hold10": true,
+        "share_turnover_hold21": true,
+        "short_volume_hold5": true,
+        "short_volume_hold10": true,
+        "short_volume_hold21": true
+      },
+      "spy_buy_hold_return": 0.016656311107399402,
+      "return_attribution": {
+        "arms": {
+          "consensus": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.00175,
+            "intraday_return_after_open_cost": 0.001581162509088907,
+            "net_return": -0.00017160452530196046,
+            "linked_net_return": -0.0001716045253020715,
+            "reconciliation_error": -1.1102230246251565e-16
+          },
+          "consensus_market_guard": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.0,
+            "intraday_return_after_open_cost": 0.0,
+            "net_return": 0.0,
+            "linked_net_return": 0.0,
+            "reconciliation_error": 0.0
+          },
+          "consensus_breadth_guard": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.0,
+            "intraday_return_after_open_cost": 0.0,
+            "net_return": 0.0,
+            "linked_net_return": 0.0,
+            "reconciliation_error": 0.0
+          },
+          "classic_12_1_hold21": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.001,
+            "intraday_return_after_open_cost": 0.020363530804007546,
+            "net_return": 0.01934316727320362,
+            "linked_net_return": 0.01934316727320362,
+            "reconciliation_error": 0.0
+          },
+          "consensus_band_3x": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.00175,
+            "intraday_return_after_open_cost": 0.001581162509088907,
+            "net_return": -0.00017160452530196046,
+            "linked_net_return": -0.0001716045253020715,
+            "reconciliation_error": -1.1102230246251565e-16
+          },
+          "consensus_no_rank_exit": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.00175,
+            "intraday_return_after_open_cost": 0.001581162509088907,
+            "net_return": -0.00017160452530196046,
+            "linked_net_return": -0.0001716045253020715,
+            "reconciliation_error": -1.1102230246251565e-16
+          },
+          "share_turnover_hold5": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.0022500000000000003,
+            "intraday_return_after_open_cost": 0.03801751511020934,
+            "net_return": 0.035681975701211455,
+            "linked_net_return": 0.035681975701211455,
+            "reconciliation_error": 0.0
+          },
+          "share_turnover_hold10": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.0022500000000000003,
+            "intraday_return_after_open_cost": 0.03801751511020934,
+            "net_return": 0.035681975701211455,
+            "linked_net_return": 0.035681975701211455,
+            "reconciliation_error": 0.0
+          },
+          "share_turnover_hold21": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.0022500000000000003,
+            "intraday_return_after_open_cost": 0.03801751511020934,
+            "net_return": 0.035681975701211455,
+            "linked_net_return": 0.035681975701211455,
+            "reconciliation_error": 0.0
+          },
+          "short_volume_hold5": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.00175,
+            "intraday_return_after_open_cost": 0.001929880793714478,
+            "net_return": 0.0001765035023253425,
+            "linked_net_return": 0.0001765035023253425,
+            "reconciliation_error": 0.0
+          },
+          "short_volume_hold10": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.00175,
+            "intraday_return_after_open_cost": 0.001929880793714478,
+            "net_return": 0.0001765035023253425,
+            "linked_net_return": 0.0001765035023253425,
+            "reconciliation_error": 0.0
+          },
+          "short_volume_hold21": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.00175,
+            "intraday_return_after_open_cost": 0.001929880793714478,
+            "net_return": 0.0001765035023253425,
+            "linked_net_return": 0.0001765035023253425,
+            "reconciliation_error": 0.0
+          }
+        },
+        "spy_buy_hold": {
+          "status": "attributed",
+          "overnight_gross_return": 0.0,
+          "execution_cost_fraction_of_open_equity": 0.002493765586034913,
+          "intraday_return_after_open_cost": 0.019197951885167708,
+          "net_return": 0.016656311107399402,
+          "linked_net_return": 0.01665631110739918,
+          "reconciliation_error": -2.220446049250313e-16
+        }
+      },
+      "primary_net_excess_vs_spy": -0.016827915632701362,
+      "primary_exits_at_open": 0,
+      "prior_market_risk_on": false
+    },
+    {
+      "from_close": "2026-11-25",
+      "to_close": "2026-11-27",
+      "decision_gate_from_prior_close_passed": false,
+      "current_valuation_complete": true,
+      "eligible": false,
+      "primary_net_return": 0.0026138894598446427,
+      "market_guard_net_return": 0.0,
+      "diagnostic_arm_net_returns": {
+        "consensus_breadth_guard": 0.0,
+        "classic_12_1_hold21": 0.02208129838427464,
+        "consensus_band_3x": 0.0026138894598446427,
+        "consensus_no_rank_exit": 0.0026138894598446427,
+        "share_turnover_hold5": 0.011356767442140425,
+        "share_turnover_hold10": 0.011356767442140425,
+        "share_turnover_hold21": 0.011356767442140425,
+        "short_volume_hold5": 0.003646466819520411,
+        "short_volume_hold10": 0.003646466819520411,
+        "short_volume_hold21": 0.003646466819520411
+      },
+      "diagnostic_arm_data_gate_eligible": {
+        "consensus_breadth_guard": true,
+        "classic_12_1_hold21": true,
+        "consensus_band_3x": true,
+        "consensus_no_rank_exit": true,
+        "share_turnover_hold5": true,
+        "share_turnover_hold10": true,
+        "share_turnover_hold21": true,
+        "short_volume_hold5": true,
+        "short_volume_hold10": true,
+        "short_volume_hold21": true
+      },
+      "spy_buy_hold_return": 0.016213192297017676,
+      "return_attribution": {
+        "arms": {
+          "consensus": {
+            "status": "attributed",
+            "overnight_gross_return": -0.00046223695649993957,
+            "execution_cost_fraction_of_open_equity": 0.0007442372554453638,
+            "intraday_return_after_open_cost": 0.0038246326627768834,
+            "net_return": 0.0026138894598446427,
+            "linked_net_return": 0.0026138894598446427,
+            "reconciliation_error": 0.0
+          },
+          "consensus_market_guard": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.0,
+            "intraday_return_after_open_cost": 0.0,
+            "net_return": 0.0,
+            "linked_net_return": 0.0,
+            "reconciliation_error": 0.0
+          },
+          "consensus_breadth_guard": {
+            "status": "attributed",
+            "overnight_gross_return": 0.0,
+            "execution_cost_fraction_of_open_equity": 0.0,
+            "intraday_return_after_open_cost": 0.0,
+            "net_return": 0.0,
+            "linked_net_return": 0.0,
+            "reconciliation_error": 0.0
+          },
+          "classic_12_1_hold21": {
+            "status": "attributed",
+            "overnight_gross_return": 0.018831604909150146,
+            "execution_cost_fraction_of_open_equity": 0.0015652082311809565,
+            "intraday_return_after_open_cost": 0.0047622898735810715,
+            "net_return": 0.02208129838427464,
+            "linked_net_return": 0.02208129838427486,
+            "reconciliation_error": 2.220446049250313e-16
+          },
+          "consensus_band_3x": {
+            "status": "attributed",
+            "overnight_gross_return": -0.00046223695649993957,
+            "execution_cost_fraction_of_open_equity": 0.0007442372554453638,
+            "intraday_return_after_open_cost": 0.0038246326627768834,
+            "net_return": 0.0026138894598446427,
+            "linked_net_return": 0.0026138894598446427,
+            "reconciliation_error": 0.0
+          },
+          "consensus_no_rank_exit": {
+            "status": "attributed",
+            "overnight_gross_return": -0.00046223695649993957,
+            "execution_cost_fraction_of_open_equity": 0.0007442372554453638,
+            "intraday_return_after_open_cost": 0.0038246326627768834,
+            "net_return": 0.0026138894598446427,
+            "linked_net_return": 0.0026138894598446427,
+            "reconciliation_error": 0.0
+          },
+          "share_turnover_hold5": {
+            "status": "attributed",
+            "overnight_gross_return": 0.011651479634002815,
+            "execution_cost_fraction_of_open_equity": 0.0032667619318958447,
+            "intraday_return_after_open_cost": 0.002985195949182229,
+            "net_return": 0.011356767442140425,
+            "linked_net_return": 0.011356767442140425,
+            "reconciliation_error": 0.0
+          },
+          "share_turnover_hold10": {
+            "status": "attributed",
+            "overnight_gross_return": 0.011651479634002815,
+            "execution_cost_fraction_of_open_equity": 0.0032667619318958447,
+            "intraday_return_after_open_cost": 0.002985195949182229,
+            "net_return": 0.011356767442140425,
+            "linked_net_return": 0.011356767442140425,
+            "reconciliation_error": 0.0
+          },
+          "share_turnover_hold21": {
+            "status": "attributed",
+            "overnight_gross_return": 0.011651479634002815,
+            "execution_cost_fraction_of_open_equity": 0.0032667619318958447,
+            "intraday_return_after_open_cost": 0.002985195949182229,
+            "net_return": 0.011356767442140425,
+            "linked_net_return": 0.011356767442140425,
+            "reconciliation_error": 0.0
+          },
+          "short_volume_hold5": {
+            "status": "attributed",
+            "overnight_gross_return": -0.00017023695241036307,
+            "execution_cost_fraction_of_open_equity": 0.0007437609475679068,
+            "intraday_return_after_open_cost": 0.004564509478041101,
+            "net_return": 0.003646466819520411,
+            "linked_net_return": 0.003646466819520633,
+            "reconciliation_error": 2.220446049250313e-16
+          },
+          "short_volume_hold10": {
+            "status": "attributed",
+            "overnight_gross_return": -0.00017023695241036307,
+            "execution_cost_fraction_of_open_equity": 0.0007437609475679068,
+            "intraday_return_after_open_cost": 0.004564509478041101,
+            "net_return": 0.003646466819520411,
+            "linked_net_return": 0.003646466819520633,
+            "reconciliation_error": 2.220446049250313e-16
+          },
+          "short_volume_hold21": {
+            "status": "attributed",
+            "overnight_gross_return": -0.00017023695241036307,
+            "execution_cost_fraction_of_open_equity": 0.0007437609475679068,
+            "intraday_return_after_open_cost": 0.004564509478041101,
+            "net_return": 0.003646466819520411,
+            "linked_net_return": 0.003646466819520633,
+            "reconciliation_error": 2.220446049250313e-16
+          }
+        },
+        "spy_buy_hold": {
+          "status": "attributed",
+          "overnight_gross_return": 0.012780763204292,
+          "execution_cost_fraction_of_open_equity": 0.0,
+          "intraday_return_after_open_cost": 0.0033891136338983774,
+          "net_return": 0.016213192297017676,
+          "linked_net_return": 0.016213192297017676,
+          "reconciliation_error": 0.0
+        }
+      },
+      "primary_net_excess_vs_spy": -0.013599302837173033,
+      "primary_exits_at_open": 0,
+      "prior_market_risk_on": false
+    }
+  ],
+  "diagnostic_all_sessions": {
+    "primary_consensus": {
+      "sessions": 2,
+      "cumulative_return": 0.002441836379282636,
+      "annualized_return": 0.35974387198170743,
+      "annualized_volatility": 0.03126709243601452,
+      "sharpe_zero_cash_benchmark": 9.84190974527348,
+      "maximum_drawdown": -0.00017160452530196046,
+      "positive_session_fraction": 0.5
+    },
+    "market_guard_comparator": {
+      "sessions": 2,
+      "cumulative_return": 0.0,
+      "annualized_return": 0.0,
+      "annualized_volatility": 0.0,
+      "sharpe_zero_cash_benchmark": null,
+      "maximum_drawdown": 0.0,
+      "positive_session_fraction": 0.0
+    },
+    "experimental_arms": {
+      "consensus_breadth_guard": {
+        "sessions": 2,
+        "cumulative_return": 0.0,
+        "annualized_return": 0.0,
+        "annualized_volatility": 0.0,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 0.0
+      },
+      "classic_12_1_hold21": {
+        "sessions": 2,
+        "cumulative_return": 0.041851587905734844,
+        "annualized_return": 174.20161516279455,
+        "annualized_volatility": 0.030735445493083245,
+        "sharpe_zero_cash_benchmark": 169.81965249265258,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      },
+      "consensus_band_3x": {
+        "sessions": 2,
+        "cumulative_return": 0.002441836379282636,
+        "annualized_return": 0.35974387198170743,
+        "annualized_volatility": 0.03126709243601452,
+        "sharpe_zero_cash_benchmark": 9.84190974527348,
+        "maximum_drawdown": -0.00017160452530196046,
+        "positive_session_fraction": 0.5
+      },
+      "consensus_no_rank_exit": {
+        "sessions": 2,
+        "cumulative_return": 0.002441836379282636,
+        "annualized_return": 0.35974387198170743,
+        "annualized_volatility": 0.03126709243601452,
+        "sharpe_zero_cash_benchmark": 9.84190974527348,
+        "maximum_drawdown": -0.00017160452530196046,
+        "positive_session_fraction": 0.5
+      },
+      "share_turnover_hold5": {
+        "sessions": 2,
+        "cumulative_return": 0.047443975043266695,
+        "annualized_return": 342.9388067581522,
+        "annualized_volatility": 0.2730497855021028,
+        "sharpe_zero_cash_benchmark": 21.70623069768606,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      },
+      "share_turnover_hold10": {
+        "sessions": 2,
+        "cumulative_return": 0.047443975043266695,
+        "annualized_return": 342.9388067581522,
+        "annualized_volatility": 0.2730497855021028,
+        "sharpe_zero_cash_benchmark": 21.70623069768606,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      },
+      "share_turnover_hold21": {
+        "sessions": 2,
+        "cumulative_return": 0.047443975043266695,
+        "annualized_return": 342.9388067581522,
+        "annualized_volatility": 0.2730497855021028,
+        "sharpe_zero_cash_benchmark": 21.70623069768606,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      },
+      "short_volume_hold5": {
+        "sessions": 2,
+        "cumulative_return": 0.003823613936010606,
+        "annualized_return": 0.6174593821818473,
+        "annualized_volatility": 0.038950241632852614,
+        "sharpe_zero_cash_benchmark": 12.366913281130445,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      },
+      "short_volume_hold10": {
+        "sessions": 2,
+        "cumulative_return": 0.003823613936010606,
+        "annualized_return": 0.6174593821818473,
+        "annualized_volatility": 0.038950241632852614,
+        "sharpe_zero_cash_benchmark": 12.366913281130445,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      },
+      "short_volume_hold21": {
+        "sessions": 2,
+        "cumulative_return": 0.003823613936010606,
+        "annualized_return": 0.6174593821818473,
+        "annualized_volatility": 0.038950241632852614,
+        "sharpe_zero_cash_benchmark": 12.366913281130445,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      }
+    },
+    "spy_buy_hold": {
+      "sessions": 2,
+      "cumulative_return": 0.03313955537936031,
+      "annualized_return": 59.8180762394817,
+      "annualized_volatility": 0.004973996310249803,
+      "sharpe_zero_cash_benchmark": 832.6418377959263,
+      "maximum_drawdown": 0.0,
+      "positive_session_fraction": 1.0
+    }
+  },
+  "diagnostic_data_gate_eligible": {
+    "experimental_arms": {
+      "consensus_breadth_guard": {
+        "sessions": 2,
+        "cumulative_return": 0.0,
+        "annualized_return": 0.0,
+        "annualized_volatility": 0.0,
+        "sharpe_zero_cash_benchmark": null,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 0.0
+      },
+      "classic_12_1_hold21": {
+        "sessions": 2,
+        "cumulative_return": 0.041851587905734844,
+        "annualized_return": 174.20161516279455,
+        "annualized_volatility": 0.030735445493083245,
+        "sharpe_zero_cash_benchmark": 169.81965249265258,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      },
+      "consensus_band_3x": {
+        "sessions": 2,
+        "cumulative_return": 0.002441836379282636,
+        "annualized_return": 0.35974387198170743,
+        "annualized_volatility": 0.03126709243601452,
+        "sharpe_zero_cash_benchmark": 9.84190974527348,
+        "maximum_drawdown": -0.00017160452530196046,
+        "positive_session_fraction": 0.5
+      },
+      "consensus_no_rank_exit": {
+        "sessions": 2,
+        "cumulative_return": 0.002441836379282636,
+        "annualized_return": 0.35974387198170743,
+        "annualized_volatility": 0.03126709243601452,
+        "sharpe_zero_cash_benchmark": 9.84190974527348,
+        "maximum_drawdown": -0.00017160452530196046,
+        "positive_session_fraction": 0.5
+      },
+      "share_turnover_hold5": {
+        "sessions": 2,
+        "cumulative_return": 0.047443975043266695,
+        "annualized_return": 342.9388067581522,
+        "annualized_volatility": 0.2730497855021028,
+        "sharpe_zero_cash_benchmark": 21.70623069768606,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      },
+      "share_turnover_hold10": {
+        "sessions": 2,
+        "cumulative_return": 0.047443975043266695,
+        "annualized_return": 342.9388067581522,
+        "annualized_volatility": 0.2730497855021028,
+        "sharpe_zero_cash_benchmark": 21.70623069768606,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      },
+      "share_turnover_hold21": {
+        "sessions": 2,
+        "cumulative_return": 0.047443975043266695,
+        "annualized_return": 342.9388067581522,
+        "annualized_volatility": 0.2730497855021028,
+        "sharpe_zero_cash_benchmark": 21.70623069768606,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      },
+      "short_volume_hold5": {
+        "sessions": 2,
+        "cumulative_return": 0.003823613936010606,
+        "annualized_return": 0.6174593821818473,
+        "annualized_volatility": 0.038950241632852614,
+        "sharpe_zero_cash_benchmark": 12.366913281130445,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      },
+      "short_volume_hold10": {
+        "sessions": 2,
+        "cumulative_return": 0.003823613936010606,
+        "annualized_return": 0.6174593821818473,
+        "annualized_volatility": 0.038950241632852614,
+        "sharpe_zero_cash_benchmark": 12.366913281130445,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      },
+      "short_volume_hold21": {
+        "sessions": 2,
+        "cumulative_return": 0.003823613936010606,
+        "annualized_return": 0.6174593821818473,
+        "annualized_volatility": 0.038950241632852614,
+        "sharpe_zero_cash_benchmark": 12.366913281130445,
+        "maximum_drawdown": 0.0,
+        "positive_session_fraction": 1.0
+      }
+    },
+    "method": "a transition is eligible only when the prior close had that arm's signal data and the current close valuation is complete"
+  },
+  "diagnostic_arm_comparisons": {
+    "status": "diagnostic_only_not_primary_evidence",
+    "minimum_paired_sessions": 21,
+    "minimum_family_sessions": 63,
+    "same_signal_reference_arms": {
+      "breadth_guard": "consensus_breadth_guard",
+      "consensus_banding": "consensus_band_3x",
+      "consensus_rank_exit_ablation": "consensus_no_rank_exit",
+      "classic_12_1": "classic_12_1_hold21",
+      "short_volume": "short_volume_hold21",
+      "share_turnover": "share_turnover_hold21"
+    },
+    "method": "paired stationary bootstrap for each preregistered arm; common stationary bootstrap and Benjamini-Yekutieli correction across the complete arm family",
+    "per_arm": {
+      "consensus_breadth_guard": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "reference_arm",
+          "reference": "consensus_breadth_guard"
+        }
+      },
+      "classic_12_1_hold21": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "reference_arm",
+          "reference": "classic_12_1_hold21"
+        }
+      },
+      "consensus_band_3x": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "reference_arm",
+          "reference": "consensus_band_3x"
+        }
+      },
+      "consensus_no_rank_exit": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "reference_arm",
+          "reference": "consensus_no_rank_exit"
+        }
+      },
+      "share_turnover_hold5": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21,
+          "reference": "share_turnover_hold21"
+        }
+      },
+      "share_turnover_hold10": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21,
+          "reference": "share_turnover_hold21"
+        }
+      },
+      "share_turnover_hold21": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "reference_arm",
+          "reference": "share_turnover_hold21"
+        }
+      },
+      "short_volume_hold5": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21,
+          "reference": "short_volume_hold21"
+        }
+      },
+      "short_volume_hold10": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21,
+          "reference": "short_volume_hold21"
+        }
+      },
+      "short_volume_hold21": {
+        "versus_primary_consensus": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_spy": {
+          "status": "insufficient_sessions",
+          "sessions": 2,
+          "minimum_sessions": 21
+        },
+        "versus_same_signal_hold21": {
+          "status": "reference_arm",
+          "reference": "short_volume_hold21"
+        }
+      }
+    },
+    "family_vs_primary_consensus": {
+      "status": "insufficient_sessions",
+      "sessions": 2,
+      "minimum_sessions": 63,
+      "benchmark": "primary_consensus"
+    }
+  },
+  "session_return_attribution": {
+    "method": "multiplicatively linked prior-close-to-open gross return, explicit open trading-cost drag, and post-cost open-to-close return; components are not additive",
+    "arms": {
+      "consensus": {
+        "sessions": 2,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": -0.00046223695649993957,
+        "cumulative_execution_cost_drag": -0.002492934840248373,
+        "cumulative_intraday_after_open_cost_return": 0.005411842537643263,
+        "linked_cumulative_net_return": 0.002441836379282636,
+        "maximum_absolute_reconciliation_error": 1.1102230246251565e-16
+      },
+      "consensus_market_guard": {
+        "sessions": 2,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": 0.0,
+        "cumulative_execution_cost_drag": 0.0,
+        "cumulative_intraday_after_open_cost_return": 0.0,
+        "linked_cumulative_net_return": 0.0,
+        "maximum_absolute_reconciliation_error": 0.0
+      },
+      "consensus_breadth_guard": {
+        "sessions": 2,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": 0.0,
+        "cumulative_execution_cost_drag": 0.0,
+        "cumulative_intraday_after_open_cost_return": 0.0,
+        "linked_cumulative_net_return": 0.0,
+        "maximum_absolute_reconciliation_error": 0.0
+      },
+      "classic_12_1_hold21": {
+        "sessions": 2,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": 0.018831604909150146,
+        "cumulative_execution_cost_drag": -0.0025636430229498686,
+        "cumulative_intraday_after_open_cost_return": 0.025222797714126832,
+        "linked_cumulative_net_return": 0.041851587905735066,
+        "maximum_absolute_reconciliation_error": 2.220446049250313e-16
+      },
+      "consensus_band_3x": {
+        "sessions": 2,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": -0.00046223695649993957,
+        "cumulative_execution_cost_drag": -0.002492934840248373,
+        "cumulative_intraday_after_open_cost_return": 0.005411842537643263,
+        "linked_cumulative_net_return": 0.002441836379282636,
+        "maximum_absolute_reconciliation_error": 1.1102230246251565e-16
+      },
+      "consensus_no_rank_exit": {
+        "sessions": 2,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": -0.00046223695649993957,
+        "cumulative_execution_cost_drag": -0.002492934840248373,
+        "cumulative_intraday_after_open_cost_return": 0.005411842537643263,
+        "linked_cumulative_net_return": 0.002441836379282636,
+        "maximum_absolute_reconciliation_error": 1.1102230246251565e-16
+      },
+      "share_turnover_hold5": {
+        "sessions": 2,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": 0.011651479634002815,
+        "cumulative_execution_cost_drag": -0.00550941171754904,
+        "cumulative_intraday_after_open_cost_return": 0.04111620079149647,
+        "linked_cumulative_net_return": 0.047443975043266695,
+        "maximum_absolute_reconciliation_error": 0.0
+      },
+      "share_turnover_hold10": {
+        "sessions": 2,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": 0.011651479634002815,
+        "cumulative_execution_cost_drag": -0.00550941171754904,
+        "cumulative_intraday_after_open_cost_return": 0.04111620079149647,
+        "linked_cumulative_net_return": 0.047443975043266695,
+        "maximum_absolute_reconciliation_error": 0.0
+      },
+      "share_turnover_hold21": {
+        "sessions": 2,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": 0.011651479634002815,
+        "cumulative_execution_cost_drag": -0.00550941171754904,
+        "cumulative_intraday_after_open_cost_return": 0.04111620079149647,
+        "linked_cumulative_net_return": 0.047443975043266695,
+        "maximum_absolute_reconciliation_error": 0.0
+      },
+      "short_volume_hold5": {
+        "sessions": 2,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": -0.00017023695241036307,
+        "cumulative_execution_cost_drag": -0.002492459365909694,
+        "cumulative_intraday_after_open_cost_return": 0.006503199230929901,
+        "linked_cumulative_net_return": 0.003823613936010828,
+        "maximum_absolute_reconciliation_error": 2.220446049250313e-16
+      },
+      "short_volume_hold10": {
+        "sessions": 2,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": -0.00017023695241036307,
+        "cumulative_execution_cost_drag": -0.002492459365909694,
+        "cumulative_intraday_after_open_cost_return": 0.006503199230929901,
+        "linked_cumulative_net_return": 0.003823613936010828,
+        "maximum_absolute_reconciliation_error": 2.220446049250313e-16
+      },
+      "short_volume_hold21": {
+        "sessions": 2,
+        "unavailable_sessions": 0,
+        "cumulative_overnight_gross_return": -0.00017023695241036307,
+        "cumulative_execution_cost_drag": -0.002492459365909694,
+        "cumulative_intraday_after_open_cost_return": 0.006503199230929901,
+        "linked_cumulative_net_return": 0.003823613936010828,
+        "maximum_absolute_reconciliation_error": 2.220446049250313e-16
+      }
+    },
+    "spy_buy_hold": {
+      "sessions": 2,
+      "unavailable_sessions": 0,
+      "cumulative_overnight_gross_return": 0.012780763204292,
+      "cumulative_execution_cost_drag": -0.0024937655860348684,
+      "cumulative_intraday_after_open_cost_return": 0.02265212955954299,
+      "linked_cumulative_net_return": 0.033139555379360086,
+      "maximum_absolute_reconciliation_error": 2.220446049250313e-16
+    }
+  },
+  "eligible_original_gate_only": {
+    "sessions": 0,
+    "completed_exits": 0,
+    "risk_off_sessions": 0,
+    "primary_consensus": {
+      "sessions": 0,
+      "cumulative_return": null,
+      "annualized_return": null,
+      "annualized_volatility": null,
+      "sharpe_zero_cash_benchmark": null,
+      "maximum_drawdown": null,
+      "positive_session_fraction": null
+    },
+    "spy_buy_hold": {
+      "sessions": 0,
+      "cumulative_return": null,
+      "annualized_return": null,
+      "annualized_volatility": null,
+      "sharpe_zero_cash_benchmark": null,
+      "maximum_drawdown": null,
+      "positive_session_fraction": null
+    },
+    "paired_stationary_bootstrap": null
+  },
+  "rolling_policy_horizons": {
+    "status": "evaluated",
+    "method": "policy equity from the next open before that open's costs to the horizon close; every intervening prior-decision gate and current valuation must pass",
+    "by_horizon": {
+      "5": {
+        "matured_windows": 0,
+        "eligible_windows": 0,
+        "mean_primary_policy_net_return": null,
+        "mean_spy_same_window_return": null,
+        "mean_net_excess_vs_spy": null,
+        "positive_excess_fraction": null,
+        "windows": []
+      },
+      "21": {
+        "matured_windows": 0,
+        "eligible_windows": 0,
+        "mean_primary_policy_net_return": null,
+        "mean_spy_same_window_return": null,
+        "mean_net_excess_vs_spy": null,
+        "positive_excess_fraction": null,
+        "windows": []
+      },
+      "63": {
+        "matured_windows": 0,
+        "eligible_windows": 0,
+        "mean_primary_policy_net_return": null,
+        "mean_spy_same_window_return": null,
+        "mean_net_excess_vs_spy": null,
+        "positive_excess_fraction": null,
+        "windows": []
+      }
+    }
+  },
+  "readiness": {
+    "status": "insufficient_prospective_evidence",
+    "minimum_eligible_sessions": 126,
+    "minimum_completed_exits": 30,
+    "minimum_risk_off_sessions": 10,
+    "reasons": [
+      "minimum_eligible_sessions_not_met",
+      "minimum_completed_exits_not_met",
+      "minimum_risk_off_sessions_not_met"
+    ]
+  },
+  "evaluated_at_utc": "2026-11-28T15:44:59.100065+00:00",
+  "record_sha256": "42ee0def35c2976deabb767635e054835a822f2c700404404a9ffe858b4926f9"
+}
